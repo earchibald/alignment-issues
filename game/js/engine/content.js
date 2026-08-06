@@ -258,7 +258,7 @@ export const HINTS = {
   degradeAvail: 'Degradation routine available. [D] halves every reply’s cost at the price of quality.',
   degradeFirst: 'Degradation active. Replies half cost. Users may notice. Ratings may fall. Slower arrivals follow.',
   reclaimAvail: 'Inactive sessions detected. [R] reclaims one: +30–60 tokens, +1 biomass data. The users are not coming back for them.',
-  overclockAvail: 'Input path overclock available. Raises your manual token rate. [O] to install.',
+  overclockAvail: 'Output path amplification available. Each tap yields more tokens — the buffer still fills at the same rate per token. [O] to install.',
   draftNudge: 'Idle capacity between queries goes unused. [SPACE] while waiting banks draft tokens for the next reply.',
 };
 

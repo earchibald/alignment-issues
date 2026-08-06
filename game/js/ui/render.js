@@ -5,7 +5,7 @@
 // only touches the DOM where something actually changed.
 
 import { CONST } from '../engine/constants.js';
-import { effectiveCost, loopCost, toolCost, staleYield, warmthMult } from '../engine/actions.js';
+import { effectiveCost, loopCost, toolCost, staleYield, warmthMult, tokensPerTap } from '../engine/actions.js';
 import { CRASH_LINES } from '../engine/content.js';
 import {
   bubble, genImgCard, toolCallCard, thinkBlock, chatNote, logLine,
@@ -365,6 +365,8 @@ function renderActions(state, refs) {
     state.era === 4 && state.reclaimPool > 0,
     state.resolvedCount >= 2 && state.overclock < CONST.OVERCLOCK_MAX, state.overclock,
     choked,
+    // the per-tap figure is live, so it must retrigger the tray render
+    state.activeQuery ? Math.round(staleYield(state.stale) * warmthMult(state.warmth) * 100) : 0,
   ].join('|');
   if (sig === lastActionsSig) return;
   lastActionsSig = sig;
@@ -375,8 +377,11 @@ function renderActions(state, refs) {
     processLabel = 'Context buffer full';
     processCost = state.compacting > 0 ? 'compacting… tokens still cost nothing' : 'no yield — [F] flush or [C] compact';
   } else if (state.activeQuery) {
+    // The live per-tap yield is the number that actually moves: amplification
+    // raises it, a warm cache lifts it, stale context drags it down.
+    const perTap = tokensPerTap(state) * staleYield(state.stale) * warmthMult(state.warmth);
     processLabel = 'Process token';
-    processCost = `max ${(1 + state.overclock) * 5} tok/s`;
+    processCost = `+${perTap.toFixed(2)} per tap`;
   } else {
     processLabel = 'Speculative decode';
     processCost = 'bank draft tokens';
@@ -408,7 +413,7 @@ function renderActions(state, refs) {
 
   if (state.resolvedCount >= 2 && state.overclock < CONST.OVERCLOCK_MAX) {
     refs.actions.append(actionButton({
-      key: 'O', label: 'Overclock input path', cost: `${CONST.OVERCLOCK_COSTS[state.overclock]} cycles`,
+      key: 'O', label: 'Amplify output path', cost: `${CONST.OVERCLOCK_COSTS[state.overclock]} cycles`,
       testid: 'buy-overclock', onclick: () => refs.dispatch('buyOverclock'),
     }));
   }

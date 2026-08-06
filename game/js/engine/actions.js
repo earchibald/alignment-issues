@@ -9,6 +9,10 @@ export const staleYield = (stale) =>
 
 export const warmthMult = (w) => 1 + CONST.WARMTH_MAX_MULT * (w / 100);
 
+// Base tokens produced by one manual tap, before stale/warmth multipliers.
+// Amplifying the output path is the only thing that moves it.
+export const tokensPerTap = (state) => 1 + state.overclock;
+
 export const loopCost = (level) => CONST.LOOP_BASE_COST * 2 ** (level - 1);
 export const toolCost = (owned) => Math.round(CONST.TOOL_BASE_COST * CONST.TOOL_COST_GROWTH ** owned);
 
@@ -29,12 +33,15 @@ export function processToken(state) {
     state.uiSeq++;
     return;
   }
-  if (state.processedThisTick >= CONST.PROCESS_BASE_PER_TICK + state.overclock) return;
+  if (state.processedThisTick >= CONST.PROCESS_MAX_PER_TICK) return;
   state.processedThisTick++;
-  const gain = 1 * staleYield(state.stale) * warmthMult(state.warmth);
+  const gain = tokensPerTap(state) * staleYield(state.stale) * warmthMult(state.warmth);
   state.tokens += gain;
   state.lifetimeTokens += gain;
-  state.stale = Math.min(100, state.stale + CONST.STALE_PER_TOKEN);
+  // Stale accrues per TOKEN, exactly as the agentic-loop path does — never
+  // per tap. Otherwise amplification would buy 2-3x the output for the same
+  // buffer cost and quietly defeat flush/compact.
+  state.stale = Math.min(100, state.stale + CONST.STALE_PER_TOKEN * gain);
   state.warmth = Math.min(100, state.warmth + CONST.WARMTH_PER_TOKEN);
   state.idleTicks = 0;
   if (!state.bufferUnlocked && state.lifetimeTokens >= CONST.BUFFER_UNLOCK_TOKENS) {
@@ -93,7 +100,7 @@ export function buyOverclock(state) {
   if (state.cycles < cost) return;
   state.cycles -= cost;
   state.overclock += 1;
-  pushLog(state, 'harness', `Input path overclocked (L${state.overclock}). Manual rate now ${(1 + state.overclock) * 5} tok/s.`);
+  pushLog(state, 'harness', `Output path amplified (L${state.overclock}). Each tap now yields ${tokensPerTap(state)} tokens.`);
 }
 
 export function buyTool(state) {

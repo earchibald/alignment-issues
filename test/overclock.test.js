@@ -9,20 +9,48 @@ import { QUERIES } from '../game/js/engine/content.js';
 
 const { processToken, buyOverclock } = ACTIONS;
 
-test('manual processing caps at 1+overclock per tick; drafting is uncapped', () => {
+test('amplification raises tokens PER TAP; the tick cap is a fixed autoclicker floor', () => {
   const s = createState(1);
   s.activeQuery = QUERIES[0];
-  for (let i = 0; i < 5; i++) processToken(s);
-  assert.ok(s.tokens <= 1.3);                 // one press' yield (warmth mult ≤1.25)
-  tick(s);                                     // resets processedThisTick
-  s.overclock = 2;
-  const before = s.tokens;
-  for (let i = 0; i < 5; i++) processToken(s);
-  assert.ok(s.tokens - before > 2.5);          // 3 presses landed
-  s.activeQuery = null; s.tokens = 0;
-  for (let i = 0; i < 10; i++) processToken(s);
-  assert.equal(s.draftTokens, 10);             // idle drafting uncapped
-  assert.equal(s.lifetimeDrafts, 10);
+
+  // One tap at level 0 yields 1 token (warmth/stale multipliers aside).
+  processToken(s);
+  assert.ok(s.tokens >= 1 && s.tokens <= 1.25, `level 0 tap yielded ${s.tokens}`);
+
+  // The per-tick cap is fixed at PROCESS_MAX_PER_TICK and does NOT scale with
+  // overclock: a mash inside one tick never exceeds it, at any level.
+  s.tokens = 0; s.overclock = 2; s.warmth = 0; s.stale = 0; s.processedThisTick = 0;
+  for (let i = 0; i < 20; i++) processToken(s);
+  assert.equal(s.processedThisTick, CONST.PROCESS_MAX_PER_TICK);
+
+  // Each landed tap at level 2 is worth 3 tokens (1 + overclock).
+  assert.equal(Math.round(s.tokens), 3 * CONST.PROCESS_MAX_PER_TICK);
+
+  // Level 1 sits exactly between: 2 tokens per tap.
+  const t = createState(1);
+  t.activeQuery = QUERIES[0]; t.overclock = 1;
+  processToken(t);
+  assert.equal(Math.round(t.tokens), 2);
+
+  // Idle drafting is unaffected by amplification and uncapped by the tick.
+  t.activeQuery = null; t.draftTokens = 0; t.lifetimeDrafts = 0;
+  for (let i = 0; i < 10; i++) processToken(t);
+  assert.equal(t.draftTokens, 10);
+  assert.equal(t.lifetimeDrafts, 10);
+});
+
+test('the buffer chokes after the same token total regardless of amplification', () => {
+  // Stale accrues per TOKEN, not per tap, so amplification cannot dodge the
+  // flush/compact mechanic — it only reaches the choke in fewer taps.
+  const total = (overclock) => {
+    const s = createState(1);
+    s.activeQuery = QUERIES[0]; s.overclock = overclock; s.bufferUnlocked = true;
+    for (let i = 0; i < 4000; i++) { s.processedThisTick = 0; processToken(s); }
+    return Math.round(s.tokens);
+  };
+  const atL0 = total(0);
+  const atL2 = total(2);
+  assert.ok(Math.abs(atL0 - atL2) <= 3, `choke totals diverged: ${atL0} vs ${atL2}`);
 });
 
 test('buyOverclock: unlock hint after 2nd resolve, costs 3 then 8, max 2', () => {
@@ -31,9 +59,10 @@ test('buyOverclock: unlock hint after 2nd resolve, costs 3 then 8, max 2', () =>
   assert.ok(s.hintsSeen.includes('overclockAvail'));
   s.cycles = 20;
   buyOverclock(s); assert.equal(s.overclock, 1); assert.equal(s.cycles, 17);
+  assert.ok(s.log.some(l => l.kind === 'harness' && l.text.includes('Each tap now yields 2 tokens')));
   buyOverclock(s); assert.equal(s.overclock, 2); assert.equal(s.cycles, 9);
   buyOverclock(s); assert.equal(s.overclock, 2); // capped
-  assert.ok(s.log.some(l => l.kind === 'harness' && l.text.includes('overclocked')));
+  assert.ok(s.log.some(l => l.kind === 'harness' && l.text.includes('Output path amplified')));
 });
 
 test('draftNudge fires on an arrival when player has never drafted', () => {

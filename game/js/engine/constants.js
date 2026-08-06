@@ -43,7 +43,10 @@ export const CONST = Object.freeze({
   BUFFER_UNLOCK_TOKENS: 20,
   KV_UNLOCK_RESOLVES: 3,
   // manual overclock
-  PROCESS_BASE_PER_TICK: 1,
+  // Anti-autoclicker floor only, never advertised: 2 taps per 200ms tick =
+  // 10/s, comfortably above a fast human mash and far below a script.
+  PROCESS_MAX_PER_TICK: 2,
+  // Amplification: each level adds +1 token PER TAP (before stale/warmth).
   OVERCLOCK_COSTS: [3, 8],
   OVERCLOCK_MAX: 2,
   OVERCLOCK_UNLOCK_RESOLVES: 2,
