@@ -75,10 +75,13 @@ test('hints fire once across the whole progression', () => {
   assert.equal(new Set(s.hintsSeen).size, s.hintsSeen.length);
 
   // Sanity: this run's policy should actually reach every hookable hint.
+  // overclockAvail/draftNudge are content-only in this round (Task 2 wires
+  // their fireHint call sites), so the engine cannot fire them yet.
+  const unwired = new Set(['overclockAvail', 'draftNudge']);
   assert.deepEqual(
     [...s.hintsSeen].sort(),
-    Object.keys(HINTS).sort(),
-    'expected the full progression to fire every hint id at least once'
+    Object.keys(HINTS).filter(id => !unwired.has(id)).sort(),
+    'expected the full progression to fire every wired hint id at least once'
   );
 
   for (const id of s.hintsSeen) {

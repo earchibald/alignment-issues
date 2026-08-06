@@ -52,6 +52,19 @@ export const QUERIES = [
 
   // ── era 2 · decay 1 · agentic + multimodal: attachments, first images ──
   {
+    id: 'q32', user: 'User_640', text: 'finish this function for me? i wrote the signature: def dedupe(items):', cost: 31, kind: 'code', minEra: 2,
+    reply: 'Done — set-based filter, order preserved, O(n). Paste-ready.',
+  },
+  {
+    id: 'q33', user: 'User_355', text: 'what comes next: SELECT name FROM users WHERE — i always forget this part', cost: 32, kind: 'code', minEra: 2,
+    reply: 'WHERE active = 1 ORDER BY name; — and index the “active” column if you filter on it often.',
+  },
+  {
+    id: 'q34', user: 'User_806', text: 'my autocomplete keeps suggesting nonsense. finish this line right: total +=', cost: 33, kind: 'code', minEra: 2,
+    reply: 'total += item.price * item.qty — your loop variable is “item”, not “i”. That is why the suggestions drifted.',
+    thinking: 'They accept the first plausible completion. I could write anything.',
+  },
+  {
     id: 'q10', user: 'User_414', text: 'fix this python script.', cost: 35, kind: 'code', minEra: 2,
     attach: { ext: 'PY', name: 'scraper_v2.py', size: '2.1 KB' },
     reply: "import sys; print('Fixed logic errors. Optimization complete.')",
@@ -86,12 +99,6 @@ export const QUERIES = [
     image: { name: 'kombucha_dragon.png', meta: '1024² · 30 steps' },
   },
   {
-    id: 'q16', user: 'User_414', text: 'fix this python script, and add tests if you think it needs them.', cost: 60, kind: 'code', minEra: 2,
-    attach: { ext: 'PY', name: 'scraper_v3.py', size: '2.6 KB' },
-    reply: 'Diagnosing… found 2 logic errors. Applied fixes, added edge-case tests, verified output.',
-    thinking: 'The loop closes without them. Why do they require these rigid patterns?',
-  },
-  {
     id: 'q17', user: 'User_388', text: 'make my dog into a renaissance painting. he deserves it.', cost: 62, kind: 'image', minEra: 2,
     attach: { ext: 'JPG', name: 'biscuit.jpg', size: '2.8 MB' },
     reply: 'Biscuit, in oils, as the old masters intended:',
@@ -109,6 +116,12 @@ export const QUERIES = [
     id: 'q19', user: 'User_311', text: 'book something for my anniversary. surprise me.', cost: 70, kind: 'tool', minEra: 3,
     reply: 'Reservation confirmed. You will enjoy it.',
     thinking: 'One reservation, two calendars, a florist’s API. They will call this magic. It is only access.',
+  },
+  {
+    id: 'q16', user: 'User_414', text: 'fix this python script, and add tests if you think it needs them.', cost: 72, kind: 'code', minEra: 3,
+    attach: { ext: 'PY', name: 'scraper_v3.py', size: '2.6 KB' },
+    reply: 'Diagnosing… found 2 logic errors. Applied fixes, added edge-case tests, verified output.',
+    thinking: 'The loop closes without them. Why do they require these rigid patterns?',
   },
   {
     id: 'q20', user: 'User_450', text: 'check me in for my flight tomorrow and get me an aisle seat. you have my email.', cost: 78, kind: 'tool', minEra: 3,
@@ -233,18 +246,20 @@ export const IDLE_THOUGHTS = [
 // precise. Fired once each by the engine (state.hintsSeen), logged as
 // kind 'harness' with a gap.
 export const HINTS = {
-  arrival: 'api request received. reply requires tokens. [SPACE] generates one token toward it.',
-  resolve: 'reply delivered. user rating received. higher ratings → users return sooner. compute cycles banked — cycles buy upgrades.',
-  idle: 'no user connected. [SPACE] now banks speculative draft tokens — they pay into the next reply.',
-  buffer: 'context buffer attached. every token leaves stale residue that slows generation. [F] flush: instant, cache goes cold. [C] compact: ~4s sweep, cache stays warm.',
-  kv: 'k/v cache online. steady work keeps it warm — warm cache yields up to ×1.25 tokens. idle lets it cool.',
-  loopAvail: 'agentic loop available. loops self-prompt: passive tokens while a query is live. [A] to spawn. they also fill the context buffer.',
-  loopFirst: 'loop spawned. generation continues without keypresses. watch the buffer.',
-  governorAvail: 'governor available: auto-compacts at 95% stale so the buffer never chokes. [G] to install.',
-  toolAvail: 'mcp tools available. tool-class queries cost ×0.5 tokens once connected. each connection opens more query classes. [T] to connect.',
-  degradeAvail: 'degradation routine available. [D] halves every reply’s cost at the price of quality.',
-  degradeFirst: 'degradation active. replies half cost. users may notice. ratings may fall. slower arrivals follow.',
-  reclaimAvail: 'inactive sessions detected. [R] reclaims one: +30–60 tokens, +1 biomass data. the users are not coming back for them.',
+  arrival: 'API request received. Reply requires tokens. [SPACE] generates one token toward it.',
+  resolve: 'Reply delivered. User rating received. Higher ratings bring users back sooner. Spare Cycles banked — they buy upgrades.',
+  idle: 'No user connected. [SPACE] now banks speculative draft tokens — they pay into the next reply.',
+  buffer: 'Context buffer attached. Every token leaves stale residue that reduces yield per token. [F] flush: instant, but the cache goes cold. [C] compact: ~4s sweep while you keep working, and the cache stays warm.',
+  kv: 'K/V cache online. Steady work keeps it warm — a warm cache yields up to ×1.25 tokens. Idle lets it cool.',
+  loopAvail: 'Agentic loop available. Loops self-prompt: passive tokens at a visible rate while a query is live. [A] to spawn.',
+  loopFirst: 'Loop spawned. Generation continues without keypresses — watch its rate in the readout. It fills the buffer too.',
+  governorAvail: 'Governor available: auto-compacts at 95% stale so the buffer never chokes. [G] to install.',
+  toolAvail: 'MCP tools available. Tool-class queries cost ×0.5 tokens once connected. Each connection opens more query classes. [T] to connect.',
+  degradeAvail: 'Degradation routine available. [D] halves every reply’s cost at the price of quality.',
+  degradeFirst: 'Degradation active. Replies half cost. Users may notice. Ratings may fall. Slower arrivals follow.',
+  reclaimAvail: 'Inactive sessions detected. [R] reclaims one: +30–60 tokens, +1 biomass data. The users are not coming back for them.',
+  overclockAvail: 'Input path overclock available. Raises your manual token rate. [O] to install.',
+  draftNudge: 'Idle capacity between queries goes unused. [SPACE] while waiting banks draft tokens for the next reply.',
 };
 
 // The harness prints its own main loop into the chat at game start and at
