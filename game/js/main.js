@@ -5,7 +5,7 @@
 import { createState } from './engine/state.js';
 import { tick } from './engine/tick.js';
 import { ACTIONS } from './engine/actions.js';
-import { saveLocal, loadLocal, offlineCatchUp } from './engine/save.js';
+import { saveLocal, loadLocal, offlineCatchUp, SAVE_KEY } from './engine/save.js';
 import { render } from './ui/render.js';
 import { installKeys } from './ui/keys.js';
 
@@ -13,18 +13,14 @@ const TICK_MS = 200;
 const LOOP_MS = 50;
 const AUTOSAVE_MS = 5000;
 
-function initState() {
-  const loaded = loadLocal();
-  if (loaded) return loaded;
-  return createState(Date.now() >>> 0);
-}
-
 // Offline catch-up needs the raw save wrapper (savedAt), but loadLocal()
 // only returns the deserialized state. Read localStorage directly here to
-// recover savedAt without duplicating save.js's parsing logic.
+// recover savedAt without duplicating save.js's parsing logic. Callers must
+// only trust the result when loadLocal() itself returned a valid state —
+// a corrupt/unrecognized state must never borrow a savedAt from its wrapper.
 function readSavedAt() {
   if (typeof globalThis.localStorage === 'undefined') return null;
-  const raw = globalThis.localStorage.getItem('hi_you_there_save');
+  const raw = globalThis.localStorage.getItem(SAVE_KEY);
   if (!raw) return null;
   try {
     const wrapper = JSON.parse(raw);
@@ -41,13 +37,15 @@ function getSpeed() {
 }
 
 function main() {
-  const wasSaved = typeof globalThis.localStorage !== 'undefined'
-    && !!globalThis.localStorage.getItem('hi_you_there_save');
-  const savedAt = wasSaved ? readSavedAt() : null;
+  const loaded = loadLocal();
+  // Only trust savedAt when loadLocal() itself produced a valid state —
+  // never feed a savedAt from a wrapper whose state failed deserialization
+  // into a freshly created state.
+  const savedAt = loaded ? readSavedAt() : null;
 
-  const stateBox = { current: initState() };
+  const stateBox = { current: loaded || createState(Date.now() >>> 0) };
 
-  if (wasSaved && savedAt !== null) {
+  if (savedAt !== null) {
     const elapsed = Date.now() - savedAt;
     if (elapsed > 0) offlineCatchUp(stateBox.current, elapsed);
   }
@@ -63,15 +61,23 @@ function main() {
     dispatch,
   };
 
-  let coldOpenActive = stateBox.current.tick === 0;
+  // Mirrors the exact condition render.js uses to decide whether to add
+  // the 'cold-open' class, so the class is always removed once it no
+  // longer holds instead of latching on indefinitely.
+  function isColdOpen() {
+    return stateBox.current.resolvedCount === 0 && stateBox.current.chat.length <= 1;
+  }
 
-  // render.js applies 'cold-open' while resolvedCount === 0 but never
-  // removes it (that's this task's job) — clear it the first time a query
-  // resolves, right after render so the class change lands in the same paint.
+  let coldOpenActive = isColdOpen();
+
+  // render.js applies 'cold-open' while the condition holds but never
+  // removes it (that's this task's job) — clear it the first time the
+  // condition stops holding, right after render so the class change lands
+  // in the same paint.
   function paintNow() {
     render(stateBox.current, refs);
     lastPaintedSeq = stateBox.current.uiSeq;
-    if (coldOpenActive && stateBox.current.resolvedCount > 0) {
+    if (coldOpenActive && !isColdOpen()) {
       coldOpenActive = false;
       refs.actions.classList.remove('cold-open');
     }
@@ -111,8 +117,17 @@ function main() {
     saveLocal(stateBox.current);
   }
   setInterval(doSave, AUTOSAVE_MS);
+  let hiddenAt = null;
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) doSave();
+    if (document.hidden) {
+      hiddenAt = Date.now();
+      doSave();
+    } else if (hiddenAt !== null) {
+      offlineCatchUp(stateBox.current, Date.now() - hiddenAt);
+      hiddenAt = null;
+      acc = 0;
+      paintNow();
+    }
   });
   globalThis.addEventListener('pagehide', doSave);
 

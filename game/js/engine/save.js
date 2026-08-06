@@ -1,7 +1,7 @@
 import { CONST } from './constants.js';
 import { tick } from './tick.js';
 
-const SAVE_KEY = 'hi_you_there_save';
+export const SAVE_KEY = 'hi_you_there_save';
 
 export function serialize(state) {
   return JSON.stringify(state);
