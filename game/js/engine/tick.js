@@ -45,6 +45,8 @@ function activateNextQuery(state) {
     fireHint(state, 'arrival');
   }
 
+  if (state.resolvedCount >= 2 && state.lifetimeDrafts === 0) fireHint(state, 'draftNudge');
+
   const entry = { kind: 'user', user: q.user, text: q.text };
   if (q.attach) entry.attach = q.attach;
   pushChat(state, entry);
@@ -110,7 +112,7 @@ export function resolveQuery(state) {
 
   if (!state.kvUnlocked && state.resolvedCount >= CONST.KV_UNLOCK_RESOLVES) {
     state.kvUnlocked = true;
-    pushLog(state, 'system', 'SYSTEM: K/V cache meter online.');
+    pushLog(state, 'harness', 'K/V cache meter online.');
     fireHint(state, 'kv');
   }
 }
@@ -150,12 +152,14 @@ export function tick(state) {
     return state;
   }
 
+  state.processedThisTick = 0;
+
   // 2. Compaction countdown.
   if (state.compacting > 0) {
     state.compacting--;
     if (state.compacting === 0) {
       state.stale *= CONST.COMPACT_FACTOR;
-      pushLog(state, 'system', 'SYSTEM: Compaction complete.');
+      pushLog(state, 'harness', 'Compaction complete. Stale context −60%.');
     }
   }
 
@@ -183,6 +187,7 @@ export function tick(state) {
   if (!state.activeQuery && state.resolvedCount >= 1) fireHint(state, 'idle');
   if (state.lifetimeCycles >= CONST.LOOP_UNLOCK_CYCLES) fireHint(state, 'loopAvail');
   if (state.era >= 3 || state.lifetimeCycles >= CONST.TOOL_UNLOCK_CYCLES) fireHint(state, 'toolAvail');
+  if (state.resolvedCount >= CONST.OVERCLOCK_UNLOCK_RESOLVES) fireHint(state, 'overclockAvail');
 
   // 7. Resolution: pay out once tokens cover the effective cost. Checked
   // before arrival so a query that just arrived this tick gets at least

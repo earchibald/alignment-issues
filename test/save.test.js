@@ -37,6 +37,19 @@ test('deserialize normalizes missing hintsSeen/lastReplyChars from older saves',
   assert.equal(back.lastReplyChars, 0);
 });
 
+test('deserialize normalizes missing overclock/processedThisTick/lifetimeDrafts from older saves', () => {
+  const s = createState(9);
+  advanceTicks(s, 50);
+  const parsed = JSON.parse(serialize(s));
+  delete parsed.overclock;
+  delete parsed.processedThisTick;
+  delete parsed.lifetimeDrafts;
+  const back = deserialize(JSON.stringify(parsed));
+  assert.equal(back.overclock, 0);
+  assert.equal(back.processedThisTick, 0);
+  assert.equal(back.lifetimeDrafts, 0);
+});
+
 test('offlineCatchUp advances ticks and caps the step count', () => {
   const s = createState(9);
   offlineCatchUp(s, 60_000);            // 5 min → 300 ticks

@@ -34,6 +34,9 @@ export function createState(seed) {
     governor: false,
     tools: 0,
     degrade: false,
+    overclock: 0,
+    processedThisTick: 0,
+    lifetimeDrafts: 0,
     // reputation
     ratings: [],
     rating: 5,
