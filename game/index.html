@@ -8,15 +8,15 @@
 </head>
 <body>
   <main id="app" data-decay="0" data-phase="1">
-    <div id="chat"></div>
-    <div id="log" aria-live="polite" hidden></div>
-    <div id="status" hidden></div>
-    <div id="actions"></div>
+    <div id="chat" class="g-chat"></div>
+    <div id="log" class="g-log" aria-live="polite" hidden></div>
+    <div id="status" class="g-status" hidden></div>
+    <div id="actions" class="g-actions"></div>
     <button id="gear" aria-label="Settings" data-testid="gear">⚙</button>
     <div id="crash" hidden></div>
     <div id="teaser" hidden></div>
     <dialog id="settings"></dialog>
-    <div id="devdrawer" hidden></div>
+    <div id="devdrawer" class="dev-drawer" hidden></div>
   </main>
   <script type="module" src="js/main.js"></script>
 </body>

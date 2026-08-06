@@ -4,6 +4,7 @@
 
 import { advanceTicks as engineAdvanceTicks, runUntil as engineRunUntil } from '../engine/tick.js';
 import { serialize, deserialize, exportSave, importSave } from '../engine/save.js';
+import { resetRenderTrackers } from './render.js';
 
 const SPEEDS = [1, 10, 100, 1000];
 
@@ -83,6 +84,7 @@ export function installDebug({ stateBox, dispatch, getSpeed, setSpeed, paintNow,
         const parsed = deserialize(json);
         if (!parsed) return false;
         stateBox.current = parsed;
+        resetRenderTrackers(refs);
         paintNow();
         refreshStateJson();
         return true;
@@ -243,8 +245,9 @@ export function installDebug({ stateBox, dispatch, getSpeed, setSpeed, paintNow,
   });
   observer.observe(drawer, { attributes: true, attributeFilter: ['hidden'] });
 
-  if (typeof location !== 'undefined' && location.search && location.search.includes('debug=1')) {
-    drawer.hidden = false;
+  if (typeof location !== 'undefined' && location.search) {
+    const params = new URLSearchParams(location.search);
+    if (params.get('debug') === '1') drawer.hidden = false;
   }
 
   if (!drawer.hidden) startRefresh();

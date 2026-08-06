@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createState } from '../game/js/engine/state.js';
+import { createState, pushChat, pushLog } from '../game/js/engine/state.js';
 import { CONST } from '../game/js/engine/constants.js';
 
 test('createState returns the full schema with sane defaults', () => {
@@ -30,8 +30,26 @@ test('createState returns the full schema with sane defaults', () => {
   assert.equal(s.reclaimPool, CONST.RECLAIM_POOL);
   assert.deepEqual(s.chat, []);
   assert.deepEqual(s.log, []);
+  assert.equal(s.chatSeq, 0);
+  assert.equal(s.logSeq, 0);
   assert.equal(s.settings.sound, true);
   assert.ok(s.arrivalTimer > 0);
+});
+
+test('pushChat keeps chatSeq monotonic past the CHAT_MAX ring-buffer cap', () => {
+  const s = createState(1);
+  const n = CONST.CHAT_MAX + 10;
+  for (let i = 0; i < n; i++) pushChat(s, { kind: 'note', text: `entry ${i}` });
+  assert.equal(s.chat.length, CONST.CHAT_MAX);
+  assert.equal(s.chatSeq, n);
+});
+
+test('pushLog keeps logSeq monotonic past the LOG_MAX ring-buffer cap', () => {
+  const s = createState(1);
+  const n = CONST.LOG_MAX + 10;
+  for (let i = 0; i < n; i++) pushLog(s, 'system', `entry ${i}`);
+  assert.equal(s.log.length, CONST.LOG_MAX);
+  assert.equal(s.logSeq, n);
 });
 
 test('CONST has the spec tuning values', () => {

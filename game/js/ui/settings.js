@@ -5,6 +5,7 @@
 
 import { exportSave, importSave, saveLocal, SAVE_KEY } from '../engine/save.js';
 import { createState } from '../engine/state.js';
+import { resetRenderTrackers } from './render.js';
 
 function row(...children) {
   const el = document.createElement('div');
@@ -111,6 +112,7 @@ export function installSettings({ stateBox, refs, paintNow, onReset }) {
     stateBox.current = parsed;
     saveLocal(stateBox.current);
     dialog.close();
+    resetRenderTrackers(refs);
     if (paintNow) paintNow();
   });
   dialog.append(importBtn);
@@ -166,6 +168,7 @@ export function installSettings({ stateBox, refs, paintNow, onReset }) {
     stateBox.current = createState(Date.now() >>> 0);
     confirmRow.hidden = true;
     dialog.close();
+    resetRenderTrackers(refs);
     if (onReset) onReset();
     if (paintNow) paintNow();
   });

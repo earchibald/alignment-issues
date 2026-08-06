@@ -48,17 +48,21 @@ export function createState(seed) {
     crashTimer: 0,
     settings: { sound: true },
     uiSeq: 0,               // bumped on any visible change; renderer watches it
+    chatSeq: 0,              // monotonic counter, bumped on every pushChat (survives ring-buffer caps)
+    logSeq: 0,               // monotonic counter, bumped on every pushLog (survives ring-buffer caps)
   };
 }
 
 export function pushLog(state, kind, text) {
   state.log.push({ kind, text });
   if (state.log.length > CONST.LOG_MAX) state.log.shift();
+  state.logSeq++;
   state.uiSeq++;
 }
 
 export function pushChat(state, entry) {
   state.chat.push(entry);
   if (state.chat.length > CONST.CHAT_MAX) state.chat.shift();
+  state.chatSeq++;
   state.uiSeq++;
 }

@@ -65,6 +65,7 @@ test('buyLoop gates on cycles and doubles in cost', () => {
   s.cycles = 1;
   ACTIONS.buyLoop(s);
   assert.equal(s.loopLevel, 0);
+  s.lifetimeCycles = 6;
   s.cycles = loopCost(1) + loopCost(2);
   ACTIONS.buyLoop(s);
   ACTIONS.buyLoop(s);

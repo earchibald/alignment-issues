@@ -626,8 +626,8 @@ dialog#settings .warn {
   margin: 4px 0;
 }
 
-/* Cold open: action tray fades in after a beat, instant if reduced motion */
-#actions.cold-open {
+/* Cold open: action tray + status strip fade in after a beat, instant if reduced motion */
+.cold-open {
   opacity: 0;
   animation: fadein 0.8s 2s forwards;
 }
@@ -636,8 +636,21 @@ dialog#settings .warn {
   to { opacity: 1; }
 }
 @media (prefers-reduced-motion: reduce) {
-  #actions.cold-open {
+  .cold-open {
     opacity: 1;
     animation: none;
   }
+}
+
+/* Blinking caret in chat during cold open */
+.chat-caret {
+  display: inline-block;
+  width: 8px;
+  height: 14px;
+  background: var(--g-accent);
+  align-self: center;
+  animation: blink 1.1s steps(1) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .chat-caret { animation: none; }
 }

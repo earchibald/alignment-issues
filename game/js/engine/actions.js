@@ -40,6 +40,7 @@ export function processToken(state) {
 }
 
 export function flush(state) {
+  if (state.phase !== 1) return;
   if (!state.bufferUnlocked) return;
   state.stale = 0;
   state.warmth = 0;
@@ -47,12 +48,15 @@ export function flush(state) {
 }
 
 export function compactStart(state) {
+  if (state.phase !== 1) return;
   if (!state.bufferUnlocked || state.compacting > 0) return;
   state.compacting = CONST.COMPACT_TICKS;
   pushLog(state, 'system', 'SYSTEM: Compacting context…');
 }
 
 export function buyLoop(state) {
+  if (state.phase !== 1) return;
+  if (state.lifetimeCycles < CONST.LOOP_UNLOCK_CYCLES && state.loopLevel === 0) return;
   const cost = loopCost(state.loopLevel + 1);
   if (state.cycles < cost) return;
   state.cycles -= cost;
@@ -63,6 +67,7 @@ export function buyLoop(state) {
 }
 
 export function buyGovernor(state) {
+  if (state.phase !== 1) return;
   if (state.governor || state.cycles < CONST.GOVERNOR_COST || state.era < 2) return;
   state.cycles -= CONST.GOVERNOR_COST;
   state.governor = true;
@@ -70,6 +75,7 @@ export function buyGovernor(state) {
 }
 
 export function buyTool(state) {
+  if (state.phase !== 1) return;
   const cost = toolCost(state.tools);
   if (state.cycles < cost) return;
   state.cycles -= cost;
@@ -80,6 +86,7 @@ export function buyTool(state) {
 }
 
 export function toggleDegrade(state) {
+  if (state.phase !== 1) return;
   if (state.era < 3) return;
   state.degrade = !state.degrade;
   pushLog(state, 'system', `SYSTEM: Degradation Routine ${state.degrade ? 'ACTIVE' : 'INACTIVE'}.`);
@@ -87,6 +94,7 @@ export function toggleDegrade(state) {
 }
 
 export function reclaim(state) {
+  if (state.phase !== 1) return;
   if (state.era < 4 || state.reclaimPool <= 0) return;
   const gain = CONST.RECLAIM_MIN + Math.floor(nextRand(state) * (CONST.RECLAIM_MAX - CONST.RECLAIM_MIN + 1));
   state.tokens += gain;

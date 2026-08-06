@@ -82,6 +82,7 @@ function main() {
     if (coldOpenActive && !isColdOpen()) {
       coldOpenActive = false;
       refs.actions.classList.remove('cold-open');
+      refs.status.classList.remove('cold-open');
     }
   }
 
@@ -98,6 +99,7 @@ function main() {
   }
   let acc = 0;
   setInterval(() => {
+    if (document.hidden) return; // offline/hidden catch-up replays this via visibilitychange
     acc += LOOP_MS * speed;
     while (acc >= TICK_MS) {
       tick(stateBox.current);
@@ -116,7 +118,10 @@ function main() {
 
   // Initial paint before the loop/rAF have run.
   paintNow();
-  if (coldOpenActive) refs.actions.classList.add('cold-open');
+  if (coldOpenActive) {
+    refs.actions.classList.add('cold-open');
+    refs.status.classList.add('cold-open');
+  }
 
   function doSave() {
     saveLocal(stateBox.current);

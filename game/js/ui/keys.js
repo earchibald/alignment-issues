@@ -11,6 +11,9 @@ function isTypingTarget(target) {
 
 export function installKeys(dispatch, isCoarse, openSettings) {
   document.addEventListener('keydown', (event) => {
+    if (event.repeat) return;
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
+
     const settings = document.getElementById('settings');
     const dialogOpen = !!settings && settings.open;
 

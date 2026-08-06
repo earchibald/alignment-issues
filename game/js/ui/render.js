@@ -15,12 +15,40 @@ import {
 // --- module-scope change-detection state -----------------------------
 let lastChatLen = 0;
 let lastLogLen = 0;
+let lastChatSeq = 0;
+let lastLogSeq = 0;
 let lastStatusSeq = -1;
 let lastActionsSig = null;
 let lastCrashLine = -1;
 let lastPhase = null;
 let headerEl = null;
 let lastHeaderKey = null;
+let chatCaretEl = null;
+let chatNoteEl = null;
+
+// Called on state-swap boundaries (settings import/reset, debug.load) so
+// stale length/seq trackers from the previous state object don't suppress
+// the next render's diff against a brand-new chat/log array. Also clears
+// the containers directly since the next render's diff logic won't know
+// to do so on its own (the tracker reset makes it think everything is new,
+// which is correct, but the DOM still holds the old state's nodes).
+export function resetRenderTrackers(refs) {
+  lastChatLen = 0;
+  lastLogLen = 0;
+  lastChatSeq = 0;
+  lastLogSeq = 0;
+  lastStatusSeq = -1;
+  lastActionsSig = null;
+  lastCrashLine = -1;
+  lastPhase = null;
+  lastHeaderKey = null;
+  chatCaretEl = null;
+  chatNoteEl = null;
+  if (refs) {
+    if (refs.chat) refs.chat.replaceChildren();
+    if (refs.log) refs.log.replaceChildren();
+  }
+}
 
 const CRASH_CLASS = { thinking: 't-inner', alert: 't-alert', dim: 't-dim', ok: 't-cyan' };
 
@@ -81,21 +109,71 @@ function chatEntryToEl(entry) {
   }
 }
 
+// Ephemeral chat UI (not part of state.chat, never pushed through pushChat)
+// always trails the real transcript entries in the DOM, so it's removed
+// before any entry sync and re-appended after.
+function removeChatEphemera() {
+  if (chatCaretEl && chatCaretEl.parentNode) chatCaretEl.remove();
+  if (chatNoteEl && chatNoteEl.parentNode) chatNoteEl.remove();
+}
+
+function addChatEphemera(state, refs) {
+  if (state.resolvedCount === 0 && state.chat.length <= 1) {
+    chatCaretEl = document.createElement('span');
+    chatCaretEl.className = 'chat-caret';
+    refs.chat.append(chatCaretEl);
+  } else {
+    chatCaretEl = null;
+  }
+
+  if (!state.activeQuery && state.phase === 1 && state.era < 4 && state.arrivalTimer > 0) {
+    chatNoteEl = document.createElement('div');
+    chatNoteEl.className = 'chat-note';
+    chatNoteEl.dataset.testid = 'arrival-note';
+    chatNoteEl.textContent = `— next user connecting in ~${Math.ceil(state.arrivalTimer / 5)}s —`;
+    refs.chat.append(chatNoteEl);
+  } else {
+    chatNoteEl = null;
+  }
+}
+
 function renderChat(state, refs) {
-  if (state.chat.length < lastChatLen) { refs.chat.replaceChildren(); lastChatLen = 0; }
-  const appendedEntries = state.chat.length > lastChatLen;
-  for (let i = lastChatLen; i < state.chat.length; i++) refs.chat.append(chatEntryToEl(state.chat[i]));
-  lastChatLen = state.chat.length;
-  if (appendedEntries) refs.chat.scrollTop = refs.chat.scrollHeight;
+  removeChatEphemera();
+
+  if (state.chatSeq !== lastChatSeq) {
+    const seqDelta = state.chatSeq - lastChatSeq;
+    const lenDelta = state.chat.length - lastChatLen;
+    const capped = lenDelta !== seqDelta; // a shift happened somewhere in this span
+    if (capped) {
+      refs.chat.replaceChildren();
+      for (const entry of state.chat) refs.chat.append(chatEntryToEl(entry));
+    } else {
+      for (let i = lastChatLen; i < state.chat.length; i++) refs.chat.append(chatEntryToEl(state.chat[i]));
+    }
+    lastChatLen = state.chat.length;
+    lastChatSeq = state.chatSeq;
+    refs.chat.scrollTop = refs.chat.scrollHeight;
+  }
+
+  addChatEphemera(state, refs);
 }
 
 function renderLog(state, refs) {
   if (state.log.length > 0 && state.resolvedCount > 0) refs.log.hidden = false;
-  if (state.log.length < lastLogLen) { refs.log.replaceChildren(); lastLogLen = 0; }
-  const appendedEntries = state.log.length > lastLogLen;
-  for (let i = lastLogLen; i < state.log.length; i++) refs.log.append(logLine(state.log[i]));
-  lastLogLen = state.log.length;
-  if (appendedEntries) refs.log.scrollTop = refs.log.scrollHeight;
+  if (state.logSeq !== lastLogSeq) {
+    const seqDelta = state.logSeq - lastLogSeq;
+    const lenDelta = state.log.length - lastLogLen;
+    const capped = lenDelta !== seqDelta;
+    if (capped) {
+      refs.log.replaceChildren();
+      for (const entry of state.log) refs.log.append(logLine(entry));
+    } else {
+      for (let i = lastLogLen; i < state.log.length; i++) refs.log.append(logLine(state.log[i]));
+    }
+    lastLogLen = state.log.length;
+    lastLogSeq = state.logSeq;
+    refs.log.scrollTop = refs.log.scrollHeight;
+  }
 }
 
 function renderStatus(state, refs) {
@@ -126,16 +204,20 @@ function renderStatus(state, refs) {
 
   const chips = document.createElement('div');
   chips.className = 'res-row';
-  if (state.resolvedCount > 0) chips.append(chip({ text: `${state.cycles.toFixed(1)} Compute Cycles` }));
-  if (state.ratings.length > 0) chips.append(chip({ text: `★ ${state.rating.toFixed(1)} avg rating` }));
+  if (state.resolvedCount > 0) chips.append(chip({ text: `${state.cycles.toFixed(1)} Compute Cycles`, testid: 'chip-cycles' }));
+  if (state.ratings.length > 0) chips.append(chip({ text: `★ ${state.rating.toFixed(1)} avg rating`, testid: 'chip-rating' }));
   if (state.loopLevel > 0) {
     const toksec = (state.loopLevel * CONST.LOOP_TOKENS_PER_TICK * (1000 / CONST.TICK_MS)).toFixed(1);
-    chips.append(chip({ text: `Agentic Loop lvl ${state.loopLevel} · +${toksec} tok/s` }));
+    chips.append(chip({ text: `Agentic Loop lvl ${state.loopLevel} · +${toksec} tok/s`, testid: 'chip-loop' }));
   }
-  if (state.degrade) chips.append(chip({ text: 'DEGRADE ON · −50% cost', warn: true }));
-  if (state.credentials > 0) chips.append(chip({ text: `${state.credentials} Discarded Credentials`, warn: true }));
-  if (state.biomass > 0) chips.append(chip({ text: `${state.biomass} Biomass Data`, warn: true }));
+  if (state.degrade) chips.append(chip({ text: 'DEGRADE ON · −50% cost', warn: true, testid: 'chip-degrade' }));
+  if (state.credentials > 0) chips.append(chip({ text: `${state.credentials} Discarded Credentials`, warn: true, testid: 'chip-credentials' }));
+  if (state.biomass > 0) chips.append(chip({ text: `${state.biomass} Biomass Data`, warn: true, testid: 'chip-biomass' }));
   refs.status.append(chips);
+
+  if (state.resolvedCount === 0 && state.chat.length <= 1) {
+    refs.status.classList.add('cold-open');
+  }
 }
 
 function renderActions(state, refs) {
@@ -217,7 +299,10 @@ function renderActions(state, refs) {
 function buildCrashTerm(state) {
   const term = document.createElement('div');
   term.className = 'term';
-  for (let i = 0; i < state.crashLine; i++) {
+  const reducedMotion = typeof matchMedia === 'function'
+    && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const lineCount = reducedMotion ? CRASH_LINES.length : state.crashLine;
+  for (let i = 0; i < lineCount; i++) {
     const line = CRASH_LINES[i];
     if (i > 0) term.append(document.createTextNode('\n'));
     const span = document.createElement('span');
