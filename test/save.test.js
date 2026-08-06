@@ -26,6 +26,17 @@ test('export/import round-trips through base64 with unicode', () => {
   assert.deepEqual(back, s);
 });
 
+test('deserialize normalizes missing hintsSeen/lastReplyChars from older saves', () => {
+  const s = createState(9);
+  advanceTicks(s, 50);
+  const parsed = JSON.parse(serialize(s));
+  delete parsed.hintsSeen;
+  delete parsed.lastReplyChars;
+  const back = deserialize(JSON.stringify(parsed));
+  assert.deepEqual(back.hintsSeen, []);
+  assert.equal(back.lastReplyChars, 0);
+});
+
 test('offlineCatchUp advances ticks and caps the step count', () => {
   const s = createState(9);
   offlineCatchUp(s, 60_000);            // 5 min → 300 ticks

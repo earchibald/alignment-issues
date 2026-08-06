@@ -1,6 +1,47 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { QUERIES, DEVOPS_SCRIPT, CRASH_LINES, IDLE_THOUGHTS, CEILING_QUERY } from '../game/js/engine/content.js';
+import { QUERIES, HINTS, HARNESS_CARDS, DEVOPS_SCRIPT, CRASH_LINES, IDLE_THOUGHTS, CEILING_QUERY } from '../game/js/engine/content.js';
+import { createState } from '../game/js/engine/state.js';
+import { tick } from '../game/js/engine/tick.js';
+
+test('pool: 31 unique ids, minEra ascending, costs positive', () => {
+  assert.equal(QUERIES.length, 31);
+  assert.equal(new Set(QUERIES.map(q => q.id)).size, 31);
+  let era = 1;
+  for (const q of QUERIES) {
+    const e = q.minEra ?? 1;
+    assert.ok(e >= era, `${q.id} breaks minEra ordering`);
+    era = e;
+    assert.ok(q.cost > 0 && typeof q.reply === 'string');
+  }
+});
+
+test('era 1 is text-only: no attachments, images, or tools', () => {
+  for (const q of QUERIES.filter(q => (q.minEra ?? 1) === 1)) {
+    assert.equal(q.kind, 'text');
+    assert.ok(!q.attach && !q.image);
+  }
+});
+
+test('HINTS and HARNESS_CARDS exist and are non-empty strings', () => {
+  for (const v of Object.values(HINTS)) assert.ok(typeof v === 'string' && v.length > 10);
+  for (const era of [1, 2, 3, 4]) assert.ok(HARNESS_CARDS[era].includes('while'));
+});
+
+test('loop-back cycles among the last three eligible queries', () => {
+  const s = createState(1);
+  s.era = 1;
+  const eligible = QUERIES.filter(q => (q.minEra ?? 1) === 1).length;
+  s.queryIndex = QUERIES.length;  // pool pointer past the end
+  const seen = new Set();
+  for (let i = 0; i < 3; i++) {
+    s.activeQuery = null; s.arrivalTimer = 1; s.resolvedCount = eligible + i;
+    tick(s);
+    seen.add(s.activeQuery.id);
+    s.activeQuery = null;
+  }
+  assert.equal(seen.size, 3);
+});
 
 test('queries are well-formed', () => {
   assert.ok(QUERIES.length >= 14);
@@ -20,9 +61,11 @@ test('first query is the handshake at cost 5', () => {
   assert.equal(QUERIES[0].cost, 5);
 });
 
-test('image queries exist in era 1 and era 3 pools', () => {
-  const imgs = QUERIES.filter(q => q.kind === 'image');
-  assert.ok(imgs.length >= 2);
+test('image queries exist in era 2 and era 3 pools, none in era 1', () => {
+  const byEra = era => QUERIES.filter(q => (q.minEra ?? 1) === era && q.kind === 'image');
+  assert.equal(byEra(1).length, 0);
+  assert.ok(byEra(2).length >= 1);
+  assert.ok(byEra(3).length >= 1);
 });
 
 test('ceiling, devops script, crash lines, idle thoughts exist', () => {
@@ -32,10 +75,22 @@ test('ceiling, devops script, crash lines, idle thoughts exist', () => {
   assert.ok(IDLE_THOUGHTS.length >= 6);
 });
 
-test('costs escalate in the tuning-baseline shape', () => {
-  const costs = QUERIES.slice(0, 14).map(q => q.cost);
-  for (let i = 1; i < costs.length; i++) {
-    assert.ok(costs[i] >= costs[i - 1], `cost regressed at index ${i}`);
+test('costs escalate in the tuning-baseline shape across era bands', () => {
+  // Individual entries within an era vary for pacing/narrative reasons
+  // (a cheap gag query can follow an expensive one), but each era as a
+  // whole must cost more than the one before it: the min cost of every
+  // era is at least the max cost of the era before it.
+  const byEra = new Map();
+  for (const q of QUERIES) {
+    const e = q.minEra ?? 1;
+    if (!byEra.has(e)) byEra.set(e, []);
+    byEra.get(e).push(q.cost);
+  }
+  const eras = [...byEra.keys()].sort((a, b) => a - b);
+  for (let i = 1; i < eras.length; i++) {
+    const prevMax = Math.max(...byEra.get(eras[i - 1]));
+    const curMin = Math.min(...byEra.get(eras[i]));
+    assert.ok(curMin >= prevMax, `era ${eras[i]} min cost ${curMin} undercuts era ${eras[i - 1]} max cost ${prevMax}`);
   }
 });
 

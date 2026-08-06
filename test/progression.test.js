@@ -67,7 +67,7 @@ test('teaser is terminal — continued ticking never re-enters crash', () => {
 
 // Regression: a player who never buys a tool never reaches era 3, so the
 // query pool for their era is small and finite. The loop-back rule must
-// keep the economy alive by repeating the last two era-eligible queries
+// keep the economy alive by repeating the last three era-eligible queries
 // instead of stalling out.
 test('loop-back keeps the economy running for a player who never buys tools', () => {
   const s = createState(7);

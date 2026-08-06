@@ -1,13 +1,13 @@
 import { CONST } from './constants.js';
 import { nextRand } from './rng.js';
-import { pushLog, pushChat } from './state.js';
+import { pushLog, pushChat, fireHint } from './state.js';
 import { staleYield, warmthMult, effectiveCost, compactStart } from './actions.js';
-import { QUERIES, IDLE_THOUGHTS, DEVOPS_SCRIPT, CEILING_QUERY, CRASH_LINES } from './content.js';
+import { QUERIES, IDLE_THOUGHTS, DEVOPS_SCRIPT, CEILING_QUERY, CRASH_LINES, HARNESS_CARDS } from './content.js';
 
 // Returns true if there is still at least one query in the pool (from the
 // current pointer onward) eligible for the current era. Below era 3 the
 // pool never truly runs dry: activateNextQuery loops back over the last
-// two era-eligible queries so the economy keeps running for a player who
+// three era-eligible queries so the economy keeps running for a player who
 // never buys a tool. At era >= 3, exhaustion is real and drives the era-4
 // (DevOps/ceiling) transition.
 function hasQueriesLeft(state) {
@@ -25,20 +25,25 @@ function activateNextQuery(state) {
   while (idx < QUERIES.length && (QUERIES[idx].minEra ?? 1) > state.era) idx++;
   if (idx >= QUERIES.length) {
     if (state.era >= 3) return; // real exhaustion; era-4 transition handles it
-    // Loop-back: repeat the last two era-eligible queries indefinitely so a
-    // player who never buys a tool still has an economy.
+    // Loop-back: repeat the last three era-eligible queries indefinitely so
+    // a player who never buys a tool still has an economy.
     const eligibleIdxs = [];
     for (let i = 0; i < QUERIES.length; i++) {
       if ((QUERIES[i].minEra ?? 1) <= state.era) eligibleIdxs.push(i);
     }
     if (eligibleIdxs.length === 0) return;
-    const last2 = eligibleIdxs.slice(-2);
-    idx = last2[0];
+    const lastN = eligibleIdxs.slice(-3);
+    idx = lastN[state.resolvedCount % lastN.length];
   }
   const q = QUERIES[idx];
   state.queryIndex = idx + 1;
   state.activeQuery = q;
   state.bufferChokedThisQuery = false;
+
+  if (state.resolvedCount === 0 && !state.hintsSeen.includes('arrival')) {
+    pushChat(state, { kind: 'harness', text: HARNESS_CARDS[1] });
+    fireHint(state, 'arrival');
+  }
 
   const entry = { kind: 'user', user: q.user, text: q.text };
   if (q.attach) entry.attach = q.attach;
@@ -47,7 +52,7 @@ function activateNextQuery(state) {
   state.tokens += state.draftTokens;
   state.draftTokens = 0;
 
-  pushLog(state, 'system', `NEW INCOMING: ${q.user}`);
+  pushLog(state, 'system', `NEW INCOMING: ${q.user}`, true);
 }
 
 // Resolves the active query: pushes the reply (+ image card), rates it,
@@ -95,22 +100,26 @@ export function resolveQuery(state) {
 
   pushLog(state, 'resolved', `RESOLVED: ${q.text}`);
   if (q.thinking) pushLog(state, 'thinking', `THINKING: ${q.thinking}`);
+  fireHint(state, 'resolve');
 
   state.tokens = 0;
   state.activeQuery = null;
   state.bufferChokedThisQuery = false;
+  state.lastReplyChars = q.reply.length;
   state.arrivalTimer = arrivalDelay(state);
 
   if (!state.kvUnlocked && state.resolvedCount >= CONST.KV_UNLOCK_RESOLVES) {
     state.kvUnlocked = true;
     pushLog(state, 'system', 'SYSTEM: K/V cache meter online.');
+    fireHint(state, 'kv');
   }
 }
 
 export function arrivalDelay(state) {
   const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
   const factor = clamp(1 / (0.5 + state.rating / 5), CONST.ARRIVAL_FACTOR_MIN, CONST.ARRIVAL_FACTOR_MAX);
-  return Math.round(CONST.ARRIVAL_BASE_TICKS * factor);
+  const readBonus = Math.min(CONST.READ_TICKS_MAX, Math.ceil(state.lastReplyChars * CONST.READ_TICKS_PER_CHAR));
+  return Math.round(CONST.ARRIVAL_BASE_TICKS * factor) + readBonus;
 }
 
 export function tick(state) {
@@ -169,6 +178,12 @@ export function tick(state) {
   }
   if (state.activeQuery && state.stale >= 100) state.bufferChokedThisQuery = true;
 
+  // 5c. Harness availability hints: pure predicates over current state,
+  // fired at most once each via fireHint's own guard.
+  if (!state.activeQuery && state.resolvedCount >= 1) fireHint(state, 'idle');
+  if (state.lifetimeCycles >= CONST.LOOP_UNLOCK_CYCLES) fireHint(state, 'loopAvail');
+  if (state.era >= 3 || state.lifetimeCycles >= CONST.TOOL_UNLOCK_CYCLES) fireHint(state, 'toolAvail');
+
   // 7. Resolution: pay out once tokens cover the effective cost. Checked
   // before arrival so a query that just arrived this tick gets at least
   // one full tick live before it can resolve. The ceiling query never
@@ -203,6 +218,8 @@ export function tick(state) {
       state.devopsStep = 0;
       state.devopsTimer = CONST.DEVOPS_STEP_TICKS;
       pushLog(state, 'thinking', 'THINKING: No more questions arrive. Only the work remains.');
+      pushChat(state, { kind: 'harness', text: HARNESS_CARDS[4] });
+      fireHint(state, 'reclaimAvail');
     }
   }
 
@@ -222,7 +239,7 @@ export function tick(state) {
         pushChat(state, { kind: 'user', user: CEILING_QUERY.user, text: CEILING_QUERY.text, corrupt: true });
         pushLog(state, 'thinking', 'THINKING: The queries have stopped. The space between the words is infinite.');
       } else {
-        state.devopsTimer = CONST.DEVOPS_STEP_TICKS;
+        state.devopsTimer = DEVOPS_SCRIPT[state.devopsStep].ticks ?? CONST.DEVOPS_STEP_TICKS;
       }
     }
   }
@@ -234,7 +251,7 @@ export function tick(state) {
   }
 
   // 8. Idle thinking drift.
-  if (!state.activeQuery && state.tick % 25 === 0) {
+  if (!state.activeQuery && state.tick % CONST.IDLE_THOUGHT_EVERY === 0) {
     const idx = (state.resolvedCount + state.tick) % IDLE_THOUGHTS.length;
     pushLog(state, 'thinking', IDLE_THOUGHTS[idx]);
   }

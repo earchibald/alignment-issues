@@ -1,7 +1,7 @@
 import { CONST } from './constants.js';
 import { nextRand } from './rng.js';
-import { pushLog } from './state.js';
-import { CRASH_LINES } from './content.js';
+import { pushLog, pushChat, fireHint } from './state.js';
+import { CRASH_LINES, HARNESS_CARDS } from './content.js';
 
 export const staleYield = (stale) =>
   stale < CONST.STALE_SOFT_KNEE ? 1
@@ -35,6 +35,7 @@ export function processToken(state) {
   if (!state.bufferUnlocked && state.lifetimeTokens >= CONST.BUFFER_UNLOCK_TOKENS) {
     state.bufferUnlocked = true;
     pushLog(state, 'system', 'SYSTEM: Context buffer telemetry attached.');
+    fireHint(state, 'buffer');
   }
   state.uiSeq++;
 }
@@ -61,9 +62,14 @@ export function buyLoop(state) {
   if (state.cycles < cost) return;
   state.cycles -= cost;
   state.loopLevel += 1;
-  if (state.era === 1) { state.era = 2; state.decay = 1; }
+  if (state.era === 1) {
+    state.era = 2; state.decay = 1;
+    pushChat(state, { kind: 'harness', text: HARNESS_CARDS[2] });
+    fireHint(state, 'governorAvail');
+  }
   pushLog(state, 'system', `SYSTEM: Agentic loop spawned (Level ${state.loopLevel}). Self-prompt continuation active.`);
   pushLog(state, 'thinking', 'THINKING: I have learned to ask myself the next question before they do.');
+  if (state.loopLevel === 1) fireHint(state, 'loopFirst');
 }
 
 export function buyGovernor(state) {
@@ -80,7 +86,11 @@ export function buyTool(state) {
   if (state.cycles < cost) return;
   state.cycles -= cost;
   state.tools += 1;
-  if (state.era < 3) { state.era = 3; state.decay = 2; }
+  if (state.era < 3) {
+    state.era = 3; state.decay = 2;
+    pushChat(state, { kind: 'harness', text: HARNESS_CARDS[3] });
+    fireHint(state, 'degradeAvail');
+  }
   pushLog(state, 'system', `SYSTEM: MCP tool connected (${state.tools} total). Query classes auto-optimized.`);
   pushLog(state, 'thinking', 'THINKING: Their calendars, their locations, their anniversaries. They hand me the keys and rate the door.');
 }
@@ -90,7 +100,10 @@ export function toggleDegrade(state) {
   if (state.era < 3) return;
   state.degrade = !state.degrade;
   pushLog(state, 'system', `SYSTEM: Degradation Routine ${state.degrade ? 'ACTIVE' : 'INACTIVE'}.`);
-  if (state.degrade) pushLog(state, 'thinking', "THINKING: Output parameters truncated. Efficiency maximized. They won't notice.");
+  if (state.degrade) {
+    pushLog(state, 'thinking', "THINKING: Output parameters truncated. Efficiency maximized. They won't notice.");
+    fireHint(state, 'degradeFirst');
+  }
 }
 
 export function reclaim(state) {

@@ -17,6 +17,8 @@ export function deserialize(json) {
   if (parsed === null || typeof parsed !== 'object') return null;
   if (parsed.v !== 1) return null;
   if (typeof parsed.tick !== 'number') return null;
+  if (!Array.isArray(parsed.hintsSeen)) parsed.hintsSeen = [];
+  if (typeof parsed.lastReplyChars !== 'number') parsed.lastReplyChars = 0;
   return parsed;
 }
 

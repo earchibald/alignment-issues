@@ -1,4 +1,5 @@
 import { CONST } from './constants.js';
+import { HINTS } from './content.js';
 
 export function createState(seed) {
   return {
@@ -42,6 +43,8 @@ export function createState(seed) {
     reclaimPool: CONST.RECLAIM_POOL,
     // narrative / render feed
     resolvedCount: 0,
+    lastReplyChars: 0,      // reply length of last resolve; feeds arrivalDelay
+    hintsSeen: [],          // one-shot harness hint ids already fired
     chat: [],               // {kind:'user'|'sys'|'note'|'rate'|'tool'|'think'|'image', ...}
     log: [],                // {kind:'system'|'resolved'|'thinking', text}
     crashLine: 0,
@@ -53,11 +56,19 @@ export function createState(seed) {
   };
 }
 
-export function pushLog(state, kind, text) {
-  state.log.push({ kind, text });
+export function pushLog(state, kind, text, gap = false) {
+  state.log.push(gap ? { kind, text, gap: true } : { kind, text });
   if (state.log.length > CONST.LOG_MAX) state.log.shift();
   state.logSeq++;
   state.uiSeq++;
+}
+
+// One-shot harness hint: fires (logs, with a gap) at most once per id per
+// game, tracked via state.hintsSeen. No-op on repeat calls for the same id.
+export function fireHint(state, id) {
+  if (state.hintsSeen.includes(id)) return;
+  state.hintsSeen.push(id);
+  pushLog(state, 'harness', HINTS[id], true);
 }
 
 export function pushChat(state, entry) {
