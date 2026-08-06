@@ -143,6 +143,12 @@ body {
   /* canon-dark: no overrides — decay tokens win as-is */
 }
 body:has(#app[data-theme="dark"]) { background: #0d1013; }
+/* Light theme: the letterbox around the game column follows the client, but
+   only while the client is still light. Decay 3/4 are canon-dark in every
+   theme, so their surround stays dark. */
+body:has(#app[data-theme="light"][data-decay="0"]),
+body:has(#app[data-theme="light"][data-decay="1"]),
+body:has(#app[data-theme="light"][data-decay="2"]) { background: #dfe3e8; }
 
 /* ============================================================
    #app — full-viewport game shell (replaces mockup's fixed device)
