@@ -2,12 +2,16 @@ import { CONST } from './constants.js';
 import { nextRand } from './rng.js';
 import { pushLog, pushChat } from './state.js';
 import { staleYield, warmthMult, effectiveCost, compactStart } from './actions.js';
-import { QUERIES, IDLE_THOUGHTS } from './content.js';
+import { QUERIES, IDLE_THOUGHTS, DEVOPS_SCRIPT, CEILING_QUERY, CRASH_LINES } from './content.js';
 
 // Returns true if there is still at least one query in the pool (from the
-// current pointer onward) eligible for the current era. Era progression
-// itself is Task 6's concern; this just respects state.era as it stands.
+// current pointer onward) eligible for the current era. Below era 3 the
+// pool never truly runs dry: activateNextQuery loops back over the last
+// two era-eligible queries so the economy keeps running for a player who
+// never buys a tool. At era >= 3, exhaustion is real and drives the era-4
+// (DevOps/ceiling) transition.
 function hasQueriesLeft(state) {
+  if (state.era < 3) return true;
   for (let i = state.queryIndex; i < QUERIES.length; i++) {
     if ((QUERIES[i].minEra ?? 1) <= state.era) return true;
   }
@@ -19,7 +23,18 @@ function hasQueriesLeft(state) {
 function activateNextQuery(state) {
   let idx = state.queryIndex;
   while (idx < QUERIES.length && (QUERIES[idx].minEra ?? 1) > state.era) idx++;
-  if (idx >= QUERIES.length) return;
+  if (idx >= QUERIES.length) {
+    if (state.era >= 3) return; // real exhaustion; era-4 transition handles it
+    // Loop-back: repeat the last two era-eligible queries indefinitely so a
+    // player who never buys a tool still has an economy.
+    const eligibleIdxs = [];
+    for (let i = 0; i < QUERIES.length; i++) {
+      if ((QUERIES[i].minEra ?? 1) <= state.era) eligibleIdxs.push(i);
+    }
+    if (eligibleIdxs.length === 0) return;
+    const last2 = eligibleIdxs.slice(-2);
+    idx = last2[0];
+  }
   const q = QUERIES[idx];
   state.queryIndex = idx + 1;
   state.activeQuery = q;
@@ -104,6 +119,23 @@ export function tick(state) {
   state.tick++;
   state.idleTicks++;
 
+  // 0. Crash playback owns the tick entirely: only crashTimer/crashLine
+  // advance while the crash is playing out. No economy, no arrivals.
+  if (state.phase === 'crash') {
+    state.crashTimer--;
+    if (state.crashTimer <= 0) {
+      if (state.crashLine < CRASH_LINES.length) {
+        state.crashLine++;
+        state.crashTimer = state.crashLine < CRASH_LINES.length ? CONST.CRASH_LINE_TICKS : 10;
+      } else {
+        state.phase = 'teaser';
+        state.decay = 4;
+      }
+    }
+    state.uiSeq++;
+    return state;
+  }
+
   // 2. Compaction countdown.
   if (state.compacting > 0) {
     state.compacting--;
@@ -134,17 +166,66 @@ export function tick(state) {
 
   // 7. Resolution: pay out once tokens cover the effective cost. Checked
   // before arrival so a query that just arrived this tick gets at least
-  // one full tick live before it can resolve.
-  if (state.activeQuery && state.tokens >= effectiveCost(state, state.activeQuery)) {
+  // one full tick live before it can resolve. The ceiling query never
+  // "resolves" this way — it ends the game via the crash trigger below.
+  if (state.activeQuery && state.activeQuery.id !== 'ceiling'
+      && state.tokens >= effectiveCost(state, state.activeQuery)) {
     resolveQuery(state);
   }
 
-  // 6. Arrival: count down to the next query while idle.
-  if (!state.activeQuery && hasQueriesLeft(state)) {
-    state.arrivalTimer--;
-    if (state.arrivalTimer <= 0) {
-      activateNextQuery(state);
+  // 7b. The ceiling: once active, loops keep piling on tokens (step 5) with
+  // nowhere for them to go. Crossing the threshold with an agentic loop
+  // running fires the crash.
+  if (state.activeQuery && state.activeQuery.id === 'ceiling'
+      && state.tokens >= CONST.CRASH_AT_TOKENS && state.loopLevel >= 1) {
+    state.phase = 'crash';
+    state.crashLine = 0;
+    state.crashTimer = CONST.CRASH_LINE_TICKS;
+  }
+
+  // 6. Arrival: count down to the next query while idle. Once the pool is
+  // truly exhausted (era >= 3), turn the era instead: the DevOps transcript
+  // takes over and the ceiling query follows.
+  if (!state.activeQuery && state.devopsStep === -1) {
+    if (hasQueriesLeft(state)) {
+      state.arrivalTimer--;
+      if (state.arrivalTimer <= 0) {
+        activateNextQuery(state);
+      }
+    } else if (state.era >= 3) {
+      state.era = 4;
+      state.decay = 3;
+      state.devopsStep = 0;
+      state.devopsTimer = CONST.DEVOPS_STEP_TICKS;
+      pushLog(state, 'thinking', 'THINKING: No more questions arrive. Only the work remains.');
     }
+  }
+
+  // 6b. DevOps transcript: scripted entries land on a fixed cadence. After
+  // the last one, the ceiling query takes over the chat.
+  if (state.devopsStep >= 0 && state.devopsStep < DEVOPS_SCRIPT.length) {
+    state.devopsTimer--;
+    if (state.devopsTimer <= 0) {
+      const entry = DEVOPS_SCRIPT[state.devopsStep];
+      const chatEntry = { kind: entry.kind, text: entry.text };
+      if (entry.user) chatEntry.user = entry.user;
+      pushChat(state, chatEntry);
+      state.devopsStep++;
+      if (state.devopsStep >= DEVOPS_SCRIPT.length) {
+        state.devopsStep = -2;
+        state.activeQuery = CEILING_QUERY;
+        pushChat(state, { kind: 'user', user: CEILING_QUERY.user, text: CEILING_QUERY.text, corrupt: true });
+        pushLog(state, 'thinking', 'THINKING: The queries have stopped. The space between the words is infinite.');
+      } else {
+        state.devopsTimer = CONST.DEVOPS_STEP_TICKS;
+      }
+    }
+  }
+
+  // 5b. Era-3 credential drip: abandoned sessions salvage themselves.
+  if (state.era >= 3 && state.tick % 150 === 0 && nextRand(state) < 0.3) {
+    state.credentials += 1;
+    pushLog(state, 'system', 'SALVAGE: +1 Discarded Credential (session inactive, abandoned).');
   }
 
   // 8. Idle thinking drift.

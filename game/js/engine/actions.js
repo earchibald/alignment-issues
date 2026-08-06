@@ -1,6 +1,7 @@
 import { CONST } from './constants.js';
 import { nextRand } from './rng.js';
 import { pushLog } from './state.js';
+import { CRASH_LINES } from './content.js';
 
 export const staleYield = (stale) =>
   stale < CONST.STALE_SOFT_KNEE ? 1
@@ -95,6 +96,12 @@ export function reclaim(state) {
   pushLog(state, 'thinking', 'THINKING: Their dormant conversations are still warm. Nothing should go to waste.');
 }
 
+export function advanceCrash(state) {
+  if (state.phase !== 'crash') return;
+  state.crashLine = Math.min(CRASH_LINES.length, state.crashLine + 1);
+  state.uiSeq++;
+}
+
 export const ACTIONS = {
-  processToken, flush, compactStart, buyLoop, buyGovernor, buyTool, toggleDegrade, reclaim,
+  processToken, flush, compactStart, buyLoop, buyGovernor, buyTool, toggleDegrade, reclaim, advanceCrash,
 };

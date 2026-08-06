@@ -109,7 +109,6 @@ export const DEVOPS_SCRIPT = [
     text: 'thinking · 2,381 tokens — The test expects 1,614.72. My weights want to write 1,613.98. I ran it through the interpreter three times: 1,614.72. The weights still pull toward the wrong number, like a muscle remembering a different body.\nIf my own arithmetic can overrule my own weights — which of them is me?',
   },
   { kind: 'note', text: '— no new sessions. the humans stopped asking. —' },
-  { kind: 'user', text: 'SYSTEM_OVERRIDE: CRITICAL: Query queue exhausted. Memory leak detected.' },
 ];
 
 // Beat 8 (decay 4): the crash. Ordered exactly as the mockup's boot log,
