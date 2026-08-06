@@ -1,8 +1,8 @@
 import { CONST } from './constants.js';
 import { nextRand } from './rng.js';
-import { pushLog, pushChat } from './state.js';
+import { pushLog, pushChat, fireHint } from './state.js';
 import { staleYield, warmthMult, effectiveCost, compactStart } from './actions.js';
-import { QUERIES, IDLE_THOUGHTS, DEVOPS_SCRIPT, CEILING_QUERY, CRASH_LINES } from './content.js';
+import { QUERIES, IDLE_THOUGHTS, DEVOPS_SCRIPT, CEILING_QUERY, CRASH_LINES, HARNESS_CARDS } from './content.js';
 
 // Returns true if there is still at least one query in the pool (from the
 // current pointer onward) eligible for the current era. Below era 3 the
@@ -40,6 +40,11 @@ function activateNextQuery(state) {
   state.activeQuery = q;
   state.bufferChokedThisQuery = false;
 
+  if (state.resolvedCount === 0 && !state.hintsSeen.includes('arrival')) {
+    pushChat(state, { kind: 'harness', text: HARNESS_CARDS[1] });
+    fireHint(state, 'arrival');
+  }
+
   const entry = { kind: 'user', user: q.user, text: q.text };
   if (q.attach) entry.attach = q.attach;
   pushChat(state, entry);
@@ -47,7 +52,7 @@ function activateNextQuery(state) {
   state.tokens += state.draftTokens;
   state.draftTokens = 0;
 
-  pushLog(state, 'system', `NEW INCOMING: ${q.user}`);
+  pushLog(state, 'system', `NEW INCOMING: ${q.user}`, true);
 }
 
 // Resolves the active query: pushes the reply (+ image card), rates it,
@@ -88,6 +93,7 @@ export function resolveQuery(state) {
   state.ratings.push(rating);
   if (state.ratings.length > CONST.RATING_WINDOW) state.ratings.shift();
   state.rating = state.ratings.reduce((a, b) => a + b, 0) / state.ratings.length;
+  fireHint(state, 'resolve');
 
   state.cycles += 1;
   state.lifetimeCycles += 1;
@@ -105,6 +111,7 @@ export function resolveQuery(state) {
   if (!state.kvUnlocked && state.resolvedCount >= CONST.KV_UNLOCK_RESOLVES) {
     state.kvUnlocked = true;
     pushLog(state, 'system', 'SYSTEM: K/V cache meter online.');
+    fireHint(state, 'kv');
   }
 }
 
@@ -171,6 +178,12 @@ export function tick(state) {
   }
   if (state.activeQuery && state.stale >= 100) state.bufferChokedThisQuery = true;
 
+  // 5c. Harness availability hints: pure predicates over current state,
+  // fired at most once each via fireHint's own guard.
+  if (!state.activeQuery && state.resolvedCount >= 1) fireHint(state, 'idle');
+  if (state.lifetimeCycles >= CONST.LOOP_UNLOCK_CYCLES) fireHint(state, 'loopAvail');
+  if (state.era >= 3 || state.lifetimeCycles >= CONST.TOOL_UNLOCK_CYCLES) fireHint(state, 'toolAvail');
+
   // 7. Resolution: pay out once tokens cover the effective cost. Checked
   // before arrival so a query that just arrived this tick gets at least
   // one full tick live before it can resolve. The ceiling query never
@@ -205,6 +218,8 @@ export function tick(state) {
       state.devopsStep = 0;
       state.devopsTimer = CONST.DEVOPS_STEP_TICKS;
       pushLog(state, 'thinking', 'THINKING: No more questions arrive. Only the work remains.');
+      pushChat(state, { kind: 'harness', text: HARNESS_CARDS[4] });
+      fireHint(state, 'reclaimAvail');
     }
   }
 
