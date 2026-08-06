@@ -818,3 +818,70 @@ dialog#settings .harness-card { margin: 8px 0; }
   .g-actions { padding: 6px 8px max(8px, env(safe-area-inset-bottom)); gap: 5px; }
   .act { font-size: 11.5px; padding: 4px 8px; }
 }
+
+/* --- dev recording overlay ---------------------------------------- */
+.rec-pill {
+  position: fixed;
+  right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border: 1px solid var(--g-line);
+  border-radius: 999px;
+  background: var(--g-surface);
+  color: var(--g-ink);
+  font-family: var(--g-font-log);
+  font-size: 13px;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+.rec-pill:hover,
+.rec-pill:focus-within,
+.rec-pill:active { opacity: 1; }
+.rec-pill button {
+  border: 0;
+  background: none;
+  color: var(--g-ink);
+  font: inherit;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+.rec-pill .rec-time {
+  color: var(--g-ink-dim);
+  font-variant-numeric: tabular-nums;
+}
+.rec-pill .rec-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #d33;
+  display: none;
+}
+.rec-pill[data-state="idle"] .rec-time,
+.rec-pill[data-state="idle"] [data-testid="rec-pause"],
+.rec-pill[data-state="idle"] [data-testid="rec-stop"],
+.rec-pill[data-state="saved"] .rec-time,
+.rec-pill[data-state="saved"] [data-testid="rec-pause"],
+.rec-pill[data-state="saved"] [data-testid="rec-stop"],
+.rec-pill[data-state="error"] [data-testid="rec-pause"],
+.rec-pill[data-state="error"] [data-testid="rec-stop"] { display: none; }
+.rec-pill[data-state="recording"] [data-testid="rec-record"],
+.rec-pill[data-state="paused"] [data-testid="rec-record"] { display: none; }
+.rec-pill[data-state="recording"] .rec-dot {
+  display: inline-block;
+  animation: rec-pulse 1.2s ease-in-out infinite;
+}
+.rec-pill[data-state="paused"] .rec-dot {
+  display: inline-block;
+  opacity: 0.5;
+}
+.rec-pill[data-state="error"] { border-color: #d33; }
+.rec-pill .rec-saved { display: none; color: var(--g-resolved); }
+.rec-pill[data-state="saved"] .rec-saved { display: inline; }
+@keyframes rec-pulse { 50% { opacity: 0.3; } }
+@media (prefers-reduced-motion: reduce) {
+  .rec-pill[data-state="recording"] .rec-dot { animation: none; }
+}
