@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { MemoryStore, DEV_KEY, TELEMETRY_OPTOUT_KEY } from '../game/js/telemetry/store.js';
+import { MemoryStore, IdbStore, DEV_KEY, TELEMETRY_OPTOUT_KEY } from '../game/js/telemetry/store.js';
 
 function header(id, at) {
   return { id, anchor: { at, pm: 0 }, ua: 'test', dev: true };
@@ -67,4 +67,16 @@ test('prune keeps the newest N and reports deletions', async () => {
   const deleted = await store.prune(3);
   assert.deepEqual(deleted.sort(), ['s1', 's2']);
   assert.deepEqual((await store.listSessions()).map((h) => h.id), ['s5', 's4', 's3']);
+});
+
+test('IdbStore implements the full EventStore interface', () => {
+  const methods = [
+    'putSession', 'getSession', 'listSessions', 'appendEvents', 'getEvents',
+    'appendAudioChunk', 'getAudioChunks', 'deleteSession', 'prune',
+  ];
+  for (const m of methods) {
+    assert.equal(typeof MemoryStore.prototype[m], 'function', `MemoryStore.${m}`);
+    assert.equal(typeof IdbStore.prototype[m], 'function', `IdbStore.${m}`);
+  }
+  assert.equal(typeof IdbStore.open, 'function');
 });
