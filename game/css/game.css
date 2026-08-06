@@ -31,6 +31,7 @@ body {
   --g-bubble-sys-ink: #ffffff;
   --g-inner: #a2790d;
   --g-resolved: #2f8f4e;
+  --g-harness: #15808f;
   --g-radius: 16px;
   --g-font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --g-font-log: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
@@ -54,6 +55,7 @@ body {
   --g-accent: #3e5f9e;
   --g-bubble-sys: #3e5f9e;
   --g-inner: #8d6a06;
+  --g-harness: #1e6f7a;
   --g-radius: 6px;
   --g-font: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
 }
@@ -70,6 +72,7 @@ body {
   --g-bubble-sys-ink: #8fd39f;
   --g-inner: #e8b84b;
   --g-resolved: #7ee08f;
+  --g-harness: #5fc6c9;
   --g-radius: 2px;
   --g-font: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
   --g-scanlines: 1;
@@ -87,6 +90,7 @@ body {
   --g-bubble-sys-ink: #7ee08f;
   --g-inner: #e8b84b;
   --g-resolved: #7ee08f;
+  --g-harness: #5fc6c9;
   --g-radius: 0px;
   --g-font: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
   --g-scanlines: 1;
@@ -289,6 +293,9 @@ body {
 .g-log .l-system { color: var(--g-ink-dim); }
 .g-log .l-resolved { color: var(--g-resolved); }
 .g-log .l-inner { color: var(--g-inner); font-style: italic; }
+.g-log .l-harness { color: var(--g-harness); }
+.g-log .l-gap { margin-top: 9px; }
+.g-log > div { padding: 1px 0; }
 
 /* Status strip: token bar + resources */
 .g-status {
@@ -431,6 +438,22 @@ body {
   text-transform: uppercase;
   opacity: 0.7;
   margin-bottom: 3px;
+}
+
+/* Harness-voice cards: pseudocode addressed to the player, out-of-band */
+.harness-card {
+  align-self: stretch;
+  font-family: var(--g-font-log);
+  font-size: 10.5px;
+  line-height: 1.55;
+  color: var(--g-harness);
+  background: var(--g-surface);
+  border: 1px solid var(--g-line);
+  border-left: 3px solid var(--g-harness);
+  border-radius: 4px;
+  padding: 7px 10px;
+  white-space: pre;
+  overflow-x: auto;
 }
 
 /* K/V cache warmth fill */

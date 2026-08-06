@@ -107,11 +107,20 @@ export function chatNote(text, rate) {
   return el;
 }
 
-const LOG_CLASS = { system: 'l-system', resolved: 'l-resolved', thinking: 'l-inner' };
+const LOG_CLASS = { system: 'l-system', resolved: 'l-resolved', thinking: 'l-inner', harness: 'l-harness' };
 
-export function logLine({ kind, text }) {
+export function logLine({ kind, text, gap }) {
   const el = document.createElement('div');
-  el.className = LOG_CLASS[kind] || 'l-system';
+  const cls = LOG_CLASS[kind] || 'l-system';
+  el.className = gap ? `${cls} l-gap` : cls;
+  el.textContent = text;
+  return el;
+}
+
+export function harnessCard(text) {
+  const el = document.createElement('div');
+  el.className = 'harness-card';
+  el.dataset.testid = 'harness-card';
   el.textContent = text;
   return el;
 }
