@@ -127,6 +127,11 @@ function main() {
   // show one at a time.
   function pauseForCard() {
     scanForCards();
+    // The settings <dialog> renders in the browser's top layer, hiding the
+    // card overlay underneath it. Leave queued cards in place and defer
+    // opening the overlay until the dialog closes, so a card is never shown
+    // (and its keydown swallowed) while the player can't see it.
+    if (document.getElementById('settings')?.open) return;
     if (!cardPaused && cardQueue.length > 0) showNextCard();
   }
 

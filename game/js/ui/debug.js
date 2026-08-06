@@ -222,6 +222,8 @@ export function installDebug({ stateBox, dispatch, getSpeed, setSpeed, paintNow,
     }
     importErrorLine.textContent = '';
     stateBox.current = parsed;
+    resetRenderTrackers(refs);
+    if (resetCardTracking) resetCardTracking();
     paintNow();
     refreshStateJson();
   });
