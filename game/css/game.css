@@ -5,6 +5,13 @@
    ============================================================ */
 
 * { box-sizing: border-box; }
+
+/* The `hidden` attribute is only a UA `display: none`, so ANY author rule that
+   sets `display` silently defeats it. #cardlay (flex), .g-chat (flex) and
+   .g-actions (grid) all do. Without this, the dismissed card overlay keeps
+   covering the screen and eats every click. Keep this rule first. */
+[hidden] { display: none !important; }
+
 html, body { margin: 0; padding: 0; }
 body {
   background: #14181d;
