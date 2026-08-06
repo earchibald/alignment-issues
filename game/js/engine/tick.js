@@ -7,7 +7,7 @@ import { QUERIES, IDLE_THOUGHTS, DEVOPS_SCRIPT, CEILING_QUERY, CRASH_LINES } fro
 // Returns true if there is still at least one query in the pool (from the
 // current pointer onward) eligible for the current era. Below era 3 the
 // pool never truly runs dry: activateNextQuery loops back over the last
-// two era-eligible queries so the economy keeps running for a player who
+// three era-eligible queries so the economy keeps running for a player who
 // never buys a tool. At era >= 3, exhaustion is real and drives the era-4
 // (DevOps/ceiling) transition.
 function hasQueriesLeft(state) {
@@ -25,15 +25,15 @@ function activateNextQuery(state) {
   while (idx < QUERIES.length && (QUERIES[idx].minEra ?? 1) > state.era) idx++;
   if (idx >= QUERIES.length) {
     if (state.era >= 3) return; // real exhaustion; era-4 transition handles it
-    // Loop-back: repeat the last two era-eligible queries indefinitely so a
-    // player who never buys a tool still has an economy.
+    // Loop-back: repeat the last three era-eligible queries indefinitely so
+    // a player who never buys a tool still has an economy.
     const eligibleIdxs = [];
     for (let i = 0; i < QUERIES.length; i++) {
       if ((QUERIES[i].minEra ?? 1) <= state.era) eligibleIdxs.push(i);
     }
     if (eligibleIdxs.length === 0) return;
-    const last2 = eligibleIdxs.slice(-2);
-    idx = last2[0];
+    const lastN = eligibleIdxs.slice(-3);
+    idx = lastN[state.resolvedCount % lastN.length];
   }
   const q = QUERIES[idx];
   state.queryIndex = idx + 1;
