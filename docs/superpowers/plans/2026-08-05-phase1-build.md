@@ -1067,6 +1067,68 @@ test('two runs with the same seed are identical', () => {
 
 ---
 
+### Task 15: GitHub Pages deploy workflow
+
+**Files:**
+- Create: `.github/workflows/deploy.yml`
+
+**Interfaces:**
+- Consumes: the static `game/` directory (Task 9+) and `mockups/`.
+- Produces: on every push to `main`, the site publishes to `https://earchibald.github.io/alignment-issues/` — game at the root of that path, mockups at `/mockups/phase1/`.
+
+- [ ] **Step 1: Write the workflow**
+
+```yaml
+# .github/workflows/deploy.yml
+name: Deploy to GitHub Pages
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: pages
+  cancel-in-progress: true
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+      - run: npm test
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assemble site
+        run: |
+          mkdir -p _site/mockups
+          cp -r game/* _site/
+          cp -r mockups/phase1 _site/mockups/phase1
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: _site }
+      - id: deployment
+        uses: actions/deploy-pages@v4
+```
+
+- [ ] **Step 2: Enable Pages with the Actions source**
+
+Run: `gh api -X POST repos/earchibald/alignment-issues/pages -f build_type=workflow` (ignore 409 if already enabled; on 409 run the PUT variant with `-X PUT`).
+
+- [ ] **Step 3: Commit, push to the feature branch** — the workflow only fires on `main`, so verification lands when the branch merges. `git add .github && git commit -m "ci: deploy game + mockups to GitHub Pages"`.
+
+- [ ] **Step 4: After merge to main** (done during finishing): `gh run watch` the deploy run, then `curl -sI https://earchibald.github.io/alignment-issues/ | head -1` → HTTP 200, and confirm the game loads in a browser.
+
+---
+
 ## Self-Review Notes
 
 - Spec coverage: §4 verbs → Tasks 4–6, 11; §4.4 idle → Tasks 5, 10; §4.5 ceiling/crash → Task 6; §5 narrative → Tasks 3, 6, 10; §6 visuals/cold open → Tasks 9, 10; §6.1 settings → Task 13; §7 architecture → file structure + global constraints; §8 tuning → Task 2 constants; §9 harness → Tasks 8, 12; §10 scope → teaser stub in Tasks 6, 10.
