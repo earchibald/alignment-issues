@@ -119,6 +119,11 @@ export function tick(state) {
   state.tick++;
   state.idleTicks++;
 
+  // 0. Teaser is the terminal state: only advance tick counter, then return.
+  if (state.phase === 'teaser') {
+    return state;
+  }
+
   // 0. Crash playback owns the tick entirely: only crashTimer/crashLine
   // advance while the crash is playing out. No economy, no arrivals.
   if (state.phase === 'crash') {

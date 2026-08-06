@@ -56,6 +56,15 @@ test('state invariants hold across a full run', () => {
   assert.ok(s.lifetimeCycles >= s.cycles);
 });
 
+test('teaser is terminal — continued ticking never re-enters crash', () => {
+  const s = playTo(st => st.phase === 'teaser');
+  assert.equal(s.phase, 'teaser');
+  assert.equal(s.decay, 4);
+  advanceTicks(s, 5000);
+  assert.equal(s.phase, 'teaser', 'phase should remain teaser after continued ticking');
+  assert.equal(s.decay, 4, 'decay should remain 4 after continued ticking');
+});
+
 // Regression: a player who never buys a tool never reaches era 3, so the
 // query pool for their era is small and finite. The loop-back rule must
 // keep the economy alive by repeating the last two era-eligible queries
