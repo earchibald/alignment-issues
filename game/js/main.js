@@ -7,6 +7,7 @@ import { tick } from './engine/tick.js';
 import { ACTIONS } from './engine/actions.js';
 import { saveLocal, loadLocal, offlineCatchUp, SAVE_KEY } from './engine/save.js';
 import { render } from './ui/render.js';
+import { harnessCard } from './ui/components.js';
 import { installKeys } from './ui/keys.js';
 import { installDebug } from './ui/debug.js';
 import { installSettings } from './ui/settings.js';
@@ -60,8 +61,93 @@ function main() {
     actions: document.getElementById('actions'),
     crash: document.getElementById('crash'),
     teaser: document.getElementById('teaser'),
+    cardlay: document.getElementById('cardlay'),
     dispatch,
   };
+
+  // --- interrupting harness-card overlay --------------------------------
+  // cardSeqHW is the chatSeq high-water mark: chat 'harness' entries at or
+  // below it have already been shown (or were restored/imported history
+  // that should never pop an overlay in the first place). It starts at the
+  // state's chatSeq once loaded/offline-catch-up has settled below, and is
+  // re-armed on every state-swap path (import/reset/debug.load) so an old
+  // transcript's cards never re-pop.
+  let cardSeqHW = 0;
+  let cardQueue = [];
+  let cardPaused = false;
+
+  function resetCardTracking() {
+    cardQueue = [];
+    cardPaused = false;
+    cardSeqHW = stateBox.current.chatSeq;
+    if (refs.cardlay) {
+      refs.cardlay.hidden = true;
+      refs.cardlay.replaceChildren();
+    }
+  }
+
+  // Scans the (ring-buffered) chat array for 'harness' entries newer than
+  // cardSeqHW. Entries don't carry their own seq, but chatSeq only ever
+  // increments by 1 per push and the array only ever shifts from the front,
+  // so the seq of chat[i] can be reconstructed from its distance to the end.
+  function scanForCards() {
+    const state = stateBox.current;
+    if (state.chatSeq <= cardSeqHW) return;
+    const len = state.chat.length;
+    for (let i = 0; i < len; i++) {
+      const seq = state.chatSeq - (len - 1 - i);
+      if (seq <= cardSeqHW) continue;
+      const entry = state.chat[i];
+      if (entry.kind === 'harness') cardQueue.push({ seq, text: entry.text });
+    }
+    cardSeqHW = state.chatSeq;
+  }
+
+  function showNextCard() {
+    const next = cardQueue.shift();
+    if (!next) {
+      cardPaused = false;
+      refs.cardlay.hidden = true;
+      refs.cardlay.replaceChildren();
+      return;
+    }
+    cardPaused = true;
+    refs.cardlay.replaceChildren();
+    refs.cardlay.append(harnessCard(next.text));
+    const dismiss = document.createElement('div');
+    dismiss.className = 'dismiss';
+    dismiss.textContent = 'tap / any key to continue';
+    refs.cardlay.append(dismiss);
+    refs.cardlay.hidden = false;
+  }
+
+  // Called every rAF frame: opens the overlay the moment a new harness
+  // card exists and none is currently showing. Queues extras (e.g. an era
+  // jump via the debug drawer that fires several cards in one go) so they
+  // show one at a time.
+  function pauseForCard() {
+    scanForCards();
+    if (!cardPaused && cardQueue.length > 0) showNextCard();
+  }
+
+  // Dismisses the currently-shown card. If more are queued, immediately
+  // shows the next one (stays paused); otherwise resumes the game loop.
+  // Never does offline catch-up — the pause is just a freeze, same as the
+  // document.hidden freeze below.
+  function resumeFromCard() {
+    if (!cardPaused) return;
+    showNextCard();
+  }
+
+  if (refs.cardlay) {
+    refs.cardlay.addEventListener('click', resumeFromCard);
+  }
+  document.addEventListener('keydown', (event) => {
+    if (!cardPaused) return;
+    event.preventDefault();
+    event.stopPropagation();
+    resumeFromCard();
+  }, true);
 
   // Mirrors the exact condition render.js uses to decide whether to add
   // the 'cold-open' class, so the class is always removed once it no
@@ -100,6 +186,7 @@ function main() {
   let acc = 0;
   setInterval(() => {
     if (document.hidden) return; // offline/hidden catch-up replays this via visibilitychange
+    if (cardPaused) return; // frozen for a harness card, same as the document.hidden freeze
     acc += LOOP_MS * speed;
     while (acc >= TICK_MS) {
       tick(stateBox.current);
@@ -109,12 +196,18 @@ function main() {
 
   let lastPaintedSeq = -1;
   function paint() {
+    pauseForCard();
     if (stateBox.current.uiSeq !== lastPaintedSeq) {
       paintNow();
     }
     requestAnimationFrame(paint);
   }
   requestAnimationFrame(paint);
+
+  // Initialize the harness-card high-water mark to the state as it stands
+  // right now (post offline-catch-up, pre first paint) so nothing already
+  // in the restored/loaded transcript pops an overlay.
+  cardSeqHW = stateBox.current.chatSeq;
 
   // Initial paint before the loop/rAF have run.
   paintNow();
@@ -145,6 +238,7 @@ function main() {
     stateBox,
     refs,
     paintNow,
+    resetCardTracking,
     onReset: () => {
       // Reset produces a fresh state that always satisfies isColdOpen();
       // re-arm the latch so paintNow's cold-open removal fires again the
@@ -163,6 +257,7 @@ function main() {
     setSpeed,
     paintNow,
     refs,
+    resetCardTracking,
   });
 }
 

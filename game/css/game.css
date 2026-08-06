@@ -665,6 +665,28 @@ dialog#settings .warn {
   margin: 4px 0;
 }
 
+/* Interrupting harness-card overlay (#cardlay) — pauses the game loop
+   until dismissed by tap or any key. */
+#cardlay {
+  position: absolute; inset: 0; z-index: 20;
+  background: rgba(0,0,0,0.55);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 24px; cursor: pointer;
+}
+#cardlay .harness-card { max-width: 420px; width: 100%; box-shadow: 0 8px 40px rgba(0,0,0,0.5); }
+#cardlay .dismiss {
+  margin-top: 10px; font-family: var(--g-font-log); font-size: 10.5px;
+  color: #cfd8d2; letter-spacing: 0.06em;
+}
+.chat-note.harness-callout { color: var(--g-harness); }
+dialog#settings .manual-hint {
+  font-family: var(--g-font-log); font-size: 10.5px; line-height: 1.55;
+  color: var(--g-harness); margin: 6px 0;
+}
+dialog#settings .manual-hint.manual-empty { color: var(--g-ink-dim); }
+dialog#settings .harness-card { margin: 8px 0; }
+
 /* Cold open: action tray + status strip fade in after a beat, instant if reduced motion */
 .cold-open {
   opacity: 0;

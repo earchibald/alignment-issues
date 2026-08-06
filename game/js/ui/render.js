@@ -9,7 +9,7 @@ import { effectiveCost, loopCost, toolCost, warmthMult } from '../engine/actions
 import { CRASH_LINES } from '../engine/content.js';
 import {
   bubble, genImgCard, toolCallCard, thinkBlock, chatNote, logLine,
-  meterRow, chip, actionButton, harnessCard,
+  meterRow, chip, actionButton,
 } from './components.js';
 
 // --- module-scope change-detection state -----------------------------
@@ -98,8 +98,11 @@ function chatEntryToEl(entry) {
       return chatNote(entry.text, false);
     case 'tool':
       return toolCallCard(entry.text);
-    case 'harness':
-      return harnessCard(entry.text);
+    case 'harness': {
+      const note = chatNote('— harness patch applied · review in settings —', false);
+      note.classList.add('harness-callout');
+      return note;
+    }
     case 'think': {
       const sep = ' — ';
       const idx = entry.text.indexOf(sep);
