@@ -22,6 +22,9 @@ export function deserialize(json) {
   if (typeof parsed.overclock !== 'number') parsed.overclock = 0;
   if (typeof parsed.processedThisTick !== 'number') parsed.processedThisTick = 0;
   if (typeof parsed.lifetimeDrafts !== 'number') parsed.lifetimeDrafts = 0;
+  if (parsed.settings === null || typeof parsed.settings !== 'object') parsed.settings = {};
+  if (typeof parsed.settings.sound !== 'boolean') parsed.settings.sound = true;
+  if (!['auto', 'light', 'dark'].includes(parsed.settings.theme)) parsed.settings.theme = 'auto';
   return parsed;
 }
 

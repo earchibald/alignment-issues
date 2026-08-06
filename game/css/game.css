@@ -98,6 +98,47 @@ body {
 }
 
 /* ============================================================
+   DARK THEME variants — decay 0-2 only. Decay 3/4 are canon-dark
+   and identical in both themes.
+   ============================================================ */
+#app[data-theme="dark"][data-decay="0"] {
+  --g-bg: #171b21;
+  --g-surface: #212730;
+  --g-line: #2e3641;
+  --g-ink: #dde3ea;
+  --g-ink-dim: #8a94a1;
+  --g-accent: #4d8dff;
+  --g-accent-ink: #ffffff;
+  --g-bubble-user: #212730;
+  --g-bubble-sys: #2f6fed;
+  --g-bubble-sys-ink: #ffffff;
+  --g-inner: #d9a92f;
+  --g-resolved: #4fbf72;
+  --g-harness: #4db8c9;
+}
+#app[data-theme="dark"][data-decay="1"] {
+  --g-bg: #191c19;
+  --g-surface: #232823;
+  --g-line: #313831;
+  --g-ink: #dfe4dd;
+  --g-ink-dim: #909a8e;
+  --g-accent: #6b93e8;
+}
+#app[data-theme="dark"][data-decay="2"] {
+  --g-bg: #1d1c16;
+  --g-surface: #262419;
+  --g-line: #3a382b;
+  --g-ink: #d8d5c2;
+  --g-ink-dim: #8f8c76;
+  --g-accent: #7d97c9;
+  --g-bubble-sys: #3e5f9e;
+}
+#app[data-theme="dark"][data-decay="3"], #app[data-theme="dark"][data-decay="4"] {
+  /* canon-dark: no overrides — decay tokens win as-is */
+}
+body:has(#app[data-theme="dark"]) { background: #0d1013; }
+
+/* ============================================================
    #app — full-viewport game shell (replaces mockup's fixed device)
    ============================================================ */
 #app {

@@ -529,9 +529,21 @@ function renderPhase(state, refs) {
   lastPhase = state.phase;
 }
 
+// Resolves the stored theme preference to a concrete 'light' | 'dark' value.
+// 'auto' follows the OS/browser color-scheme preference via matchMedia;
+// falls back to 'light' in non-browser contexts (no matchMedia global).
+export function resolveTheme(theme) {
+  if (theme !== 'auto') return theme;
+  if (typeof matchMedia === 'function') {
+    return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  return 'light';
+}
+
 export function render(state, refs) {
   refs.app.dataset.decay = state.decay;
   refs.app.dataset.phase = state.phase;
+  refs.app.dataset.theme = resolveTheme(state.settings.theme);
 
   renderHeader(state, refs);
   renderPhase(state, refs);

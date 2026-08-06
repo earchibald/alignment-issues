@@ -52,7 +52,7 @@ export function createState(seed) {
     log: [],                // {kind:'system'|'resolved'|'thinking', text}
     crashLine: 0,
     crashTimer: 0,
-    settings: { sound: true },
+    settings: { sound: true, theme: 'auto' },
     uiSeq: 0,               // bumped on any visible change; renderer watches it
     chatSeq: 0,              // monotonic counter, bumped on every pushChat (survives ring-buffer caps)
     logSeq: 0,               // monotonic counter, bumped on every pushLog (survives ring-buffer caps)

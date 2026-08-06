@@ -260,6 +260,22 @@ function main() {
     refs.status.classList.add('cold-open');
   }
 
+  // When the theme preference is 'auto', the resolved theme tracks the
+  // OS/browser color-scheme setting. Force a repaint on change so a live
+  // OS theme switch is reflected immediately instead of waiting for the
+  // next unrelated state change.
+  if (typeof matchMedia === 'function') {
+    const darkSchemeQuery = matchMedia('(prefers-color-scheme: dark)');
+    const onSchemeChange = () => {
+      if (stateBox.current.settings.theme === 'auto') paintNow();
+    };
+    if (typeof darkSchemeQuery.addEventListener === 'function') {
+      darkSchemeQuery.addEventListener('change', onSchemeChange);
+    } else if (typeof darkSchemeQuery.addListener === 'function') {
+      darkSchemeQuery.addListener(onSchemeChange);
+    }
+  }
+
   function doSave() {
     saveLocal(stateBox.current);
   }

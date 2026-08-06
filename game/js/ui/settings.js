@@ -50,6 +50,33 @@ export function installSettings({ stateBox, refs, paintNow, onReset, resetCardTr
   soundLabel.append(soundCheckbox, document.createTextNode(' Sound'));
   dialog.append(row(soundLabel));
 
+  // --- theme selector -------------------------------------------------
+  const themeHeading = document.createElement('h4');
+  themeHeading.textContent = 'Theme';
+  dialog.append(themeHeading);
+
+  function themeRadio(value, labelText) {
+    const label = document.createElement('label');
+    label.className = 'settings-label';
+    const radio = document.createElement('input');
+    radio.type = 'radio';
+    radio.name = 'theme';
+    radio.value = value;
+    radio.dataset.testid = `theme-${value}`;
+    radio.addEventListener('change', () => {
+      if (!radio.checked) return;
+      stateBox.current.settings.theme = value;
+      saveLocal(stateBox.current);
+    });
+    label.append(radio, document.createTextNode(` ${labelText}`));
+    return { label, radio };
+  }
+
+  const themeAuto = themeRadio('auto', 'Auto');
+  const themeLight = themeRadio('light', 'Light');
+  const themeDark = themeRadio('dark', 'Dark');
+  dialog.append(row(themeAuto.label, themeLight.label, themeDark.label));
+
   // --- export -------------------------------------------------------
   const exportHeading = document.createElement('h4');
   exportHeading.textContent = 'Export save';
@@ -216,6 +243,10 @@ export function installSettings({ stateBox, refs, paintNow, onReset, resetCardTr
   // --- openSettings function ----------------------------------------
   function openSettings() {
     soundCheckbox.checked = !!stateBox.current.settings.sound;
+    const theme = stateBox.current.settings.theme || 'auto';
+    themeAuto.radio.checked = theme === 'auto';
+    themeLight.radio.checked = theme === 'light';
+    themeDark.radio.checked = theme === 'dark';
     confirmRow.hidden = true;
     confirmInput.value = '';
     importError.textContent = '';
