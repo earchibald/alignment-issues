@@ -9,6 +9,7 @@ import { saveLocal, loadLocal, offlineCatchUp, SAVE_KEY } from './engine/save.js
 import { render } from './ui/render.js';
 import { installKeys } from './ui/keys.js';
 import { installDebug } from './ui/debug.js';
+import { installSettings } from './ui/settings.js';
 
 const TICK_MS = 200;
 const LOOP_MS = 50;
@@ -136,6 +137,19 @@ function main() {
   globalThis.addEventListener('pagehide', doSave);
 
   installKeys(dispatch);
+
+  installSettings({
+    stateBox,
+    refs,
+    paintNow,
+    onReset: () => {
+      // Reset produces a fresh state that always satisfies isColdOpen();
+      // re-arm the latch so paintNow's cold-open removal fires again the
+      // next time the player leaves the cold open, instead of staying
+      // permanently desynced from a state it never saw reset.
+      coldOpenActive = true;
+    },
+  });
 
   installDebug({
     stateBox,

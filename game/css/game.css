@@ -538,6 +538,7 @@ body {
 
 /* Settings dialog */
 dialog#settings {
+  position: relative;
   border: 1px solid var(--g-line);
   border-radius: var(--g-radius);
   background: var(--g-bg);
@@ -549,6 +550,75 @@ dialog#settings {
 }
 dialog#settings::backdrop {
   background: rgba(0,0,0,0.5);
+}
+dialog#settings h3.settings-title {
+  margin: 0 0 12px;
+  font-size: 15px;
+}
+dialog#settings h4 {
+  margin: 16px 0 6px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--g-ink-dim);
+}
+dialog#settings .settings-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+  flex-wrap: wrap;
+}
+dialog#settings .settings-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+dialog#settings textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font-family: var(--g-font-log);
+  font-size: 11px;
+  background: var(--g-surface);
+  color: var(--g-ink);
+  border: 1px solid var(--g-line);
+  border-radius: 4px;
+  padding: 6px 8px;
+  resize: vertical;
+}
+dialog#settings button {
+  font-family: inherit;
+  font-size: 12.5px;
+  background: var(--g-surface);
+  color: var(--g-ink);
+  border: 1px solid var(--g-line);
+  border-radius: 4px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+dialog#settings button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+dialog#settings .settings-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+}
+dialog#settings input[type="text"] {
+  font-family: inherit;
+  font-size: 12.5px;
+  background: var(--g-surface);
+  color: var(--g-ink);
+  border: 1px solid var(--g-line);
+  border-radius: 4px;
+  padding: 5px 8px;
+}
+dialog#settings .warn {
+  color: #d84a3d;
+  font-size: 12px;
+  margin: 4px 0;
 }
 
 /* Cold open: action tray fades in after a beat, instant if reduced motion */
