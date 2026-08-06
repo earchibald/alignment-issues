@@ -62,6 +62,7 @@ function main() {
     crash: document.getElementById('crash'),
     teaser: document.getElementById('teaser'),
     cardlay: document.getElementById('cardlay'),
+    fx: document.getElementById('fx'),
     dispatch,
   };
 
@@ -177,9 +178,27 @@ function main() {
     }
   }
 
+  // Cooldown "sweep" flash on the process button: only when a landed press
+  // (tokens actually increased) processed against an active query, not on
+  // idle drafting or presses that were dropped by the per-tick cap.
+  function flashSweep() {
+    const btn = refs.actions.querySelector('[data-testid="process"]');
+    if (!btn) return;
+    btn.classList.add('sweep');
+    btn.addEventListener('animationend', () => btn.classList.remove('sweep'), { once: true });
+  }
+
   function dispatch(name, arg) {
     const action = ACTIONS[name];
     if (!action) return;
+    if (name === 'processToken') {
+      const hadActiveQuery = !!stateBox.current.activeQuery;
+      const tokensBefore = stateBox.current.tokens;
+      action(stateBox.current, arg);
+      paintNow();
+      if (hadActiveQuery && stateBox.current.tokens > tokensBefore) flashSweep();
+      return;
+    }
     action(stateBox.current, arg);
     paintNow();
   }

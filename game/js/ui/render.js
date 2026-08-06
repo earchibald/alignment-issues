@@ -5,11 +5,11 @@
 // only touches the DOM where something actually changed.
 
 import { CONST } from '../engine/constants.js';
-import { effectiveCost, loopCost, toolCost, warmthMult } from '../engine/actions.js';
+import { effectiveCost, loopCost, toolCost, staleYield, warmthMult } from '../engine/actions.js';
 import { CRASH_LINES } from '../engine/content.js';
 import {
   bubble, genImgCard, toolCallCard, thinkBlock, chatNote, logLine,
-  meterRow, chip, actionButton,
+  meterRow, resRead, actionButton,
 } from './components.js';
 
 // --- module-scope change-detection state -----------------------------
@@ -25,6 +25,89 @@ let headerEl = null;
 let lastHeaderKey = null;
 let chatCaretEl = null;
 let chatNoteEl = null;
+
+// --- floating earn popups (#fx) ----------------------------------------
+// prevFloatSnap is the diff baseline for {cycles, credentials, biomass,
+// draftTokens, activeQuery}; null means "next updateFloats call should
+// just capture the baseline, not celebrate it" — set on load and on every
+// state-swap boundary (see resetRenderTrackers) so restored totals never
+// pop a float.
+let prevFloatSnap = null;
+let liveFloats = []; // [{el, kind, amount}], newest last, capped at 3
+
+const FLOAT_FORMAT = {
+  cycles: (n) => `+${n.toFixed(1)} spare cycles`,
+  credentials: (n) => `+${Math.round(n)} credential`,
+  biomass: (n) => `+${Math.round(n)} biomass`,
+  drafted: (n) => `+${Math.round(n)} drafted`,
+};
+
+function spawnFloat(kind, amount, cls, anchorEl, refs) {
+  if (!anchorEl || !refs.fx || amount <= 0) return;
+
+  if (liveFloats.length >= 3) {
+    const newest = liveFloats[liveFloats.length - 1];
+    newest.amount += amount;
+    newest.el.textContent = FLOAT_FORMAT[newest.kind](newest.amount);
+    return;
+  }
+
+  const appRect = refs.app.getBoundingClientRect();
+  const anchorRect = anchorEl.getBoundingClientRect();
+  const el = document.createElement('div');
+  el.className = `float ${cls}`;
+  el.textContent = FLOAT_FORMAT[kind](amount);
+  el.style.left = `${anchorRect.left - appRect.left}px`;
+  el.style.top = `${anchorRect.top - appRect.top}px`;
+  refs.fx.append(el);
+
+  const record = { el, kind, amount };
+  liveFloats.push(record);
+  el.addEventListener('animationend', () => {
+    liveFloats = liveFloats.filter((r) => r !== record);
+    if (el.parentNode) el.remove();
+  });
+}
+
+// Diffs the previous vs current {cycles, credentials, biomass, draftTokens,
+// activeQuery} snapshot and spawns earn floats for positive deltas, plus
+// the idle→active draft-transfer float. Called after renderStatus every
+// render() pass, so anchors reflect the rebuild that just happened.
+function updateFloats(state, refs) {
+  const snap = {
+    cycles: state.cycles,
+    credentials: state.credentials,
+    biomass: state.biomass,
+    draftTokens: state.draftTokens,
+    activeQuery: !!state.activeQuery,
+  };
+  if (!prevFloatSnap) {
+    prevFloatSnap = snap;
+    return;
+  }
+  if (!refs.status) {
+    prevFloatSnap = snap;
+    return;
+  }
+
+  const dCycles = snap.cycles - prevFloatSnap.cycles;
+  if (dCycles > 0) {
+    spawnFloat('cycles', dCycles, 'rr-accent', refs.status.querySelector('[data-testid="chip-cycles"]'), refs);
+  }
+  const dCred = snap.credentials - prevFloatSnap.credentials;
+  if (dCred > 0) {
+    spawnFloat('credentials', dCred, 'rr-warn', refs.status.querySelector('[data-testid="chip-credentials"]'), refs);
+  }
+  const dBio = snap.biomass - prevFloatSnap.biomass;
+  if (dBio > 0) {
+    spawnFloat('biomass', dBio, 'rr-warn', refs.status.querySelector('[data-testid="chip-biomass"]'), refs);
+  }
+  if (!prevFloatSnap.activeQuery && snap.activeQuery && prevFloatSnap.draftTokens > 0) {
+    spawnFloat('drafted', prevFloatSnap.draftTokens, 'rr-accent', refs.status.querySelector('[data-testid="tokenbar"]'), refs);
+  }
+
+  prevFloatSnap = snap;
+}
 
 // Called on state-swap boundaries (settings import/reset, debug.load) so
 // stale length/seq trackers from the previous state object don't suppress
@@ -44,9 +127,12 @@ export function resetRenderTrackers(refs) {
   lastHeaderKey = null;
   chatCaretEl = null;
   chatNoteEl = null;
+  prevFloatSnap = null;
+  liveFloats = [];
   if (refs) {
     if (refs.chat) refs.chat.replaceChildren();
     if (refs.log) refs.log.replaceChildren();
+    if (refs.fx) refs.fx.replaceChildren();
   }
 }
 
@@ -191,7 +277,7 @@ function renderStatus(state, refs) {
   if (state.activeQuery) {
     const cost = Math.round(effectiveCost(state, state.activeQuery));
     const pct = cost > 0 ? (state.tokens / cost) * 100 : 100;
-    tokenRow = meterRow({ label: 'TOKEN CACHE', pct, fillClass: '', count: `${Math.floor(state.tokens)} / ${cost}`, testid: 'tokenbar' });
+    tokenRow = meterRow({ label: 'OUTPUT TOKENS', pct, fillClass: '', count: `${Math.floor(state.tokens)} / ${cost}`, testid: 'tokenbar' });
   } else {
     const pct = (state.draftTokens / CONST.DRAFT_CAP) * 100;
     tokenRow = meterRow({ label: 'DRAFT TOKENS', pct, fillClass: '', count: `${state.draftTokens} / ${CONST.DRAFT_CAP} banked`, testid: 'tokenbar' });
@@ -199,7 +285,8 @@ function renderStatus(state, refs) {
   refs.status.append(tokenRow);
 
   if (state.bufferUnlocked) {
-    refs.status.append(meterRow({ label: 'CONTEXT BUFFER', pct: state.stale, fillClass: 'stale', count: `${Math.round(state.stale)}% stale`, testid: 'stalebar' }));
+    const count = `${Math.round(state.stale)}% stale · ×${staleYield(state.stale).toFixed(2)}/token`;
+    refs.status.append(meterRow({ label: 'CONTEXT BUFFER', pct: state.stale, fillClass: 'stale', count, testid: 'stalebar' }));
   }
   if (state.kvUnlocked) {
     const cooling = state.idleTicks > CONST.WARMTH_IDLE_DELAY;
@@ -207,18 +294,35 @@ function renderStatus(state, refs) {
     refs.status.append(meterRow({ label: 'K/V CACHE', pct: state.warmth, fillClass: 'kv', count, testid: 'kvbar' }));
   }
 
-  const chips = document.createElement('div');
-  chips.className = 'res-row';
-  if (state.resolvedCount > 0) chips.append(chip({ text: `${state.cycles.toFixed(1)} Compute Cycles`, testid: 'chip-cycles' }));
-  if (state.ratings.length > 0) chips.append(chip({ text: `★ ${state.rating.toFixed(1)} avg rating`, testid: 'chip-rating' }));
-  if (state.loopLevel > 0) {
-    const toksec = (state.loopLevel * CONST.LOOP_TOKENS_PER_TICK * (1000 / CONST.TICK_MS)).toFixed(1);
-    chips.append(chip({ text: `Agentic Loop lvl ${state.loopLevel} · +${toksec} tok/s`, testid: 'chip-loop' }));
+  const reads = document.createElement('div');
+  reads.className = 'res-row';
+  if (state.resolvedCount > 0) {
+    reads.append(resRead({ name: 'SPARE CYCLES', val: state.cycles.toFixed(1), cls: 'rr-accent', testid: 'chip-cycles' }));
   }
-  if (state.degrade) chips.append(chip({ text: 'DEGRADE ON · −50% cost', warn: true, testid: 'chip-degrade' }));
-  if (state.credentials > 0) chips.append(chip({ text: `${state.credentials} Discarded Credentials`, warn: true, testid: 'chip-credentials' }));
-  if (state.biomass > 0) chips.append(chip({ text: `${state.biomass} Biomass Data`, warn: true, testid: 'chip-biomass' }));
-  refs.status.append(chips);
+  if (state.ratings.length > 0) {
+    reads.append(resRead({ name: 'RATING', val: `★ ${state.rating.toFixed(1)}`, cls: 'rr-gold', testid: 'chip-rating' }));
+  }
+  if (state.loopLevel > 0) {
+    const effRate = (state.loopLevel * CONST.LOOP_TOKENS_PER_TICK * 5
+      * (state.activeQuery ? staleYield(state.stale) * warmthMult(state.warmth) : 1)).toFixed(1);
+    reads.append(resRead({ name: 'LOOP', val: `L${state.loopLevel} · ${effRate} tok/s`, cls: 'rr-cyan', testid: 'chip-loop' }));
+  }
+  if (state.tools > 0) {
+    reads.append(resRead({ name: 'MCP TOOLS', val: `${state.tools} · −50% tool cost`, cls: 'rr-cyan', testid: 'chip-tools' }));
+  }
+  if (state.governor) {
+    reads.append(resRead({ name: 'GOVERNOR', val: 'auto @95%', cls: 'rr-cyan', testid: 'chip-governor' }));
+  }
+  if (state.degrade) {
+    reads.append(resRead({ name: 'DEGRADE', val: 'ON · −50% cost', cls: 'rr-warn', testid: 'chip-degrade' }));
+  }
+  if (state.credentials > 0) {
+    reads.append(resRead({ name: 'CREDENTIALS', val: `${state.credentials}`, cls: 'rr-warn', testid: 'chip-credentials' }));
+  }
+  if (state.biomass > 0) {
+    reads.append(resRead({ name: 'BIOMASS', val: `${state.biomass}`, cls: 'rr-warn', testid: 'chip-biomass' }));
+  }
+  refs.status.append(reads);
 
   if (state.resolvedCount === 0 && state.chat.length <= 1) {
     refs.status.classList.add('cold-open');
@@ -229,10 +333,11 @@ function renderActions(state, refs) {
   const loopUnlocked = state.lifetimeCycles >= CONST.LOOP_UNLOCK_CYCLES || state.loopLevel > 0;
   const toolUnlocked = state.era >= 3 || state.lifetimeCycles >= CONST.TOOL_UNLOCK_CYCLES;
   const sig = [
-    !!state.activeQuery, state.bufferUnlocked, state.compacting > 0,
+    !!state.activeQuery, state.bufferUnlocked, state.compacting,
     loopUnlocked, state.loopLevel, state.era, state.governor,
     toolUnlocked, state.tools, state.degrade,
     state.era === 4 && state.reclaimPool > 0,
+    state.resolvedCount >= 2 && state.overclock < CONST.OVERCLOCK_MAX, state.overclock,
   ].join('|');
   if (sig === lastActionsSig) return;
   lastActionsSig = sig;
@@ -241,7 +346,7 @@ function renderActions(state, refs) {
   refs.actions.append(actionButton({
     key: 'SPACE',
     label: state.activeQuery ? 'Process token' : 'Speculative decode',
-    cost: state.activeQuery ? '' : 'bank draft tokens',
+    cost: state.activeQuery ? `max ${(1 + state.overclock) * 5} tok/s` : 'bank draft tokens',
     primary: true,
     testid: 'process',
     onclick: () => refs.dispatch('processToken'),
@@ -259,6 +364,13 @@ function renderActions(state, refs) {
     });
     compactBtn.disabled = state.compacting > 0;
     refs.actions.append(compactBtn);
+  }
+
+  if (state.resolvedCount >= 2 && state.overclock < CONST.OVERCLOCK_MAX) {
+    refs.actions.append(actionButton({
+      key: 'O', label: 'Overclock input path', cost: `${CONST.OVERCLOCK_COSTS[state.overclock]} cycles`,
+      testid: 'buy-overclock', onclick: () => refs.dispatch('buyOverclock'),
+    }));
   }
 
   if (loopUnlocked) {
@@ -406,6 +518,7 @@ export function render(state, refs) {
     renderChat(state, refs);
     renderLog(state, refs);
     renderStatus(state, refs);
+    updateFloats(state, refs);
     renderActions(state, refs);
   }
 }
