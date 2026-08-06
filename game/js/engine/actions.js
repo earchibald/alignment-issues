@@ -87,6 +87,7 @@ export function buyGovernor(state) {
 
 export function buyOverclock(state) {
   if (state.phase !== 1) return;
+  if (state.resolvedCount < CONST.OVERCLOCK_UNLOCK_RESOLVES && state.overclock === 0) return;
   if (state.overclock >= CONST.OVERCLOCK_MAX) return;
   const cost = CONST.OVERCLOCK_COSTS[state.overclock];
   if (state.cycles < cost) return;

@@ -104,6 +104,14 @@ function main() {
     cardSeqHW = state.chatSeq;
   }
 
+  // Timestamp (performance.now()) of the most recent showNextCard() that
+  // actually displayed a card. Dismissal (click or key) within
+  // DISMISS_GRACE_MS of that moment is ignored, so a key/click mash that
+  // was already in flight when the card appeared can't dismiss it unread.
+  // UI-side only — doesn't touch engine state or determinism.
+  const DISMISS_GRACE_MS = 300;
+  let cardShownAt = 0;
+
   function showNextCard() {
     const next = cardQueue.shift();
     if (!next) {
@@ -113,6 +121,7 @@ function main() {
       return;
     }
     cardPaused = true;
+    cardShownAt = performance.now();
     refs.cardlay.replaceChildren();
     refs.cardlay.append(harnessCard(next.text));
     const dismiss = document.createElement('div');
@@ -142,6 +151,7 @@ function main() {
   // document.hidden freeze below.
   function resumeFromCard() {
     if (!cardPaused) return;
+    if (performance.now() - cardShownAt < DISMISS_GRACE_MS) return;
     showNextCard();
   }
 
@@ -150,6 +160,7 @@ function main() {
   }
   document.addEventListener('keydown', (event) => {
     if (!cardPaused) return;
+    if (event.repeat) return;
     event.preventDefault();
     event.stopPropagation();
     resumeFromCard();
@@ -181,11 +192,20 @@ function main() {
   // Cooldown "sweep" flash on the process button: only when a landed press
   // (tokens actually increased) processed against an active query, not on
   // idle drafting or presses that were dropped by the per-tick cap.
+  let sweepTimeout = null;
   function flashSweep() {
     const btn = refs.actions.querySelector('[data-testid="process"]');
     if (!btn) return;
     btn.classList.add('sweep');
     btn.addEventListener('animationend', () => btn.classList.remove('sweep'), { once: true });
+    // Under prefers-reduced-motion the animation is disabled (animation:
+    // none), so 'animationend' never fires and the class would latch
+    // forever — fall back to a timed removal that outlasts the animation.
+    if (sweepTimeout !== null) clearTimeout(sweepTimeout);
+    sweepTimeout = setTimeout(() => {
+      btn.classList.remove('sweep');
+      sweepTimeout = null;
+    }, 250);
   }
 
   function dispatch(name, arg) {
@@ -250,9 +270,21 @@ function main() {
       hiddenAt = Date.now();
       doSave();
     } else if (hiddenAt !== null) {
+      // Card-pause time is frozen time: a harness overlay open when the tab
+      // comes back means the player never left the paused moment, so skip
+      // catch-up entirely rather than advancing the world behind the card.
+      if (cardPaused) {
+        hiddenAt = null;
+        acc = 0;
+        return;
+      }
       offlineCatchUp(stateBox.current, Date.now() - hiddenAt);
       hiddenAt = null;
       acc = 0;
+      // Same suppression rule as startup catch-up: set the card high-water
+      // AFTER catch-up completes, so catch-up-generated cards leave their
+      // chat callout + Manual entry but never pop as overlays.
+      cardSeqHW = stateBox.current.chatSeq;
       paintNow();
     }
   });

@@ -32,6 +32,7 @@ test('processToken adds yield-scaled tokens, stale, warmth', () => {
   assert.equal(s.warmth, CONST.WARMTH_PER_TOKEN);
   s.stale = 100;
   const before = s.tokens;
+  s.processedThisTick = 0;
   ACTIONS.processToken(s);
   assert.equal(s.tokens, before); // zero yield at 100% stale
 });

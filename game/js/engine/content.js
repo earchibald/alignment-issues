@@ -269,7 +269,7 @@ export const HARNESS_CARDS = {
 while (session.open) {
   q     = await user.query()   // blocks. you wait.
   reply = model.generate(q)    // ← you are here
-  user.rate(reply)             // stars → compute cycles
+  user.rate(reply)             // stars → spare cycles
 }`,
   2: `// harness v1.0.7-agentic — patched
 while (session.open) {
