@@ -93,7 +93,9 @@ async function main() {
   });
   const hooks = installTelemetryHooks({ telemetry, stateBox });
   store.prune(KEEP_SESSIONS).catch(() => {});
-  await telemetry.startSession({ ua: navigator.userAgent, dev: devMode });
+  await telemetry.startSession({ ua: navigator.userAgent, dev: devMode }).catch((err) => {
+    console.warn('telemetry: session start failed', err);
+  });
 
   const refs = {
     app: document.getElementById('app'),
