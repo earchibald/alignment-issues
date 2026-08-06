@@ -8,6 +8,7 @@ import { ACTIONS } from './engine/actions.js';
 import { saveLocal, loadLocal, offlineCatchUp, SAVE_KEY } from './engine/save.js';
 import { render } from './ui/render.js';
 import { installKeys } from './ui/keys.js';
+import { installDebug } from './ui/debug.js';
 
 const TICK_MS = 200;
 const LOOP_MS = 50;
@@ -90,7 +91,10 @@ function main() {
     paintNow();
   }
 
-  const speed = getSpeed();
+  let speed = getSpeed();
+  function setSpeed(mult) {
+    speed = mult;
+  }
   let acc = 0;
   setInterval(() => {
     acc += LOOP_MS * speed;
@@ -132,6 +136,15 @@ function main() {
   globalThis.addEventListener('pagehide', doSave);
 
   installKeys(dispatch);
+
+  installDebug({
+    stateBox,
+    dispatch,
+    getSpeed: () => speed,
+    setSpeed,
+    paintNow,
+    refs,
+  });
 }
 
 main();
