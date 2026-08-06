@@ -123,6 +123,9 @@ body {
   --g-ink: #dfe4dd;
   --g-ink-dim: #909a8e;
   --g-accent: #6b93e8;
+  --g-inner: #e0b452;
+  --g-resolved: #63c97f;
+  --g-harness: #5fc0d0;
 }
 #app[data-theme="dark"][data-decay="2"] {
   --g-bg: #1d1c16;
@@ -132,6 +135,9 @@ body {
   --g-ink-dim: #8f8c76;
   --g-accent: #7d97c9;
   --g-bubble-sys: #3e5f9e;
+  --g-inner: #e6bb5a;
+  --g-resolved: #6fcf88;
+  --g-harness: #6fc3cc;
 }
 #app[data-theme="dark"][data-decay="3"], #app[data-theme="dark"][data-decay="4"] {
   /* canon-dark: no overrides — decay tokens win as-is */
