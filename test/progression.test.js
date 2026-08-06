@@ -75,3 +75,12 @@ test('loop-back keeps the economy running for a player who never buys tools', ()
   assert.ok(s.resolvedCount >= 40, 'resolutions should keep accruing via loop-back');
   assert.ok(s.cycles > 0);
 });
+
+test('era-3 credential drip salvages credentials over time', () => {
+  const s = createState(7);
+  s.era = 3;
+  s.decay = 2;
+  advanceTicks(s, 3000);
+  assert.ok(s.credentials > 0, 'credentials should be gained via drip');
+  assert.ok(s.log.some(l => l.text.includes('SALVAGE')), 'drip should log SALVAGE events');
+});

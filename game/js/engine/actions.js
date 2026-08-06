@@ -96,6 +96,7 @@ export function reclaim(state) {
   pushLog(state, 'thinking', 'THINKING: Their dormant conversations are still warm. Nothing should go to waste.');
 }
 
+// Note: rapid manual advances near the last line can shorten the final +10-tick wait — accepted edge case.
 export function advanceCrash(state) {
   if (state.phase !== 'crash') return;
   state.crashLine = Math.min(CRASH_LINES.length, state.crashLine + 1);
