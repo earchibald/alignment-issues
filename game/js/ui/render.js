@@ -151,6 +151,15 @@ function headerInfo(decay) {
   return { title: 'coding_agent', ver: 'v?.?.?-AGENT', dot: 'crit' };
 }
 
+// The settings control is diegetic: it reads as a gear icon while the
+// console still looks like a normal chat app, then degrades into the same
+// bracketed mono shorthand as the rest of the decayed chrome.
+function gearInfo(decay) {
+  if (decay <= 1) return { text: '⚙', label: 'Chat settings', mono: false };
+  if (decay === 2) return { text: '[prefs]', label: 'Chat settings', mono: true };
+  return { text: '[cfg]', label: 'Chat settings', mono: true };
+}
+
 function renderHeader(state, refs) {
   if (!headerEl) {
     headerEl = document.createElement('div');
@@ -162,15 +171,25 @@ function renderHeader(state, refs) {
     const ver = document.createElement('span');
     ver.className = 'g-ver';
     headerEl.append(dot, title, ver);
+    const gearBtn = document.getElementById('gear');
+    if (gearBtn) headerEl.append(gearBtn);
     refs.app.insertBefore(headerEl, refs.app.firstChild);
   }
   const info = headerInfo(state.decay);
-  const key = `${info.title}|${info.ver}|${info.dot}`;
+  const gear = gearInfo(state.decay);
+  const key = `${info.title}|${info.ver}|${info.dot}|${gear.text}`;
   if (key === lastHeaderKey) return;
   lastHeaderKey = key;
   headerEl.querySelector('.dot').className = info.dot ? `dot ${info.dot}` : 'dot';
   headerEl.querySelector('.g-title').textContent = info.title;
   headerEl.querySelector('.g-ver').textContent = info.ver;
+  const gearBtn = document.getElementById('gear');
+  if (gearBtn) {
+    gearBtn.textContent = gear.text;
+    gearBtn.setAttribute('aria-label', gear.label);
+    gearBtn.setAttribute('title', gear.label);
+    gearBtn.classList.toggle('mono', gear.mono);
+  }
 }
 
 function chatEntryToEl(entry) {

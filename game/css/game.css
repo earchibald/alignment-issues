@@ -290,6 +290,7 @@ body {
   padding: 8px 14px;
   font-family: var(--g-font-log);
   font-size: 11px;
+  font-weight: 500;
   line-height: 1.6;
 }
 .g-log .l-system { color: var(--g-ink-dim); }
@@ -312,7 +313,9 @@ body {
   gap: 10px;
   font-family: var(--g-font-log);
   font-size: 11px;
-  color: var(--g-ink-dim);
+  font-weight: 600;
+  color: var(--g-ink);
+  opacity: 0.85;
 }
 .tokenbar {
   flex: 1;
@@ -369,6 +372,7 @@ body {
   color: var(--g-ink);
   font-family: inherit;
   font-size: 12px;
+  font-weight: 500;
   padding: 5px 10px;
   cursor: pointer;
   text-align: left;
@@ -562,29 +566,32 @@ body {
    Game-shell-specific additions (not in the mockup chrome)
    ============================================================ */
 
-/* Settings gear — absolute top-right of #app */
+/* Settings control — diegetic header element (relocated from index.html
+   by renderHeader on first build; see game/js/ui/render.js). */
 #gear {
-  position: absolute;
-  top: 4px;
-  right: 6px;
-  z-index: 5;
+  margin-left: 8px;
+  flex: none;
   background: none;
   border: none;
   color: var(--g-ink-dim);
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1;
-  padding: 6px;
-  min-width: 44px;
-  min-height: 44px;
+  padding: 8px;
+  min-width: 34px;
+  min-height: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  opacity: 0.4;
-  transition: opacity 0.2s;
+  transition: color 0.2s;
 }
-#gear:hover, #gear:focus-visible { opacity: 1; }
+#gear.mono {
+  font-family: var(--g-font-log);
+  font-size: 10.5px;
+}
+#gear:hover, #gear:focus-visible { color: var(--g-ink); }
 #gear:focus-visible { outline: 2px solid var(--g-accent); outline-offset: 2px; }
+#app[data-decay="3"] #gear, #app[data-decay="4"] #gear { color: var(--g-ink); }
 
 /* Settings dialog */
 dialog#settings {
