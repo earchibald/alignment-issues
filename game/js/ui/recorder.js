@@ -84,6 +84,7 @@ export function installRecorder({ telemetry, store }) {
   let recIdx = 0;
   let chunkIdx = 0;
   let timer = null;
+  let starting = false;
   const recClock = createRecClock(() => performance.now());
 
   function setState(name) {
@@ -122,15 +123,19 @@ export function installRecorder({ telemetry, store }) {
   }
 
   async function startRecording() {
+    if (starting) return;
+    starting = true;
     const picked = pickMime();
     if (!picked) {
       fail('MediaRecorder unsupported');
+      starting = false;
       return;
     }
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     } catch (err) {
       fail(`mic unavailable: ${err && err.name ? err.name : err}`);
+      starting = false;
       return;
     }
     recIdx += 1;
@@ -140,6 +145,7 @@ export function installRecorder({ telemetry, store }) {
       recorder = new MediaRecorder(stream, { mimeType: picked.mime });
     } catch (err) {
       fail(`MediaRecorder failed: ${err && err.name ? err.name : err}`);
+      starting = false;
       return;
     }
     recorder.ondataavailable = (e) => {
@@ -157,6 +163,9 @@ export function installRecorder({ telemetry, store }) {
       }
     };
     recorder.onerror = (e) => {
+      // The UA fires stop after error; suppress onstop so no spurious
+      // rec.stop mark or "saved" state follows a rec.error.
+      if (recorder) recorder.onstop = null;
       fail(`recorder error: ${e.error && e.error.name ? e.error.name : 'unknown'}`);
     };
     recorder.onstop = () => {
@@ -177,9 +186,12 @@ export function installRecorder({ telemetry, store }) {
     recClock.start();
     recorder.start(1000);
     telemetry.event('rec.start', { recIdx: thisRec, audioMs: 0, mime: picked.mime });
+    pill.title = '';
+    pauseBtn.textContent = '⏸';
     setState('recording');
     updateTime();
     startTimer();
+    starting = false;
   }
 
   function togglePause() {
