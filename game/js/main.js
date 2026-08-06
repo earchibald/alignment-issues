@@ -136,9 +136,7 @@ function main() {
   });
   globalThis.addEventListener('pagehide', doSave);
 
-  installKeys(dispatch);
-
-  installSettings({
+  const openSettings = installSettings({
     stateBox,
     refs,
     paintNow,
@@ -150,6 +148,8 @@ function main() {
       coldOpenActive = true;
     },
   });
+
+  installKeys(dispatch, undefined, openSettings);
 
   installDebug({
     stateBox,

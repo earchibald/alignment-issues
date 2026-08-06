@@ -172,10 +172,19 @@ export function installSettings({ stateBox, refs, paintNow, onReset }) {
 
   dialog.append(confirmRow);
 
+  // --- openSettings function ----------------------------------------
+  function openSettings() {
+    soundCheckbox.checked = !!stateBox.current.settings.sound;
+    confirmRow.hidden = true;
+    confirmInput.value = '';
+    importError.textContent = '';
+    if (typeof dialog.showModal === 'function') dialog.showModal();
+  }
+
   // --- gear wiring ------------------------------------------------
   if (gear) {
-    gear.addEventListener('click', () => {
-      if (typeof dialog.showModal === 'function') dialog.showModal();
-    });
+    gear.addEventListener('click', openSettings);
   }
+
+  return openSettings;
 }

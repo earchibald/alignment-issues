@@ -9,7 +9,7 @@ function isTypingTarget(target) {
   return tag === 'INPUT' || tag === 'TEXTAREA';
 }
 
-export function installKeys(dispatch, isCoarse) {
+export function installKeys(dispatch, isCoarse, openSettings) {
   document.addEventListener('keydown', (event) => {
     const settings = document.getElementById('settings');
     const dialogOpen = !!settings && settings.open;
@@ -17,7 +17,7 @@ export function installKeys(dispatch, isCoarse) {
     if (event.key === 'Escape') {
       if (settings) {
         if (settings.open) settings.close();
-        else settings.showModal();
+        else if (openSettings) openSettings();
       }
       return;
     }
