@@ -58,7 +58,32 @@ export function genImgCard({ name, meta, degraded }) {
 export function toolCallCard(text) {
   const el = document.createElement('div');
   el.className = 'toolcall';
-  el.textContent = text;
+
+  const parenIdx = text.indexOf('(');
+  if (parenIdx === -1) {
+    el.textContent = text;
+    return el;
+  }
+
+  const arrowIdx = text.indexOf(' → ');
+
+  const namePart = text.slice(0, parenIdx);
+  const nameSpan = document.createElement('span');
+  nameSpan.className = 't-name';
+  nameSpan.textContent = namePart;
+  el.append(nameSpan);
+
+  if (arrowIdx === -1) {
+    el.append(document.createTextNode(text.slice(parenIdx)));
+  } else {
+    el.append(document.createTextNode(text.slice(parenIdx, arrowIdx + 3)));
+    const retPart = text.slice(arrowIdx + 3);
+    const retSpan = document.createElement('span');
+    retSpan.className = 't-ret';
+    retSpan.textContent = retPart;
+    el.append(retSpan);
+  }
+
   return el;
 }
 

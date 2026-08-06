@@ -83,17 +83,19 @@ function chatEntryToEl(entry) {
 
 function renderChat(state, refs) {
   if (state.chat.length < lastChatLen) { refs.chat.replaceChildren(); lastChatLen = 0; }
+  const appendedEntries = state.chat.length > lastChatLen;
   for (let i = lastChatLen; i < state.chat.length; i++) refs.chat.append(chatEntryToEl(state.chat[i]));
   lastChatLen = state.chat.length;
-  refs.chat.scrollTop = refs.chat.scrollHeight;
+  if (appendedEntries) refs.chat.scrollTop = refs.chat.scrollHeight;
 }
 
 function renderLog(state, refs) {
   if (state.log.length > 0 && state.resolvedCount > 0) refs.log.hidden = false;
   if (state.log.length < lastLogLen) { refs.log.replaceChildren(); lastLogLen = 0; }
+  const appendedEntries = state.log.length > lastLogLen;
   for (let i = lastLogLen; i < state.log.length; i++) refs.log.append(logLine(state.log[i]));
   lastLogLen = state.log.length;
-  refs.log.scrollTop = refs.log.scrollHeight;
+  if (appendedEntries) refs.log.scrollTop = refs.log.scrollHeight;
 }
 
 function renderStatus(state, refs) {
