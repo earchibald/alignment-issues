@@ -46,9 +46,12 @@ function spawnFloat(kind, amount, cls, anchorEl, refs) {
   if (!anchorEl || !refs.fx || amount <= 0) return;
 
   if (liveFloats.length >= 3) {
-    const newest = liveFloats[liveFloats.length - 1];
-    newest.amount += amount;
-    newest.el.textContent = FLOAT_FORMAT[newest.kind](newest.amount);
+    const sameKind = liveFloats.find((r) => r.kind === kind);
+    if (sameKind) {
+      sameKind.amount += amount;
+      sameKind.el.textContent = FLOAT_FORMAT[sameKind.kind](sameKind.amount);
+    }
+    // No live float of this kind: drop the gain rather than mislabel it.
     return;
   }
 
