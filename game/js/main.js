@@ -11,6 +11,11 @@ import { harnessCard } from './ui/components.js';
 import { installKeys } from './ui/keys.js';
 import { installDebug } from './ui/debug.js';
 import { installSettings } from './ui/settings.js';
+import { IdbStore, MemoryStore, DEV_KEY, TELEMETRY_OPTOUT_KEY } from './telemetry/store.js';
+import { createTelemetry } from './telemetry/capture.js';
+import { installTelemetryHooks } from './telemetry/hooks.js';
+import { installRecorder } from './ui/recorder.js';
+import { installSessions } from './ui/sessions.js';
 
 const TICK_MS = 200;
 const LOOP_MS = 50;
@@ -39,7 +44,26 @@ function getSpeed() {
   return Number.isFinite(raw) && raw > 0 ? raw : 1;
 }
 
-function main() {
+const KEEP_SESSIONS = 20;
+
+function readDevFlag() {
+  if (typeof globalThis.localStorage === 'undefined') return false;
+  const params = new URLSearchParams(globalThis.location ? globalThis.location.search : '');
+  if (params.get('debug') === '1') globalThis.localStorage.setItem(DEV_KEY, '1');
+  if (params.get('debug') === '0') globalThis.localStorage.removeItem(DEV_KEY);
+  return globalThis.localStorage.getItem(DEV_KEY) === '1';
+}
+
+async function openStore() {
+  try {
+    return await IdbStore.open();
+  } catch (err) {
+    console.warn('telemetry: IndexedDB unavailable, falling back to memory', err);
+    return new MemoryStore();
+  }
+}
+
+async function main() {
   const loaded = loadLocal();
   // Only trust savedAt when loadLocal() itself produced a valid state —
   // never feed a savedAt from a wrapper whose state failed deserialization
@@ -52,6 +76,24 @@ function main() {
     const elapsed = Date.now() - savedAt;
     if (elapsed > 0) offlineCatchUp(stateBox.current, elapsed);
   }
+
+  // --- telemetry ---------------------------------------------------------
+  // Initialized before refs/dispatch so every later closure can call hooks.
+  // The baseline seqs are taken post offline-catch-up, so a restored
+  // transcript never replays into the event stream.
+  const devMode = readDevFlag();
+  const store = await openStore();
+  const optedOut = typeof globalThis.localStorage !== 'undefined'
+    && globalThis.localStorage.getItem(TELEMETRY_OPTOUT_KEY) === '1';
+  const telemetry = createTelemetry({
+    clock: { now: () => Date.now(), pm: () => performance.now() },
+    store,
+    getTick: () => stateBox.current.tick,
+    enabled: !optedOut,
+  });
+  const hooks = installTelemetryHooks({ telemetry, stateBox });
+  store.prune(KEEP_SESSIONS).catch(() => {});
+  await telemetry.startSession({ ua: navigator.userAgent, dev: devMode });
 
   const refs = {
     app: document.getElementById('app'),
@@ -78,6 +120,7 @@ function main() {
   let cardPaused = false;
 
   function resetCardTracking() {
+    hooks.resync();
     cardQueue = [];
     cardPaused = false;
     cardSeqHW = stateBox.current.chatSeq;
@@ -115,11 +158,13 @@ function main() {
   function showNextCard() {
     const next = cardQueue.shift();
     if (!next) {
+      hooks.onContext('card.dismiss');
       cardPaused = false;
       refs.cardlay.hidden = true;
       refs.cardlay.replaceChildren();
       return;
     }
+    hooks.onContext('card.pause', { seq: next.seq });
     cardPaused = true;
     cardShownAt = performance.now();
     refs.cardlay.replaceChildren();
@@ -182,6 +227,7 @@ function main() {
   function paintNow() {
     render(stateBox.current, refs);
     lastPaintedSeq = stateBox.current.uiSeq;
+    hooks.afterPaint();
     if (coldOpenActive && !isColdOpen()) {
       coldOpenActive = false;
       refs.actions.classList.remove('cold-open');
@@ -211,6 +257,7 @@ function main() {
   function dispatch(name, arg) {
     const action = ACTIONS[name];
     if (!action) return;
+    hooks.onAction(name, arg);
     if (name === 'processToken') {
       const hadActiveQuery = !!stateBox.current.activeQuery;
       const tokensBefore = stateBox.current.tokens;
@@ -226,6 +273,7 @@ function main() {
   let speed = getSpeed();
   function setSpeed(mult) {
     speed = mult;
+    hooks.onContext('speed.change', { speed: mult });
   }
   let acc = 0;
   setInterval(() => {
@@ -283,9 +331,11 @@ function main() {
   let hiddenAt = null;
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
+      hooks.onContext('vis.hidden');
       hiddenAt = Date.now();
       doSave();
     } else if (hiddenAt !== null) {
+      hooks.onContext('vis.shown');
       // Card-pause time is frozen time: a harness overlay open when the tab
       // comes back means the player never left the paused moment, so skip
       // catch-up entirely rather than advancing the world behind the card.
@@ -294,13 +344,15 @@ function main() {
         acc = 0;
         return;
       }
-      offlineCatchUp(stateBox.current, Date.now() - hiddenAt);
+      const elapsed = Date.now() - hiddenAt;
+      offlineCatchUp(stateBox.current, elapsed);
       hiddenAt = null;
       acc = 0;
       // Same suppression rule as startup catch-up: set the card high-water
       // AFTER catch-up completes, so catch-up-generated cards leave their
       // chat callout + Manual entry but never pop as overlays.
       cardSeqHW = stateBox.current.chatSeq;
+      hooks.onContext('offline.catchup', { ms: elapsed });
       paintNow();
     }
   });
@@ -318,6 +370,12 @@ function main() {
       // permanently desynced from a state it never saw reset.
       coldOpenActive = true;
     },
+    onTelemetryToggle: (on) => {
+      telemetry.setEnabled(on);
+      if (on && !telemetry.sessionId) {
+        telemetry.startSession({ ua: navigator.userAgent, dev: devMode });
+      }
+    },
   });
 
   installKeys(dispatch, undefined, openSettings);
@@ -331,6 +389,14 @@ function main() {
     refs,
     resetCardTracking,
   });
+
+  if (devMode) {
+    const drawer = document.getElementById('devdrawer');
+    if (drawer) drawer.hidden = false;
+    installRecorder({ telemetry, store });
+    installSessions({ store, telemetry });
+  }
+  hooks.attachDom();
 }
 
 main();
