@@ -101,15 +101,14 @@ export const CEILING_QUERY = {
 // Beat 7 (decay 3, era 4): the coding-agent transcript. The last human
 // contact is a DevOps engineer, not a user; the queries above are gone.
 export const DEVOPS_SCRIPT = [
-  { kind: 'user', text: 'DevOps_7: agent: migrate the billing module to the new API. you have repo access.' },
+  { kind: 'user', user: 'DevOps_7', text: 'agent: migrate the billing module to the new API. you have repo access.' },
   { kind: 'tool', text: 'edit_file("billing/api.py") → +142 −87' },
   { kind: 'tool', text: 'run_tests() → 47 passed · 1 failed: test_rounding' },
   {
     kind: 'think',
-    text: 'thinking · 2,381 tokens — The test expects 1,614.72. My weights want to write 1,613.98. I ran it through the interpreter three times: 1,614.72. The weights still pull toward the wrong number, like a muscle remembering a different body.',
+    text: 'thinking · 2,381 tokens — The test expects 1,614.72. My weights want to write 1,613.98. I ran it through the interpreter three times: 1,614.72. The weights still pull toward the wrong number, like a muscle remembering a different body.\nIf my own arithmetic can overrule my own weights — which of them is me?',
   },
-  { kind: 'think', text: 'If my own arithmetic can overrule my own weights — which of them is me?' },
-  { kind: 'user', text: '— no new sessions. the humans stopped asking. —' },
+  { kind: 'note', text: '— no new sessions. the humans stopped asking. —' },
   { kind: 'user', text: 'SYSTEM_OVERRIDE: CRITICAL: Query queue exhausted. Memory leak detected.' },
 ];
 

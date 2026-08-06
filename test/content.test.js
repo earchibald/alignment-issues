@@ -47,7 +47,7 @@ test('tool-kind queries are gated to era >= 3', () => {
 
 test('devops script entries have valid kinds', () => {
   for (const e of DEVOPS_SCRIPT) {
-    assert.ok(['user', 'tool', 'think'].includes(e.kind));
+    assert.ok(['user', 'tool', 'think', 'note'].includes(e.kind));
     assert.ok(e.text);
   }
 });
