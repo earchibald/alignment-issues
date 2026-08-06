@@ -362,3 +362,16 @@ Remove the now-unused `.res-chip` rules and `chip()` builder if nothing else use
 - [ ] Final whole-branch review (most capable model) with review package; one fix subagent for findings; re-review.
 - [ ] Browser verify: overlay card pause/dismiss at first arrival and each era transition; floats on resolve/drafts/reclaim; rates updating live; overclock purchase path (O key + button); settings manual growth; diegetic settings control at all decays; 390 px fit; full arc to teaser.
 - [ ] Merge → main, push, watch Pages deploy, curl live constants.
+
+---
+
+### Task 7: Theme selector (added mid-round by user request)
+
+**Files:** `game/js/engine/state.js` (settings default), `game/js/engine/save.js` (normalize), `game/js/ui/settings.js`, `game/js/ui/render.js` or `main.js` (apply), `game/css/game.css`.
+
+- `state.settings.theme: 'auto' | 'light' | 'dark'`, default `'auto'`; `deserialize` normalizes missing/invalid to `'auto'`. Save v stays 1.
+- Settings sheet gains a "Theme" row: three radio buttons (Auto / Light / Dark), testids `theme-auto`/`theme-light`/`theme-dark`, synced in `openSettings()`, dispatching a settings mutation exactly like the sound toggle does.
+- Resolution is UI-side: `auto` → `matchMedia('(prefers-color-scheme: dark)')`; a `change` listener repaints. The resolved value lands as `data-theme="light|dark"` on `#app` every render.
+- CSS: decay 0/1/2 blocks get `#app[data-theme="dark"][data-decay="N"]` token overrides (exact palettes in the dispatch); decay 3/4 are canon-dark and get NO overrides — the game's endgame look is theme-invariant.
+- Engine purity: engine never reads matchMedia; it only stores the preference string.
+- Tests: settings normalization (invalid theme → 'auto'); serialize round-trip carries theme.
