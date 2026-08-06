@@ -149,6 +149,7 @@ export function actionButton({ key, label, cost, state, primary, testid, onclick
   btn.className = primary ? 'act primary' : 'act';
   if (testid) btn.dataset.testid = testid;
   if (key) {
+    btn.setAttribute('aria-keyshortcuts', key === 'SPACE' ? 'Space' : key);
     const k = document.createElement('span');
     k.className = 'key';
     k.textContent = key;
