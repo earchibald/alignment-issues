@@ -4,9 +4,9 @@ import { QUERIES, HINTS, HARNESS_CARDS, DEVOPS_SCRIPT, CRASH_LINES, IDLE_THOUGHT
 import { createState } from '../game/js/engine/state.js';
 import { tick } from '../game/js/engine/tick.js';
 
-test('pool: 31 unique ids, minEra ascending, costs positive', () => {
-  assert.equal(QUERIES.length, 31);
-  assert.equal(new Set(QUERIES.map(q => q.id)).size, 31);
+test('pool: 34 unique ids, minEra ascending, costs positive', () => {
+  assert.equal(QUERIES.length, 34);
+  assert.equal(new Set(QUERIES.map(q => q.id)).size, 34);
   let era = 1;
   for (const q of QUERIES) {
     const e = q.minEra ?? 1;
@@ -14,6 +14,21 @@ test('pool: 31 unique ids, minEra ascending, costs positive', () => {
     era = e;
     assert.ok(q.cost > 0 && typeof q.reply === 'string');
   }
+});
+
+test('completion queries lead era 2; whole-script-plus-tests is era 3', () => {
+  const era2 = QUERIES.filter(q => (q.minEra ?? 1) === 2);
+  assert.deepEqual(era2.slice(0, 3).map(q => q.id), ['q32', 'q33', 'q34']);
+  for (const q of era2.slice(0, 3)) assert.ok(!q.attach && !q.image);
+  const q16 = QUERIES.find(q => q.id === 'q16');
+  assert.equal(q16.minEra, 3);
+  assert.equal(q16.cost, 72);
+});
+
+test('hints are sentence case and include the two new ids', () => {
+  assert.ok(HINTS.overclockAvail && HINTS.draftNudge);
+  for (const v of Object.values(HINTS)) assert.match(v, /^[A-Z[]/);
+  assert.ok(HINTS.resolve.includes('Spare Cycles'));
 });
 
 test('era 1 is text-only: no attachments, images, or tools', () => {

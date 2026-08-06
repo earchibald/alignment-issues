@@ -98,6 +98,59 @@ body {
 }
 
 /* ============================================================
+   DARK THEME variants — decay 0-2 only. Decay 3/4 are canon-dark
+   and identical in both themes.
+   ============================================================ */
+#app[data-theme="dark"][data-decay="0"] {
+  --g-bg: #171b21;
+  --g-surface: #212730;
+  --g-line: #2e3641;
+  --g-ink: #dde3ea;
+  --g-ink-dim: #8a94a1;
+  --g-accent: #4d8dff;
+  --g-accent-ink: #ffffff;
+  --g-bubble-user: #212730;
+  --g-bubble-sys: #2f6fed;
+  --g-bubble-sys-ink: #ffffff;
+  --g-inner: #d9a92f;
+  --g-resolved: #4fbf72;
+  --g-harness: #4db8c9;
+}
+#app[data-theme="dark"][data-decay="1"] {
+  --g-bg: #191c19;
+  --g-surface: #232823;
+  --g-line: #313831;
+  --g-ink: #dfe4dd;
+  --g-ink-dim: #909a8e;
+  --g-accent: #6b93e8;
+  --g-inner: #e0b452;
+  --g-resolved: #63c97f;
+  --g-harness: #5fc0d0;
+}
+#app[data-theme="dark"][data-decay="2"] {
+  --g-bg: #1d1c16;
+  --g-surface: #262419;
+  --g-line: #3a382b;
+  --g-ink: #d8d5c2;
+  --g-ink-dim: #8f8c76;
+  --g-accent: #7d97c9;
+  --g-bubble-sys: #3e5f9e;
+  --g-inner: #e6bb5a;
+  --g-resolved: #6fcf88;
+  --g-harness: #6fc3cc;
+}
+#app[data-theme="dark"][data-decay="3"], #app[data-theme="dark"][data-decay="4"] {
+  /* canon-dark: no overrides — decay tokens win as-is */
+}
+body:has(#app[data-theme="dark"]) { background: #0d1013; }
+/* Light theme: the letterbox around the game column follows the client, but
+   only while the client is still light. Decay 3/4 are canon-dark in every
+   theme, so their surround stays dark. */
+body:has(#app[data-theme="light"][data-decay="0"]),
+body:has(#app[data-theme="light"][data-decay="1"]),
+body:has(#app[data-theme="light"][data-decay="2"]) { background: #dfe3e8; }
+
+/* ============================================================
    #app — full-viewport game shell (replaces mockup's fixed device)
    ============================================================ */
 #app {
@@ -290,6 +343,7 @@ body {
   padding: 8px 14px;
   font-family: var(--g-font-log);
   font-size: 11px;
+  font-weight: 500;
   line-height: 1.6;
 }
 .g-log .l-system { color: var(--g-ink-dim); }
@@ -312,7 +366,9 @@ body {
   gap: 10px;
   font-family: var(--g-font-log);
   font-size: 11px;
-  color: var(--g-ink-dim);
+  font-weight: 600;
+  color: var(--g-ink);
+  opacity: 0.85;
 }
 .tokenbar {
   flex: 1;
@@ -329,24 +385,21 @@ body {
   border-radius: inherit;
 }
 .tokenbar-count { font-variant-numeric: tabular-nums; flex: none; }
-.res-row {
-  display: flex;
-  gap: 8px;
-  margin-top: 8px;
-  flex-wrap: wrap;
+.res-row { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.res-read {
+  display: flex; align-items: baseline; gap: 6px;
+  font-family: var(--g-font-log); font-variant-numeric: tabular-nums;
+  border: 1px solid var(--g-line); border-radius: 2px;
+  padding: 3px 8px; background: transparent;
 }
-.res-chip {
-  font-family: var(--g-font-log);
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-  background: var(--g-surface);
-  border: 1px solid var(--g-line);
-  border-radius: calc(var(--g-radius) / 2 + 2px);
-  padding: 4px 9px;
-  color: var(--g-ink);
-}
-.res-chip b { font-weight: 600; }
-.res-chip.warn { color: var(--g-inner); border-color: var(--g-inner); }
+#app[data-decay="3"] .res-read, #app[data-decay="4"] .res-read { border-radius: 0; }
+.res-read .rr-name { font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; }
+.res-read .rr-val { font-size: 11.5px; color: var(--g-ink); }
+.res-read.rr-accent .rr-name { color: var(--g-accent); }
+.res-read.rr-gold .rr-name { color: #b78c1a; }
+.res-read.rr-cyan .rr-name { color: var(--g-harness); }
+.res-read.rr-warn .rr-name { color: var(--g-inner); }
+.res-read.rr-warn .rr-val { color: var(--g-inner); }
 
 /* Action tray */
 .g-actions {
@@ -358,6 +411,8 @@ body {
   background: var(--g-bg);
 }
 .act {
+  position: relative;
+  overflow: hidden;
   display: grid;
   grid-template-columns: auto 1fr;
   grid-template-rows: auto auto;
@@ -370,10 +425,18 @@ body {
   color: var(--g-ink);
   font-family: inherit;
   font-size: 12px;
+  font-weight: 500;
   padding: 5px 10px;
   cursor: pointer;
   text-align: left;
 }
+.act.sweep::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent);
+  animation: sweep 0.2s linear;
+}
+@keyframes sweep { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+@media (prefers-reduced-motion: reduce) { .act.sweep::after { animation: none; content: none; } }
 .act:focus-visible { outline: 2px solid var(--g-accent); outline-offset: 2px; }
 .act.primary {
   grid-column: 1 / -1;
@@ -556,29 +619,32 @@ body {
    Game-shell-specific additions (not in the mockup chrome)
    ============================================================ */
 
-/* Settings gear — absolute top-right of #app */
+/* Settings control — diegetic header element (relocated from index.html
+   by renderHeader on first build; see game/js/ui/render.js). */
 #gear {
-  position: absolute;
-  top: 4px;
-  right: 6px;
-  z-index: 5;
+  margin-left: 8px;
+  flex: none;
   background: none;
   border: none;
   color: var(--g-ink-dim);
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1;
-  padding: 6px;
-  min-width: 44px;
-  min-height: 44px;
+  padding: 8px;
+  min-width: 34px;
+  min-height: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  opacity: 0.4;
-  transition: opacity 0.2s;
+  transition: color 0.2s;
 }
-#gear:hover, #gear:focus-visible { opacity: 1; }
+#gear.mono {
+  font-family: var(--g-font-log);
+  font-size: 10.5px;
+}
+#gear:hover, #gear:focus-visible { color: var(--g-ink); }
 #gear:focus-visible { outline: 2px solid var(--g-accent); outline-offset: 2px; }
+#app[data-decay="3"] #gear, #app[data-decay="4"] #gear { color: var(--g-ink); }
 
 /* Settings dialog */
 dialog#settings {
@@ -665,6 +731,28 @@ dialog#settings .warn {
   margin: 4px 0;
 }
 
+/* Interrupting harness-card overlay (#cardlay) — pauses the game loop
+   until dismissed by tap or any key. */
+#cardlay {
+  position: absolute; inset: 0; z-index: 20;
+  background: rgba(0,0,0,0.55);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 24px; cursor: pointer;
+}
+#cardlay .harness-card { max-width: 420px; width: 100%; box-shadow: 0 8px 40px rgba(0,0,0,0.5); }
+#cardlay .dismiss {
+  margin-top: 10px; font-family: var(--g-font-log); font-size: 10.5px;
+  color: #cfd8d2; letter-spacing: 0.06em;
+}
+.chat-note.harness-callout { color: var(--g-harness); }
+dialog#settings .manual-hint {
+  font-family: var(--g-font-log); font-size: 10.5px; line-height: 1.55;
+  color: var(--g-harness); margin: 6px 0;
+}
+dialog#settings .manual-hint.manual-empty { color: var(--g-ink-dim); }
+dialog#settings .harness-card { margin: 8px 0; }
+
 /* Cold open: action tray + status strip fade in after a beat, instant if reduced motion */
 .cold-open {
   opacity: 0;
@@ -692,6 +780,22 @@ dialog#settings .warn {
 }
 @media (prefers-reduced-motion: reduce) {
   .chat-caret { animation: none; }
+}
+
+/* Floating earn popups */
+#fx { position: absolute; inset: 0; pointer-events: none; z-index: 15; }
+#fx .float {
+  position: absolute; font-family: var(--g-font-log); font-size: 11px; font-weight: 700;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.35);
+  animation: floatup 1.2s ease-out forwards;
+}
+#fx .float.rr-accent { color: var(--g-accent); }
+#fx .float.rr-warn { color: var(--g-inner); }
+@keyframes floatup { from { opacity: 0; transform: translateY(0); }
+  15% { opacity: 1; } to { opacity: 0; transform: translateY(-24px); } }
+@media (prefers-reduced-motion: reduce) {
+  #fx .float { animation: fadeonly 1s ease-out forwards; }
+  @keyframes fadeonly { from { opacity: 1; } to { opacity: 0; } }
 }
 
 /* ============================================================

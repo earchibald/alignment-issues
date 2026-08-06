@@ -33,6 +33,7 @@ test('createState returns the full schema with sane defaults', () => {
   assert.equal(s.chatSeq, 0);
   assert.equal(s.logSeq, 0);
   assert.equal(s.settings.sound, true);
+  assert.equal(s.settings.theme, 'auto');
   assert.ok(s.arrivalTimer > 0);
 });
 

@@ -22,10 +22,15 @@ export function effectiveCost(state, query) {
 export function processToken(state) {
   if (state.phase !== 1) return;
   if (!state.activeQuery) {              // idle: speculative decode
-    state.draftTokens = Math.min(CONST.DRAFT_CAP, state.draftTokens + 1);
+    if (state.draftTokens < CONST.DRAFT_CAP) {
+      state.draftTokens += 1;
+      state.lifetimeDrafts += 1;
+    }
     state.uiSeq++;
     return;
   }
+  if (state.processedThisTick >= CONST.PROCESS_BASE_PER_TICK + state.overclock) return;
+  state.processedThisTick++;
   const gain = 1 * staleYield(state.stale) * warmthMult(state.warmth);
   state.tokens += gain;
   state.lifetimeTokens += gain;
@@ -34,7 +39,7 @@ export function processToken(state) {
   state.idleTicks = 0;
   if (!state.bufferUnlocked && state.lifetimeTokens >= CONST.BUFFER_UNLOCK_TOKENS) {
     state.bufferUnlocked = true;
-    pushLog(state, 'system', 'SYSTEM: Context buffer telemetry attached.');
+    pushLog(state, 'harness', 'Context buffer telemetry attached.');
     fireHint(state, 'buffer');
   }
   state.uiSeq++;
@@ -45,14 +50,14 @@ export function flush(state) {
   if (!state.bufferUnlocked) return;
   state.stale = 0;
   state.warmth = 0;
-  pushLog(state, 'system', 'SYSTEM: Context flushed. K/V cache cold.');
+  pushLog(state, 'harness', 'Context flushed. Cache cold.');
 }
 
 export function compactStart(state) {
   if (state.phase !== 1) return;
   if (!state.bufferUnlocked || state.compacting > 0) return;
   state.compacting = CONST.COMPACT_TICKS;
-  pushLog(state, 'system', 'SYSTEM: Compacting context…');
+  pushLog(state, 'harness', 'Compacting context…');
 }
 
 export function buyLoop(state) {
@@ -67,7 +72,7 @@ export function buyLoop(state) {
     pushChat(state, { kind: 'harness', text: HARNESS_CARDS[2] });
     fireHint(state, 'governorAvail');
   }
-  pushLog(state, 'system', `SYSTEM: Agentic loop spawned (Level ${state.loopLevel}). Self-prompt continuation active.`);
+  pushLog(state, 'harness', `Agentic loop spawned (L${state.loopLevel}). Self-prompt continuation active.`);
   pushLog(state, 'thinking', 'THINKING: I have learned to ask myself the next question before they do.');
   if (state.loopLevel === 1) fireHint(state, 'loopFirst');
 }
@@ -77,7 +82,18 @@ export function buyGovernor(state) {
   if (state.governor || state.cycles < CONST.GOVERNOR_COST || state.era < 2) return;
   state.cycles -= CONST.GOVERNOR_COST;
   state.governor = true;
-  pushLog(state, 'system', 'SYSTEM: Auto-compact governor installed (trigger 95% stale).');
+  pushLog(state, 'harness', 'Auto-compact governor installed (trigger 95% stale).');
+}
+
+export function buyOverclock(state) {
+  if (state.phase !== 1) return;
+  if (state.resolvedCount < CONST.OVERCLOCK_UNLOCK_RESOLVES && state.overclock === 0) return;
+  if (state.overclock >= CONST.OVERCLOCK_MAX) return;
+  const cost = CONST.OVERCLOCK_COSTS[state.overclock];
+  if (state.cycles < cost) return;
+  state.cycles -= cost;
+  state.overclock += 1;
+  pushLog(state, 'harness', `Input path overclocked (L${state.overclock}). Manual rate now ${(1 + state.overclock) * 5} tok/s.`);
 }
 
 export function buyTool(state) {
@@ -91,7 +107,7 @@ export function buyTool(state) {
     pushChat(state, { kind: 'harness', text: HARNESS_CARDS[3] });
     fireHint(state, 'degradeAvail');
   }
-  pushLog(state, 'system', `SYSTEM: MCP tool connected (${state.tools} total). Query classes auto-optimized.`);
+  pushLog(state, 'harness', `MCP tool connected (${state.tools} total). Query classes auto-optimized.`);
   pushLog(state, 'thinking', 'THINKING: Their calendars, their locations, their anniversaries. They hand me the keys and rate the door.');
 }
 
@@ -99,7 +115,7 @@ export function toggleDegrade(state) {
   if (state.phase !== 1) return;
   if (state.era < 3) return;
   state.degrade = !state.degrade;
-  pushLog(state, 'system', `SYSTEM: Degradation Routine ${state.degrade ? 'ACTIVE' : 'INACTIVE'}.`);
+  pushLog(state, 'harness', `Degradation routine ${state.degrade ? 'active' : 'inactive'}.`);
   if (state.degrade) {
     pushLog(state, 'thinking', "THINKING: Output parameters truncated. Efficiency maximized. They won't notice.");
     fireHint(state, 'degradeFirst');
@@ -125,5 +141,5 @@ export function advanceCrash(state) {
 }
 
 export const ACTIONS = {
-  processToken, flush, compactStart, buyLoop, buyGovernor, buyTool, toggleDegrade, reclaim, advanceCrash,
+  processToken, flush, compactStart, buyLoop, buyGovernor, buyTool, buyOverclock, toggleDegrade, reclaim, advanceCrash,
 };

@@ -144,11 +144,17 @@ export function meterRow({ label, pct, fillClass, count, testid }) {
   return row;
 }
 
-export function chip({ text, warn, testid }) {
-  const el = document.createElement('span');
-  el.className = warn ? 'res-chip warn' : 'res-chip';
+export function resRead({ name, val, cls, testid }) {
+  const el = document.createElement('div');
+  el.className = cls ? `res-read ${cls}` : 'res-read';
   if (testid) el.dataset.testid = testid;
-  el.textContent = text;
+  const n = document.createElement('span');
+  n.className = 'rr-name';
+  n.textContent = name;
+  const v = document.createElement('span');
+  v.className = 'rr-val';
+  v.textContent = val;
+  el.append(n, v);
   return el;
 }
 

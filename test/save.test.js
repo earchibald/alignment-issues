@@ -37,6 +37,56 @@ test('deserialize normalizes missing hintsSeen/lastReplyChars from older saves',
   assert.equal(back.lastReplyChars, 0);
 });
 
+test('deserialize normalizes missing overclock/processedThisTick/lifetimeDrafts from older saves', () => {
+  const s = createState(9);
+  advanceTicks(s, 50);
+  const parsed = JSON.parse(serialize(s));
+  delete parsed.overclock;
+  delete parsed.processedThisTick;
+  delete parsed.lifetimeDrafts;
+  const back = deserialize(JSON.stringify(parsed));
+  assert.equal(back.overclock, 0);
+  assert.equal(back.processedThisTick, 0);
+  assert.equal(back.lifetimeDrafts, 0);
+});
+
+test('deserialize normalizes missing settings object to defaults', () => {
+  const s = createState(9);
+  const parsed = JSON.parse(serialize(s));
+  delete parsed.settings;
+  const back = deserialize(JSON.stringify(parsed));
+  assert.equal(back.settings.sound, true);
+  assert.equal(back.settings.theme, 'auto');
+});
+
+test('deserialize normalizes an invalid or missing theme to auto', () => {
+  const s = createState(9);
+  const parsed = JSON.parse(serialize(s));
+  parsed.settings.theme = 'purple';
+  let back = deserialize(JSON.stringify(parsed));
+  assert.equal(back.settings.theme, 'auto');
+
+  delete parsed.settings.theme;
+  back = deserialize(JSON.stringify(parsed));
+  assert.equal(back.settings.theme, 'auto');
+});
+
+test('deserialize preserves sound when settings is present but sound is missing', () => {
+  const s = createState(9);
+  const parsed = JSON.parse(serialize(s));
+  delete parsed.settings.sound;
+  const back = deserialize(JSON.stringify(parsed));
+  assert.equal(back.settings.sound, true);
+});
+
+test('serialize/deserialize round-trip preserves an explicit dark theme', () => {
+  const s = createState(9);
+  s.settings.theme = 'dark';
+  const back = deserialize(serialize(s));
+  assert.equal(back.settings.theme, 'dark');
+  assert.deepEqual(back, s);
+});
+
 test('offlineCatchUp advances ticks and caps the step count', () => {
   const s = createState(9);
   offlineCatchUp(s, 60_000);            // 5 min → 300 ticks

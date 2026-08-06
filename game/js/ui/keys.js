@@ -65,6 +65,10 @@ export function installKeys(dispatch, isCoarse, openSettings) {
       case 'R':
         dispatch('reclaim');
         break;
+      case 'o':
+      case 'O':
+        dispatch('buyOverclock');
+        break;
       case '`': {
         const drawer = document.getElementById('devdrawer');
         if (drawer) drawer.hidden = !drawer.hidden;

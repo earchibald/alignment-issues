@@ -29,6 +29,7 @@ The deployed build lives at `https://earchibald.github.io/alignment-issues/`.
 | T | Connect MCP tool |
 | D | Toggle degrade output quality |
 | R | Reclaim inactive session |
+| O | Overclock input path |
 | Esc | Open/close Settings |
 | \` (backtick) | Toggle the debug drawer |
 
@@ -40,7 +41,9 @@ tap targets stay, the chip clutter doesn't.
 
 Progress autosaves to `localStorage` under the key `hi_you_there_save`
 (also on tab hide and `pagehide`), and offline time is caught up on
-reload. The Settings dialog (gear icon, top right) also supports:
+reload. The Settings control is a diegetic header element — a gear icon
+at low decay, `[prefs]` or `[cfg]` text at higher decay — and Esc also
+opens it. The dialog also supports:
 
 - **Export / Import** — a base64-encoded save string you can copy out and
   paste back in later, or on another device.
@@ -59,8 +62,8 @@ console:
 - `window.game.state` — a frozen deep-clone snapshot of the live state.
 - `window.game.dispatch(action, arg)` — runs one of the `ACTIONS` (e.g.
   `'processToken'`, `'flush'`, `'compactStart'`, `'buyLoop'`,
-  `'buyGovernor'`, `'buyTool'`, `'toggleDegrade'`, `'reclaim'`,
-  `'advanceCrash'`) and repaints.
+  `'buyGovernor'`, `'buyTool'`, `'buyOverclock'`, `'toggleDegrade'`,
+  `'reclaim'`, `'advanceCrash'`) and repaints.
 - `window.game.debug.setSpeed(mult)` — changes the clock multiplier at
   runtime.
 - `window.game.debug.advanceTicks(n)` — advances the engine `n` ticks

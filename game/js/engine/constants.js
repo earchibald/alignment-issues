@@ -42,6 +42,11 @@ export const CONST = Object.freeze({
   // unfold predicates
   BUFFER_UNLOCK_TOKENS: 20,
   KV_UNLOCK_RESOLVES: 3,
+  // manual overclock
+  PROCESS_BASE_PER_TICK: 1,
+  OVERCLOCK_COSTS: [3, 8],
+  OVERCLOCK_MAX: 2,
+  OVERCLOCK_UNLOCK_RESOLVES: 2,
   // misc
   LOG_MAX: 60,
   CHAT_MAX: 60,

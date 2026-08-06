@@ -36,7 +36,7 @@ function summarize(state) {
   };
 }
 
-export function installDebug({ stateBox, dispatch, getSpeed, setSpeed, paintNow, refs }) {
+export function installDebug({ stateBox, dispatch, getSpeed, setSpeed, paintNow, refs, resetCardTracking }) {
   let speedButtons = null;
   let stateJsonPre = null;
 
@@ -85,6 +85,7 @@ export function installDebug({ stateBox, dispatch, getSpeed, setSpeed, paintNow,
         if (!parsed) return false;
         stateBox.current = parsed;
         resetRenderTrackers(refs);
+        if (resetCardTracking) resetCardTracking();
         paintNow();
         refreshStateJson();
         return true;
@@ -221,6 +222,8 @@ export function installDebug({ stateBox, dispatch, getSpeed, setSpeed, paintNow,
     }
     importErrorLine.textContent = '';
     stateBox.current = parsed;
+    resetRenderTrackers(refs);
+    if (resetCardTracking) resetCardTracking();
     paintNow();
     refreshStateJson();
   });

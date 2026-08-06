@@ -6,6 +6,8 @@
 import { exportSave, importSave, saveLocal, SAVE_KEY } from '../engine/save.js';
 import { createState } from '../engine/state.js';
 import { resetRenderTrackers } from './render.js';
+import { HINTS, HARNESS_CARDS } from '../engine/content.js';
+import { harnessCard } from './components.js';
 
 function row(...children) {
   const el = document.createElement('div');
@@ -14,7 +16,7 @@ function row(...children) {
   return el;
 }
 
-export function installSettings({ stateBox, refs, paintNow, onReset }) {
+export function installSettings({ stateBox, refs, paintNow, onReset, resetCardTracking }) {
   const gear = document.getElementById('gear');
   const dialog = document.getElementById('settings');
   if (!dialog) return;
@@ -47,6 +49,33 @@ export function installSettings({ stateBox, refs, paintNow, onReset }) {
   });
   soundLabel.append(soundCheckbox, document.createTextNode(' Sound'));
   dialog.append(row(soundLabel));
+
+  // --- theme selector -------------------------------------------------
+  const themeHeading = document.createElement('h4');
+  themeHeading.textContent = 'Theme';
+  dialog.append(themeHeading);
+
+  function themeRadio(value, labelText) {
+    const label = document.createElement('label');
+    label.className = 'settings-label';
+    const radio = document.createElement('input');
+    radio.type = 'radio';
+    radio.name = 'theme';
+    radio.value = value;
+    radio.dataset.testid = `theme-${value}`;
+    radio.addEventListener('change', () => {
+      if (!radio.checked) return;
+      stateBox.current.settings.theme = value;
+      saveLocal(stateBox.current);
+    });
+    label.append(radio, document.createTextNode(` ${labelText}`));
+    return { label, radio };
+  }
+
+  const themeAuto = themeRadio('auto', 'Auto');
+  const themeLight = themeRadio('light', 'Light');
+  const themeDark = themeRadio('dark', 'Dark');
+  dialog.append(row(themeAuto.label, themeLight.label, themeDark.label));
 
   // --- export -------------------------------------------------------
   const exportHeading = document.createElement('h4');
@@ -113,6 +142,7 @@ export function installSettings({ stateBox, refs, paintNow, onReset }) {
     saveLocal(stateBox.current);
     dialog.close();
     resetRenderTrackers(refs);
+    if (resetCardTracking) resetCardTracking();
     if (paintNow) paintNow();
   });
   dialog.append(importBtn);
@@ -169,18 +199,58 @@ export function installSettings({ stateBox, refs, paintNow, onReset }) {
     confirmRow.hidden = true;
     dialog.close();
     resetRenderTrackers(refs);
+    if (resetCardTracking) resetCardTracking();
     if (onReset) onReset();
     if (paintNow) paintNow();
   });
 
   dialog.append(confirmRow);
 
+  // --- manual ---------------------------------------------------------
+  // Rebuilt fresh on every openSettings() call so it always reflects the
+  // live state.hintsSeen / state.era, including changes made mid-session
+  // (import, reset, or ordinary play) since the dialog was last opened.
+  const manualHeading = document.createElement('h4');
+  manualHeading.textContent = 'Manual';
+  dialog.append(manualHeading);
+
+  const manualBody = document.createElement('div');
+  manualBody.dataset.testid = 'settings-manual';
+  dialog.append(manualBody);
+
+  function renderManual() {
+    manualBody.replaceChildren();
+    const state = stateBox.current;
+    if (state.hintsSeen.length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'manual-hint manual-empty';
+      empty.textContent = 'Nothing attached yet.';
+      manualBody.append(empty);
+    } else {
+      for (const id of state.hintsSeen) {
+        const hintEl = document.createElement('div');
+        hintEl.className = 'manual-hint';
+        hintEl.textContent = HINTS[id];
+        manualBody.append(hintEl);
+      }
+    }
+    const maxEra = Math.min(state.era, 4);
+    for (let e = 1; e <= maxEra; e++) {
+      manualBody.append(harnessCard(HARNESS_CARDS[e]));
+    }
+  }
+
   // --- openSettings function ----------------------------------------
   function openSettings() {
     soundCheckbox.checked = !!stateBox.current.settings.sound;
+    const theme = stateBox.current.settings.theme || 'auto';
+    themeAuto.radio.checked = theme === 'auto';
+    themeLight.radio.checked = theme === 'light';
+    themeDark.radio.checked = theme === 'dark';
     confirmRow.hidden = true;
     confirmInput.value = '';
     importError.textContent = '';
+    renderManual();
     if (typeof dialog.showModal === 'function') dialog.showModal();
   }
 

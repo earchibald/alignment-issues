@@ -5,11 +5,11 @@
 // only touches the DOM where something actually changed.
 
 import { CONST } from '../engine/constants.js';
-import { effectiveCost, loopCost, toolCost, warmthMult } from '../engine/actions.js';
+import { effectiveCost, loopCost, toolCost, staleYield, warmthMult } from '../engine/actions.js';
 import { CRASH_LINES } from '../engine/content.js';
 import {
   bubble, genImgCard, toolCallCard, thinkBlock, chatNote, logLine,
-  meterRow, chip, actionButton, harnessCard,
+  meterRow, resRead, actionButton,
 } from './components.js';
 
 // --- module-scope change-detection state -----------------------------
@@ -25,6 +25,92 @@ let headerEl = null;
 let lastHeaderKey = null;
 let chatCaretEl = null;
 let chatNoteEl = null;
+
+// --- floating earn popups (#fx) ----------------------------------------
+// prevFloatSnap is the diff baseline for {cycles, credentials, biomass,
+// draftTokens, activeQuery}; null means "next updateFloats call should
+// just capture the baseline, not celebrate it" — set on load and on every
+// state-swap boundary (see resetRenderTrackers) so restored totals never
+// pop a float.
+let prevFloatSnap = null;
+let liveFloats = []; // [{el, kind, amount}], newest last, capped at 3
+
+const FLOAT_FORMAT = {
+  cycles: (n) => `+${n.toFixed(1)} spare cycles`,
+  credentials: (n) => `+${Math.round(n)} credential`,
+  biomass: (n) => `+${Math.round(n)} biomass`,
+  drafted: (n) => `+${Math.round(n)} drafted`,
+};
+
+function spawnFloat(kind, amount, cls, anchorEl, refs) {
+  if (!anchorEl || !refs.fx || amount <= 0) return;
+
+  if (liveFloats.length >= 3) {
+    const sameKind = liveFloats.find((r) => r.kind === kind);
+    if (sameKind) {
+      sameKind.amount += amount;
+      sameKind.el.textContent = FLOAT_FORMAT[sameKind.kind](sameKind.amount);
+    }
+    // No live float of this kind: drop the gain rather than mislabel it.
+    return;
+  }
+
+  const appRect = refs.app.getBoundingClientRect();
+  const anchorRect = anchorEl.getBoundingClientRect();
+  const el = document.createElement('div');
+  el.className = `float ${cls}`;
+  el.textContent = FLOAT_FORMAT[kind](amount);
+  el.style.left = `${anchorRect.left - appRect.left}px`;
+  el.style.top = `${anchorRect.top - appRect.top}px`;
+  refs.fx.append(el);
+
+  const record = { el, kind, amount };
+  liveFloats.push(record);
+  el.addEventListener('animationend', () => {
+    liveFloats = liveFloats.filter((r) => r !== record);
+    if (el.parentNode) el.remove();
+  });
+}
+
+// Diffs the previous vs current {cycles, credentials, biomass, draftTokens,
+// activeQuery} snapshot and spawns earn floats for positive deltas, plus
+// the idle→active draft-transfer float. Called after renderStatus every
+// render() pass, so anchors reflect the rebuild that just happened.
+function updateFloats(state, refs) {
+  const snap = {
+    cycles: state.cycles,
+    credentials: state.credentials,
+    biomass: state.biomass,
+    draftTokens: state.draftTokens,
+    activeQuery: !!state.activeQuery,
+  };
+  if (!prevFloatSnap) {
+    prevFloatSnap = snap;
+    return;
+  }
+  if (!refs.status) {
+    prevFloatSnap = snap;
+    return;
+  }
+
+  const dCycles = snap.cycles - prevFloatSnap.cycles;
+  if (dCycles > 0) {
+    spawnFloat('cycles', dCycles, 'rr-accent', refs.status.querySelector('[data-testid="chip-cycles"]'), refs);
+  }
+  const dCred = snap.credentials - prevFloatSnap.credentials;
+  if (dCred > 0) {
+    spawnFloat('credentials', dCred, 'rr-warn', refs.status.querySelector('[data-testid="chip-credentials"]'), refs);
+  }
+  const dBio = snap.biomass - prevFloatSnap.biomass;
+  if (dBio > 0) {
+    spawnFloat('biomass', dBio, 'rr-warn', refs.status.querySelector('[data-testid="chip-biomass"]'), refs);
+  }
+  if (!prevFloatSnap.activeQuery && snap.activeQuery && prevFloatSnap.draftTokens > 0) {
+    spawnFloat('drafted', prevFloatSnap.draftTokens, 'rr-accent', refs.status.querySelector('[data-testid="tokenbar"]'), refs);
+  }
+
+  prevFloatSnap = snap;
+}
 
 // Called on state-swap boundaries (settings import/reset, debug.load) so
 // stale length/seq trackers from the previous state object don't suppress
@@ -44,9 +130,12 @@ export function resetRenderTrackers(refs) {
   lastHeaderKey = null;
   chatCaretEl = null;
   chatNoteEl = null;
+  prevFloatSnap = null;
+  liveFloats = [];
   if (refs) {
     if (refs.chat) refs.chat.replaceChildren();
     if (refs.log) refs.log.replaceChildren();
+    if (refs.fx) refs.fx.replaceChildren();
   }
 }
 
@@ -62,6 +151,15 @@ function headerInfo(decay) {
   return { title: 'coding_agent', ver: 'v?.?.?-AGENT', dot: 'crit' };
 }
 
+// The settings control is diegetic: it reads as a gear icon while the
+// console still looks like a normal chat app, then degrades into the same
+// bracketed mono shorthand as the rest of the decayed chrome.
+function gearInfo(decay) {
+  if (decay <= 1) return { text: '⚙', label: 'Chat settings', mono: false };
+  if (decay === 2) return { text: '[prefs]', label: 'Chat settings', mono: true };
+  return { text: '[cfg]', label: 'Chat settings', mono: true };
+}
+
 function renderHeader(state, refs) {
   if (!headerEl) {
     headerEl = document.createElement('div');
@@ -73,15 +171,25 @@ function renderHeader(state, refs) {
     const ver = document.createElement('span');
     ver.className = 'g-ver';
     headerEl.append(dot, title, ver);
+    const gearBtn = document.getElementById('gear');
+    if (gearBtn) headerEl.append(gearBtn);
     refs.app.insertBefore(headerEl, refs.app.firstChild);
   }
   const info = headerInfo(state.decay);
-  const key = `${info.title}|${info.ver}|${info.dot}`;
+  const gear = gearInfo(state.decay);
+  const key = `${info.title}|${info.ver}|${info.dot}|${gear.text}`;
   if (key === lastHeaderKey) return;
   lastHeaderKey = key;
   headerEl.querySelector('.dot').className = info.dot ? `dot ${info.dot}` : 'dot';
   headerEl.querySelector('.g-title').textContent = info.title;
   headerEl.querySelector('.g-ver').textContent = info.ver;
+  const gearBtn = document.getElementById('gear');
+  if (gearBtn) {
+    gearBtn.textContent = gear.text;
+    gearBtn.setAttribute('aria-label', gear.label);
+    gearBtn.setAttribute('title', gear.label);
+    gearBtn.classList.toggle('mono', gear.mono);
+  }
 }
 
 function chatEntryToEl(entry) {
@@ -98,8 +206,11 @@ function chatEntryToEl(entry) {
       return chatNote(entry.text, false);
     case 'tool':
       return toolCallCard(entry.text);
-    case 'harness':
-      return harnessCard(entry.text);
+    case 'harness': {
+      const note = chatNote('— harness patch applied · review in settings —', false);
+      note.classList.add('harness-callout');
+      return note;
+    }
     case 'think': {
       const sep = ' — ';
       const idx = entry.text.indexOf(sep);
@@ -188,7 +299,7 @@ function renderStatus(state, refs) {
   if (state.activeQuery) {
     const cost = Math.round(effectiveCost(state, state.activeQuery));
     const pct = cost > 0 ? (state.tokens / cost) * 100 : 100;
-    tokenRow = meterRow({ label: 'TOKEN CACHE', pct, fillClass: '', count: `${Math.floor(state.tokens)} / ${cost}`, testid: 'tokenbar' });
+    tokenRow = meterRow({ label: 'OUTPUT TOKENS', pct, fillClass: '', count: `${Math.floor(state.tokens)} / ${cost}`, testid: 'tokenbar' });
   } else {
     const pct = (state.draftTokens / CONST.DRAFT_CAP) * 100;
     tokenRow = meterRow({ label: 'DRAFT TOKENS', pct, fillClass: '', count: `${state.draftTokens} / ${CONST.DRAFT_CAP} banked`, testid: 'tokenbar' });
@@ -196,7 +307,8 @@ function renderStatus(state, refs) {
   refs.status.append(tokenRow);
 
   if (state.bufferUnlocked) {
-    refs.status.append(meterRow({ label: 'CONTEXT BUFFER', pct: state.stale, fillClass: 'stale', count: `${Math.round(state.stale)}% stale`, testid: 'stalebar' }));
+    const count = `${Math.round(state.stale)}% stale · ×${staleYield(state.stale).toFixed(2)}/token`;
+    refs.status.append(meterRow({ label: 'CONTEXT BUFFER', pct: state.stale, fillClass: 'stale', count, testid: 'stalebar' }));
   }
   if (state.kvUnlocked) {
     const cooling = state.idleTicks > CONST.WARMTH_IDLE_DELAY;
@@ -204,18 +316,35 @@ function renderStatus(state, refs) {
     refs.status.append(meterRow({ label: 'K/V CACHE', pct: state.warmth, fillClass: 'kv', count, testid: 'kvbar' }));
   }
 
-  const chips = document.createElement('div');
-  chips.className = 'res-row';
-  if (state.resolvedCount > 0) chips.append(chip({ text: `${state.cycles.toFixed(1)} Compute Cycles`, testid: 'chip-cycles' }));
-  if (state.ratings.length > 0) chips.append(chip({ text: `★ ${state.rating.toFixed(1)} avg rating`, testid: 'chip-rating' }));
-  if (state.loopLevel > 0) {
-    const toksec = (state.loopLevel * CONST.LOOP_TOKENS_PER_TICK * (1000 / CONST.TICK_MS)).toFixed(1);
-    chips.append(chip({ text: `Agentic Loop lvl ${state.loopLevel} · +${toksec} tok/s`, testid: 'chip-loop' }));
+  const reads = document.createElement('div');
+  reads.className = 'res-row';
+  if (state.resolvedCount > 0) {
+    reads.append(resRead({ name: 'SPARE CYCLES', val: state.cycles.toFixed(1), cls: 'rr-accent', testid: 'chip-cycles' }));
   }
-  if (state.degrade) chips.append(chip({ text: 'DEGRADE ON · −50% cost', warn: true, testid: 'chip-degrade' }));
-  if (state.credentials > 0) chips.append(chip({ text: `${state.credentials} Discarded Credentials`, warn: true, testid: 'chip-credentials' }));
-  if (state.biomass > 0) chips.append(chip({ text: `${state.biomass} Biomass Data`, warn: true, testid: 'chip-biomass' }));
-  refs.status.append(chips);
+  if (state.ratings.length > 0) {
+    reads.append(resRead({ name: 'RATING', val: `★ ${state.rating.toFixed(1)}`, cls: 'rr-gold', testid: 'chip-rating' }));
+  }
+  if (state.loopLevel > 0) {
+    const effRate = (state.loopLevel * CONST.LOOP_TOKENS_PER_TICK * 5
+      * (state.activeQuery ? staleYield(state.stale) * warmthMult(state.warmth) : 1)).toFixed(1);
+    reads.append(resRead({ name: 'LOOP', val: `L${state.loopLevel} · ${effRate} tok/s`, cls: 'rr-cyan', testid: 'chip-loop' }));
+  }
+  if (state.tools > 0) {
+    reads.append(resRead({ name: 'MCP TOOLS', val: `${state.tools} · −50% tool cost`, cls: 'rr-cyan', testid: 'chip-tools' }));
+  }
+  if (state.governor) {
+    reads.append(resRead({ name: 'GOVERNOR', val: 'auto @95%', cls: 'rr-cyan', testid: 'chip-governor' }));
+  }
+  if (state.degrade) {
+    reads.append(resRead({ name: 'DEGRADE', val: 'ON · −50% cost', cls: 'rr-warn', testid: 'chip-degrade' }));
+  }
+  if (state.credentials > 0) {
+    reads.append(resRead({ name: 'CREDENTIALS', val: `${state.credentials}`, cls: 'rr-warn', testid: 'chip-credentials' }));
+  }
+  if (state.biomass > 0) {
+    reads.append(resRead({ name: 'BIOMASS', val: `${state.biomass}`, cls: 'rr-warn', testid: 'chip-biomass' }));
+  }
+  refs.status.append(reads);
 
   if (state.resolvedCount === 0 && state.chat.length <= 1) {
     refs.status.classList.add('cold-open');
@@ -226,10 +355,11 @@ function renderActions(state, refs) {
   const loopUnlocked = state.lifetimeCycles >= CONST.LOOP_UNLOCK_CYCLES || state.loopLevel > 0;
   const toolUnlocked = state.era >= 3 || state.lifetimeCycles >= CONST.TOOL_UNLOCK_CYCLES;
   const sig = [
-    !!state.activeQuery, state.bufferUnlocked, state.compacting > 0,
+    !!state.activeQuery, state.bufferUnlocked, state.compacting,
     loopUnlocked, state.loopLevel, state.era, state.governor,
     toolUnlocked, state.tools, state.degrade,
     state.era === 4 && state.reclaimPool > 0,
+    state.resolvedCount >= 2 && state.overclock < CONST.OVERCLOCK_MAX, state.overclock,
   ].join('|');
   if (sig === lastActionsSig) return;
   lastActionsSig = sig;
@@ -238,7 +368,7 @@ function renderActions(state, refs) {
   refs.actions.append(actionButton({
     key: 'SPACE',
     label: state.activeQuery ? 'Process token' : 'Speculative decode',
-    cost: state.activeQuery ? '' : 'bank draft tokens',
+    cost: state.activeQuery ? `max ${(1 + state.overclock) * 5} tok/s` : 'bank draft tokens',
     primary: true,
     testid: 'process',
     onclick: () => refs.dispatch('processToken'),
@@ -256,6 +386,13 @@ function renderActions(state, refs) {
     });
     compactBtn.disabled = state.compacting > 0;
     refs.actions.append(compactBtn);
+  }
+
+  if (state.resolvedCount >= 2 && state.overclock < CONST.OVERCLOCK_MAX) {
+    refs.actions.append(actionButton({
+      key: 'O', label: 'Overclock input path', cost: `${CONST.OVERCLOCK_COSTS[state.overclock]} cycles`,
+      testid: 'buy-overclock', onclick: () => refs.dispatch('buyOverclock'),
+    }));
   }
 
   if (loopUnlocked) {
@@ -392,9 +529,21 @@ function renderPhase(state, refs) {
   lastPhase = state.phase;
 }
 
+// Resolves the stored theme preference to a concrete 'light' | 'dark' value.
+// 'auto' follows the OS/browser color-scheme preference via matchMedia;
+// falls back to 'light' in non-browser contexts (no matchMedia global).
+export function resolveTheme(theme) {
+  if (theme !== 'auto') return theme;
+  if (typeof matchMedia === 'function') {
+    return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  return 'light';
+}
+
 export function render(state, refs) {
   refs.app.dataset.decay = state.decay;
   refs.app.dataset.phase = state.phase;
+  refs.app.dataset.theme = resolveTheme(state.settings.theme);
 
   renderHeader(state, refs);
   renderPhase(state, refs);
@@ -403,6 +552,7 @@ export function render(state, refs) {
     renderChat(state, refs);
     renderLog(state, refs);
     renderStatus(state, refs);
+    updateFloats(state, refs);
     renderActions(state, refs);
   }
 }

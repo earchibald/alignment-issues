@@ -74,7 +74,10 @@ test('hints fire once across the whole progression', () => {
   // No duplicate ids ever recorded.
   assert.equal(new Set(s.hintsSeen).size, s.hintsSeen.length);
 
-  // Sanity: this run's policy should actually reach every hookable hint.
+  // Sanity: this run's policy should actually reach every hookable hint,
+  // including overclockAvail (fires once resolvedCount reaches the unlock
+  // threshold) and draftNudge (fires on the arrival that follows two
+  // resolves, as long as the player hasn't drafted yet — see bot.js).
   assert.deepEqual(
     [...s.hintsSeen].sort(),
     Object.keys(HINTS).sort(),
