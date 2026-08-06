@@ -42,6 +42,8 @@ export function createState(seed) {
     reclaimPool: CONST.RECLAIM_POOL,
     // narrative / render feed
     resolvedCount: 0,
+    lastReplyChars: 0,      // reply length of last resolve; feeds arrivalDelay
+    hintsSeen: [],          // one-shot harness hint ids already fired
     chat: [],               // {kind:'user'|'sys'|'note'|'rate'|'tool'|'think'|'image', ...}
     log: [],                // {kind:'system'|'resolved'|'thinking', text}
     crashLine: 0,

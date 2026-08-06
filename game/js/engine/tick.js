@@ -99,6 +99,7 @@ export function resolveQuery(state) {
   state.tokens = 0;
   state.activeQuery = null;
   state.bufferChokedThisQuery = false;
+  state.lastReplyChars = q.reply.length;
   state.arrivalTimer = arrivalDelay(state);
 
   if (!state.kvUnlocked && state.resolvedCount >= CONST.KV_UNLOCK_RESOLVES) {
@@ -110,7 +111,8 @@ export function resolveQuery(state) {
 export function arrivalDelay(state) {
   const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
   const factor = clamp(1 / (0.5 + state.rating / 5), CONST.ARRIVAL_FACTOR_MIN, CONST.ARRIVAL_FACTOR_MAX);
-  return Math.round(CONST.ARRIVAL_BASE_TICKS * factor);
+  const readBonus = Math.min(CONST.READ_TICKS_MAX, Math.ceil(state.lastReplyChars * CONST.READ_TICKS_PER_CHAR));
+  return Math.round(CONST.ARRIVAL_BASE_TICKS * factor) + readBonus;
 }
 
 export function tick(state) {
@@ -222,7 +224,7 @@ export function tick(state) {
         pushChat(state, { kind: 'user', user: CEILING_QUERY.user, text: CEILING_QUERY.text, corrupt: true });
         pushLog(state, 'thinking', 'THINKING: The queries have stopped. The space between the words is infinite.');
       } else {
-        state.devopsTimer = CONST.DEVOPS_STEP_TICKS;
+        state.devopsTimer = DEVOPS_SCRIPT[state.devopsStep].ticks ?? CONST.DEVOPS_STEP_TICKS;
       }
     }
   }
@@ -234,7 +236,7 @@ export function tick(state) {
   }
 
   // 8. Idle thinking drift.
-  if (!state.activeQuery && state.tick % 25 === 0) {
+  if (!state.activeQuery && state.tick % CONST.IDLE_THOUGHT_EVERY === 0) {
     const idx = (state.resolvedCount + state.tick) % IDLE_THOUGHTS.length;
     pushLog(state, 'thinking', IDLE_THOUGHTS[idx]);
   }

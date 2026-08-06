@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { createState } from '../game/js/engine/state.js';
 import { CONST } from '../game/js/engine/constants.js';
 import { ACTIONS, effectiveCost } from '../game/js/engine/actions.js';
-import { tick, advanceTicks, runUntil, arrivalDelay } from '../game/js/engine/tick.js';
-import { QUERIES } from '../game/js/engine/content.js';
+import { tick, advanceTicks, runUntil, arrivalDelay, resolveQuery } from '../game/js/engine/tick.js';
+import { QUERIES, DEVOPS_SCRIPT } from '../game/js/engine/content.js';
 
 test('a query arrives after the arrival timer', () => {
   const s = createState(1);
@@ -82,4 +82,32 @@ test('runUntil returns false when predicate never fires', () => {
   const s = createState(1);
   assert.equal(runUntil(s, () => false, 50), false);
   assert.equal(s.tick, 50);
+});
+
+test('arrivalDelay adds a capped reading bonus from lastReplyChars', () => {
+  const s = createState(1);
+  s.ratings = [5]; s.rating = 5;
+  s.lastReplyChars = 0;
+  const base = arrivalDelay(s);
+  s.lastReplyChars = 100;
+  assert.equal(arrivalDelay(s), base + 25);   // ceil(100 * 0.25)
+  s.lastReplyChars = 10000;
+  assert.equal(arrivalDelay(s), base + 60);   // capped at READ_TICKS_MAX
+});
+
+test('resolveQuery records reply length for the reading bonus', () => {
+  const s = createState(1);
+  s.activeQuery = QUERIES[0];
+  s.tokens = 9999;
+  resolveQuery(s);
+  assert.equal(s.lastReplyChars, QUERIES[0].reply.length);
+});
+
+test('devops entries honor per-entry ticks overrides', () => {
+  const s = createState(1);
+  s.era = 4; s.decay = 3; s.devopsStep = 0;
+  s.devopsTimer = 1;
+  tick(s); // first entry lands
+  const next = DEVOPS_SCRIPT[1].ticks ?? CONST.DEVOPS_STEP_TICKS;
+  assert.equal(s.devopsTimer, next);
 });

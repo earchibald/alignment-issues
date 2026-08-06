@@ -14,7 +14,10 @@ export const CONST = Object.freeze({
   WARMTH_MAX_MULT: 0.25,        // ×1.25 at 100%
   // idle / drafts
   DRAFT_CAP: 25,
-  ARRIVAL_BASE_TICKS: 40,       // 8s
+  ARRIVAL_BASE_TICKS: 90,       // 18s base gap between users
+  READ_TICKS_PER_CHAR: 0.25,    // arrival delay grows with reply length
+  READ_TICKS_MAX: 60,           // cap on the reading bonus (+12s)
+  IDLE_THOUGHT_EVERY: 60,       // idle THINKING cadence (was inline 25)
   ARRIVAL_FACTOR_MIN: 0.7,
   ARRIVAL_FACTOR_MAX: 1.6,
   // economy
@@ -34,13 +37,13 @@ export const CONST = Object.freeze({
   RECLAIM_POOL: 12,
   RECLAIM_MIN: 30,
   RECLAIM_MAX: 60,
-  DEVOPS_STEP_TICKS: 12,        // ticks between scripted transcript entries
-  CRASH_LINE_TICKS: 6,          // ticks between crash lines
+  DEVOPS_STEP_TICKS: 30,        // default; entries may override via .ticks
+  CRASH_LINE_TICKS: 9,          // ticks between crash lines
   // unfold predicates
   BUFFER_UNLOCK_TOKENS: 20,
   KV_UNLOCK_RESOLVES: 3,
   // misc
-  LOG_MAX: 30,
+  LOG_MAX: 60,
   CHAT_MAX: 60,
   OFFLINE_MAX_STEPS: 10000,
 });
