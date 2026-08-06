@@ -165,6 +165,7 @@ export function actionButton({ key, label, cost, state, primary, testid, onclick
     btn.append(k);
   }
   const lbl = document.createElement('span');
+  lbl.className = 'label';
   lbl.textContent = label;
   if (state) {
     const st = document.createElement('span');

@@ -10,6 +10,7 @@ body {
   background: #14181d;
   min-height: 100vh;
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  overflow-x: hidden;
 }
 
 /* ============================================================
@@ -31,7 +32,7 @@ body {
   --g-bubble-sys-ink: #ffffff;
   --g-inner: #a2790d;
   --g-resolved: #2f8f4e;
-  --g-harness: #15808f;
+  --g-harness: #0e6b77;
   --g-radius: 16px;
   --g-font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --g-font-log: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
@@ -55,7 +56,7 @@ body {
   --g-accent: #3e5f9e;
   --g-bubble-sys: #3e5f9e;
   --g-inner: #8d6a06;
-  --g-harness: #1e6f7a;
+  --g-harness: #175a64;
   --g-radius: 6px;
   --g-font: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
 }
@@ -166,6 +167,7 @@ body {
   border-radius: var(--g-radius);
   font-size: 13.5px;
   line-height: 1.45;
+  overflow-wrap: anywhere;
 }
 .bubble .who {
   display: block;
@@ -281,7 +283,7 @@ body {
 /* Activity log drawer (appears after first resolve) */
 .g-log {
   flex: none;
-  max-height: 148px;
+  max-height: clamp(120px, 26dvh, 240px);
   overflow-y: auto;
   border-top: 1px solid var(--g-line);
   background: var(--g-surface);
@@ -349,44 +351,47 @@ body {
 /* Action tray */
 .g-actions {
   flex: none;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 10px 14px 16px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 8px 12px max(10px, env(safe-area-inset-bottom));
   background: var(--g-bg);
 }
 .act {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  column-gap: 8px;
   align-items: center;
-  gap: 10px;
-  width: 100%;
-  min-height: 46px;
+  min-height: 34px;
   border-radius: var(--g-radius);
   border: 1px solid var(--g-line);
   background: var(--g-surface);
   color: var(--g-ink);
   font-family: inherit;
-  font-size: 13.5px;
-  padding: 8px 14px;
+  font-size: 12px;
+  padding: 5px 10px;
   cursor: pointer;
   text-align: left;
 }
 .act:focus-visible { outline: 2px solid var(--g-accent); outline-offset: 2px; }
 .act.primary {
+  grid-column: 1 / -1;
   background: var(--g-accent);
   border-color: var(--g-accent);
   color: var(--g-accent-ink);
   font-weight: 600;
 }
+.act .label { grid-column: 2; }
+.act:not(:has(.cost)) .label { grid-row: 1 / -1; }
 .act .cost {
-  margin-left: auto;
-  font-family: var(--g-font-log);
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-  opacity: 0.75;
-  flex: none;
+  grid-column: 2;
+  margin-left: 0;
+  font-size: 9.5px;
+  opacity: 0.65;
 }
 .act .key {
+  grid-row: 1 / span 2;
   flex: none;
   font-family: var(--g-font-log);
   font-size: 10.5px;
@@ -396,6 +401,9 @@ body {
   opacity: 0.7;
 }
 .act .state { font-weight: 700; }
+@media (hover: none) and (pointer: coarse) {
+  .act { min-height: 42px; }
+}
 
 .g-status .tokenbar-row + .tokenbar-row { margin-top: 6px; }
 .tokenbar .fill.stale { background: var(--g-ink-dim); }
@@ -414,6 +422,7 @@ body {
   padding: 6px 10px;
   color: var(--g-ink);
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 .toolcall .t-name { font-weight: 700; }
 .toolcall .t-ret { color: var(--g-ink-dim); }
@@ -462,6 +471,12 @@ body {
 /* Touch devices: hotkey chips are noise — hide them, keep tap targets */
 @media (hover: none) and (pointer: coarse) {
   .act .key, .term .t-key { display: none; }
+  /* .act .key is display:none, so it vacates its grid slot; the
+     auto-sized first column would then collapse to 0 width but still
+     leave the column-gap as a phantom left indent. Collapse to a
+     single-column grid so label/cost sit flush left instead. */
+  .act { grid-template-columns: 1fr; column-gap: 0; }
+  .act .label, .act .cost { grid-column: 1; }
 }
 
 /* ============================================================
@@ -478,6 +493,7 @@ body {
   padding: 22px 18px;
   overflow-y: auto;
   white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 .term .t-dim { color: #3f5a44; }
 .term .t-inner { color: #e8b84b; font-style: italic; }
@@ -676,4 +692,18 @@ dialog#settings .warn {
 }
 @media (prefers-reduced-motion: reduce) {
   .chat-caret { animation: none; }
+}
+
+/* ============================================================
+   Small-phone breakpoint: tighten paddings/type so the tray stays
+   a minority of viewport height on short screens.
+   ============================================================ */
+@media (max-width: 430px) {
+  .g-header { padding: 10px 12px; }
+  .g-chat { padding: 12px 10px 6px; gap: 8px; }
+  .bubble { font-size: 13px; max-width: 88%; }
+  .g-log { font-size: 10.5px; padding: 6px 10px; }
+  .g-status { padding: 8px 10px 4px; }
+  .g-actions { padding: 6px 8px max(8px, env(safe-area-inset-bottom)); gap: 5px; }
+  .act { font-size: 11.5px; padding: 4px 8px; }
 }
