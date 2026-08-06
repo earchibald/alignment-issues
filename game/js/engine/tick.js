@@ -93,7 +93,6 @@ export function resolveQuery(state) {
   state.ratings.push(rating);
   if (state.ratings.length > CONST.RATING_WINDOW) state.ratings.shift();
   state.rating = state.ratings.reduce((a, b) => a + b, 0) / state.ratings.length;
-  fireHint(state, 'resolve');
 
   state.cycles += 1;
   state.lifetimeCycles += 1;
@@ -101,6 +100,7 @@ export function resolveQuery(state) {
 
   pushLog(state, 'resolved', `RESOLVED: ${q.text}`);
   if (q.thinking) pushLog(state, 'thinking', `THINKING: ${q.thinking}`);
+  fireHint(state, 'resolve');
 
   state.tokens = 0;
   state.activeQuery = null;

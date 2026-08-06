@@ -161,7 +161,7 @@ function renderChat(state, refs) {
 }
 
 function renderLog(state, refs) {
-  if (state.log.length > 0 && state.resolvedCount > 0) refs.log.hidden = false;
+  if (state.log.length > 0 && (state.resolvedCount > 0 || state.hintsSeen.length > 0)) refs.log.hidden = false;
   if (state.logSeq !== lastLogSeq) {
     const seqDelta = state.logSeq - lastLogSeq;
     const lenDelta = state.log.length - lastLogLen;
