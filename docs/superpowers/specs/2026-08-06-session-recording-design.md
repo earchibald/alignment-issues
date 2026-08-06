@@ -6,17 +6,18 @@ Prior specs: `2026-08-05-phase1-design.md`, `2026-08-06-phase1-polish.md`, `2026
 
 ## Goal
 
-Capture every gameplay session as a timestamped event stream. In dev mode, also capture a voice recording through an on-screen overlay. Correlate audio and events with strict timestamps. Export both to local disk (Files app on iPhone). Give coding agents a repo skill that turns an exported session into an analysis report.
+Capture every gameplay session as a timestamped event stream. In dev mode, also capture a voice recording through an on-screen overlay. Correlate audio and events with strict timestamps. Export both to local disk (Files app on iPhone). Provide a locked-down, Terraform-managed S3 submission pathway (inactive at launch) and an agent-side retrieval tool. Give coding agents a repo skill that turns an exported or submitted session into an analysis report.
 
 The workflow this serves: the developer plays the game, thinks out loud, and stops. The recording and the event stream go straight into a coding agent session. No mid-play note-taking.
 
 ## Decisions (from brainstorm)
 
-1. Telemetry records for **everyone**, prod included, with a settings opt-out. There is no server; data stays in the player's browser until exported.
-2. Export is **modular**: a sink interface. v1 ships file export. A submission/retrieval service (HttpSink) comes later.
+1. Telemetry records for **everyone**, prod included, with a settings opt-out. Data stays in the player's browser until exported or submitted.
+2. Export is **modular**: a sink interface. `FileExportSink` ships first and is preserved permanently. `S3Sink` ships in the same effort but starts **inactive**.
 3. Transcription uses **local Whisper** (whisper.cpp or mlx-whisper).
 4. The dev gate is a **persistent localStorage flag** set by `?debug=1`, cleared by `?debug=0`.
 5. Architecture is **chokepoint instrumentation** (Approach A). The pure engine (`game/js/engine/`) is not modified.
+6. S3 submission uses a **presigned-POST broker** (Lambda function URL), not client-held AWS keys. A deploy-injected **submit token** gates the broker. Everything AWS-side is Terraform-managed, wrapped in a script, with a step-by-step operator manual.
 
 ## Scope
 
@@ -24,14 +25,16 @@ In scope:
 - Telemetry capture module, IndexedDB persistence, retention, opt-out toggle.
 - Recording overlay (dev mode only), MediaRecorder audio pipeline, crash-resilient chunk storage.
 - File export (share sheet on iOS, downloads on desktop), session list UI in the dev drawer.
+- S3 submission pathway: Terraform under `infra/` with `run.sh` wrapper, presigned-POST broker Lambda, `S3Sink` client, `scripts/sessions.mjs` retrieval tool, operator manual. Inactive by default.
 - `scripts/session-merge.mjs` merge script.
 - `.claude/skills/analyze-session/SKILL.md` agent skill.
-- Node tests for capture core, retention, and merge script; bot-playthrough hook assertion.
+- Node tests for capture core, retention, merge script, broker validation, and grant flow; bot-playthrough hook assertion.
 
 Out of scope:
-- The submission/retrieval service and HttpSink implementation (interface only).
 - Video or screen capture.
 - Transcription in the browser.
+- A retrieval/browsing web UI (the agent tool covers retrieval).
+- Per-IP rate limiting on the broker (API Gateway upgrade path noted in Future work).
 
 ## Architecture
 
@@ -108,16 +111,61 @@ v1: **`FileExportSink`**.
 - Filenames: `hyt-session-<id>.jsonl`, plus one audio file per recording: `hyt-session-<id>-r<recIdx>.m4a` (or `.webm`). The shared `<id>` is the pairing key; the merge script globs for the audio files.
 - The `.jsonl` file: line 1 is the session header `{id, anchor: {at, pm}, ua, dev}`; each following line is one event.
 
-Export UI: a "sessions" section in the dev drawer. Each row shows date, duration, event count, and a 🎙 badge when audio exists, with export and delete buttons.
+Export UI: a "sessions" section in the dev drawer. Each row shows date, duration, event count, and a 🎙 badge when audio exists, with export and delete buttons. When the S3 pathway is enabled, each row also shows a submit button.
 
-Later: `HttpSink` implements the same interface and posts the bundle to the submission service. Capture code does not change.
+`S3Sink` implements the same interface (next section). Capture code does not change between sinks.
+
+## S3 submission pathway
+
+The pathway starts inactive. Local file export is preserved permanently.
+
+### Flow
+
+```
+Browser ──POST /grant (token, sessionId, filename, size, type)──▶ Lambda (function URL)
+        ◀── presigned POST fields (exact key, size cap, type, 60 s expiry) ──
+Browser ──multipart POST──▶ S3  submissions/<yyyy-mm-dd>/<sessionId>/<filename>
+```
+
+The Lambda's execution role is the only writer credential in existence. The client holds no AWS keys and performs no request signing.
+
+### Broker contract
+
+- The Lambda validates the submit token, then constructs the object key itself. The client cannot choose the key.
+- Key format: `submissions/<yyyy-mm-dd>/<sessionId>/<filename>`. The date comes from the Lambda clock.
+- `sessionId` must match `^\d{13}-[a-z0-9]{4}$`. `filename` must match `^hyt-session-<sessionId>(\.jsonl|-r\d+\.(m4a|webm))$`.
+- The presigned policy pins the exact key, a content-type allowlist, and a size cap: 25 MB for `.jsonl`, 200 MB for audio. Presigned POSTs expire in 60 s.
+- Invalid token, id, filename, type, or size → 4xx, no presign.
+- Kill switches, any one sufficient: unset the token, disable the function, or `enabled:false` in client config.
+
+### Submit token
+
+The token is the "compiled-in credential". A GitHub Secret holds it; the Pages deploy workflow injects it into the client config. It is extractable like all client-side data. Its job is to gate drive-by use of the broker URL and to make revocation cheap: rotation is one secret change plus a redeploy and a Terraform variable update.
+
+### Terraform (`infra/`)
+
+Resources: the bucket (private, all public access blocked, SSE-S3, TLS-only bucket policy, CORS restricted to the Pages origin, lifecycle: expire `submissions/` after 90 days, abort incomplete multipart uploads after 7 days), the broker Lambda + function URL (CORS also restricted to the Pages origin) + execution role (PutObject on `submissions/*` only), and a read-only `hyt-analyst` IAM user (GetObject/ListBucket on `submissions/*`, access keys exposed as sensitive outputs).
+
+Wrapper: `infra/run.sh` with subcommands `init | plan | apply | outputs | destroy`. It checks tool versions, passes `terraform.tfvars`, and writes `infra/outputs.json` for the agent tool. State is local; the manual documents this and the S3-backend upgrade path. Bucket name, region, allowed origin, and the submit token are source-level configuration in `terraform.tfvars`. That file is git-ignored because it holds the token (a sensitive variable passed to the Lambda environment); a committed `terraform.tfvars.example` documents the shape.
+
+### Client (`S3Sink`)
+
+`S3Sink` implements the sink interface: for each file in the bundle, request a grant, then multipart-POST to S3. Config: committed stub `game/js/telemetry/submit-env.js` with `{enabled: false, brokerUrl: '', token: ''}`. The deploy workflow overwrites the stub from repo secrets/vars only when they are set. No secrets ever enter git.
+
+### Agent retrieval tool
+
+`scripts/sessions.mjs` — zero-dependency node script that shells to the `aws` CLI with the `hyt-analyst` profile. Commands: `list`, `pull <sessionId> [--dest <dir>]`, `pull --latest`, `rm <sessionId>`. It reads bucket/prefix from `infra/outputs.json` (override via env). This is the tool coding agents use to work with the submissions repository.
+
+### Operator manual
+
+`docs/operations/s3-submissions-setup.md`, step by step: prerequisites (AWS account + admin credentials, terraform, aws CLI) → fill `terraform.tfvars` → `./infra/run.sh apply` → configure the `hyt-analyst` profile in `~/.aws` from outputs → set GitHub secrets/vars (token, broker URL, enable flag) → redeploy Pages → end-to-end verification (submit a test session, `sessions.mjs list`, `pull`) → token rotation procedure → teardown.
 
 ## Analysis skill
 
 Location: `.claude/skills/analyze-session/SKILL.md` (project-level, available to any coding agent in the repo).
 
 Flow:
-1. Locate the session pair. Default search: `~/Downloads` and iCloud Drive Downloads. Accept an explicit path argument.
+1. Locate the session pair. Default search: `~/Downloads` and iCloud Drive Downloads. Accept an explicit path argument, or an S3 session id / `--latest`, in which case the skill first pulls files with `scripts/sessions.mjs`.
 2. Ensure Whisper: probe `whisper-cli` (whisper.cpp) then `mlx_whisper`. Offer `brew install whisper-cpp` on first use.
 3. Transcribe to JSON with segment timestamps.
 4. Run `scripts/session-merge.mjs` — node, zero dependencies. It loads the events JSONL and the Whisper JSON, inverts the audio→wall map from the `rec.*` marks, and emits one unified timeline in markdown: commentary segments interleaved with game events at true wall-clock positions, tick numbers included.
@@ -132,6 +180,7 @@ The merge is deterministic script code. Agent judgment starts at step 5. A sessi
 - Mic denied or MediaRecorder missing → overlay shows a dimmed error state with the reason. Telemetry is unaffected.
 - Export without audio → events file alone.
 - `navigator.share` rejection (user cancel) → silent no-op.
+- Submit failure (grant 4xx/5xx, upload failure, offline) → error shown on the session row; the session stays local and can be retried or file-exported. No automatic retry loop.
 - Every failure also logs a telemetry event when the stream itself still works.
 
 ## Testing
@@ -139,10 +188,15 @@ The merge is deterministic script code. Agent judgment starts at step 5. A sessi
 - `capture.js`, buffering, and retention: node tests against `MemoryStore` with an injected fake clock.
 - `session-merge.mjs`: fixture events + fixture transcript → snapshot the merged timeline. Must include a pause-mid-recording case; the map inversion is where bugs will live.
 - Hooks: extend the headless bot playthrough to assert that actions, chat entries, and milestones produce events.
+- Broker Lambda: node tests for the validation logic (token, id, filename, type, size) as a pure function separated from the handler.
+- `S3Sink`: node test of the grant→POST flow with a mocked `fetch`.
+- `scripts/sessions.mjs`: node test of command parsing and key→filename mapping with a stubbed `aws` invocation.
 - Overlay UI: manual verification, consistent with the rest of `ui/`.
+- Infra: end-to-end verification steps live in the operator manual, run manually after `apply`.
 
 ## Future work
 
-- `HttpSink` + submission/retrieval service.
+- Per-IP rate limiting / WAF on the broker (API Gateway upgrade path).
+- Retrieval/browsing web UI over the submissions bucket.
 - Session replay from snapshot + event stream.
 - Optional word-level transcript timestamps if segment granularity proves too coarse.
