@@ -13,12 +13,22 @@
 [hidden] { display: none !important; }
 
 html, body { margin: 0; padding: 0; }
+/* The page itself never scrolls: the game is a fixed 100dvh column and only
+   its inner panes (chat, feed, terminal) scroll. `overflow: hidden` stops the
+   document scrolling; `overscroll-behavior: none` stops iOS rubber-banding
+   and pull-to-refresh, which otherwise drag the whole UI around mid-play. */
+html, body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
 body {
   background: #14181d;
-  min-height: 100vh;
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  overflow-x: hidden;
 }
+/* Inner scrollers keep their scroll to themselves — reaching the end of the
+   chat must not chain into a page-level bounce. */
+.g-chat, .g-log, .term, .dev-drawer, dialog#settings { overscroll-behavior: contain; }
 
 /* ============================================================
    GAME UI TOKENS — driven by data-decay="0..4" on #app
@@ -902,3 +912,18 @@ dialog#settings .harness-card { margin: 8px 0; }
   color: var(--g-ink);
 }
 #cardlay .hint-card { width: 100%; }
+
+/* ============================================================
+   TOUCH GESTURES — kill double-tap-to-zoom on iOS.
+   `manipulation` drops the double-tap gesture (and the legacy 300ms
+   click delay) while KEEPING pan and pinch-zoom, so accessibility
+   zoom survives. Do NOT reach for user-scalable=no instead: it takes
+   pinch-zoom away from everyone and modern Safari ignores it anyway.
+   touch-action does not inherit, and the ancestor walk stops at a
+   scroll container (.g-chat, .g-log are both scrollers), so setting it
+   on body alone is not enough — it is applied to the whole subtree.
+   Scrollers keep working: `manipulation` still permits panning.
+   ============================================================ */
+html, body,
+#app, #app *,
+#rotate, #rotate * { touch-action: manipulation; }
