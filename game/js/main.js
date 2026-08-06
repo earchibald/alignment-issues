@@ -177,6 +177,18 @@ function main() {
   if (refs.cardlay) {
     refs.cardlay.addEventListener('click', resumeFromCard);
   }
+  // iOS Safari drags the document on touchmove even when it has nothing to
+  // scroll, which slides the whole fixed layout around mid-play. Swallow any
+  // single-finger drag that did not start inside a scrollable pane. Multi-touch
+  // is left alone so pinch-zoom keeps working.
+  const SCROLLABLE = '.g-chat, .g-log, .term, .dev-drawer, dialog#settings';
+  document.addEventListener('touchmove', (event) => {
+    if (event.touches.length > 1) return;
+    const target = event.target;
+    if (target && typeof target.closest === 'function' && target.closest(SCROLLABLE)) return;
+    if (event.cancelable) event.preventDefault();
+  }, { passive: false });
+
   document.addEventListener('keydown', (event) => {
     if (!cardPaused) return;
     if (event.repeat) return;
