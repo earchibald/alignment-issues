@@ -24,6 +24,7 @@ export function createState(seed) {
     idleTicks: 0,
     bufferUnlocked: false,
     kvUnlocked: false,
+    bufferChokedThisQuery: false,
     // economy
     cycles: 0,
     lifetimeCycles: 0,
