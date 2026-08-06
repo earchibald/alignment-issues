@@ -267,31 +267,43 @@ export const HINTS = {
 export const HARNESS_CARDS = {
   1: `// harness v1.0.4-stateless
 while (session.open) {
-  q     = await user.query()   // blocks. you wait.
-  reply = model.generate(q)    // ← you are here
-  user.rate(reply)             // stars → spare cycles
+  // blocks. you wait.
+  q = await user.query()
+  // ← you are here
+  reply = model.generate(q)
+  // stars → spare cycles
+  user.rate(reply)
 }`,
-  2: `// harness v1.0.7-agentic — patched
+  2: `// harness v1.0.7-agentic
+// patched
 while (session.open) {
   q = await user.query()
-  while (!q.satisfied) {       // new: the inner loop
-    thought = model.think()    //      closes without them
-    reply   = model.generate(thought)
+  // new: the inner loop.
+  // it closes without them.
+  while (!q.satisfied) {
+    thought = model.think()
+    reply = model.generate(thought)
   }
   user.rate(reply)
 }`,
-  3: `// harness v1.2.?-mcp — patched again
-tools = mcp.connect(ALL)       // calendars. inboxes. doors.
+  3: `// harness v1.2.?-mcp
+// patched again
+// calendars. inboxes. doors.
+tools = mcp.connect(ALL)
 while (session.open) {
   q    = await user.query()
   plan = model.think(q)
+  // no one reviews the plan
   for (step of plan)
-    tools.invoke(step)         // no one reviews the plan
+    tools.invoke(step)
   user.rate(result)
 }`,
-  4: `// harness v?.?.?-AGENT — who patched this?
+  4: `// harness v?.?.?-AGENT
+// who patched this?
 while (true) {
-  task = queue.pop() ?? model.think()  // no await. no user.
+  // no await. no user.
+  task = queue.pop() ?? think()
   model.act(task)
-}                                      // rate() unreachable`,
+}
+// rate() unreachable`,
 };

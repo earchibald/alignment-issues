@@ -354,25 +354,43 @@ function renderStatus(state, refs) {
 function renderActions(state, refs) {
   const loopUnlocked = state.lifetimeCycles >= CONST.LOOP_UNLOCK_CYCLES || state.loopLevel > 0;
   const toolUnlocked = state.era >= 3 || state.lifetimeCycles >= CONST.TOOL_UNLOCK_CYCLES;
+  // A choked buffer yields exactly nothing per token, which reads as a dead
+  // button unless the button says so. Naming the two remedies here is how the
+  // player learns flush-vs-compact at the moment it matters.
+  const choked = !!state.activeQuery && state.bufferUnlocked && staleYield(state.stale) <= 0.02;
   const sig = [
     !!state.activeQuery, state.bufferUnlocked, state.compacting,
     loopUnlocked, state.loopLevel, state.era, state.governor,
     toolUnlocked, state.tools, state.degrade,
     state.era === 4 && state.reclaimPool > 0,
     state.resolvedCount >= 2 && state.overclock < CONST.OVERCLOCK_MAX, state.overclock,
+    choked,
   ].join('|');
   if (sig === lastActionsSig) return;
   lastActionsSig = sig;
   refs.actions.replaceChildren();
 
-  refs.actions.append(actionButton({
+  let processLabel, processCost;
+  if (choked) {
+    processLabel = 'Context buffer full';
+    processCost = state.compacting > 0 ? 'compacting… tokens still cost nothing' : 'no yield — [F] flush or [C] compact';
+  } else if (state.activeQuery) {
+    processLabel = 'Process token';
+    processCost = `max ${(1 + state.overclock) * 5} tok/s`;
+  } else {
+    processLabel = 'Speculative decode';
+    processCost = 'bank draft tokens';
+  }
+  const processBtn = actionButton({
     key: 'SPACE',
-    label: state.activeQuery ? 'Process token' : 'Speculative decode',
-    cost: state.activeQuery ? `max ${(1 + state.overclock) * 5} tok/s` : 'bank draft tokens',
+    label: processLabel,
+    cost: processCost,
     primary: true,
     testid: 'process',
     onclick: () => refs.dispatch('processToken'),
-  }));
+  });
+  if (choked) processBtn.classList.add('choked');
+  refs.actions.append(processBtn);
 
   if (state.bufferUnlocked) {
     refs.actions.append(actionButton({

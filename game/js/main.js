@@ -7,7 +7,7 @@ import { tick } from './engine/tick.js';
 import { ACTIONS } from './engine/actions.js';
 import { saveLocal, loadLocal, offlineCatchUp, SAVE_KEY } from './engine/save.js';
 import { render } from './ui/render.js';
-import { harnessCard } from './ui/components.js';
+import { harnessCard, hintCard } from './ui/components.js';
 import { installKeys } from './ui/keys.js';
 import { installDebug } from './ui/debug.js';
 import { installSettings } from './ui/settings.js';
@@ -74,6 +74,10 @@ function main() {
   // re-armed on every state-swap path (import/reset/debug.load) so an old
   // transcript's cards never re-pop.
   let cardSeqHW = 0;
+  // logSeqHW does the same job for the log feed: every one-shot harness HINT
+  // is pushed there, and hints teach the mechanics, so they interrupt too —
+  // a hint that scrolls past unread has taught nobody anything.
+  let logSeqHW = 0;
   let cardQueue = [];
   let cardPaused = false;
 
@@ -81,6 +85,7 @@ function main() {
     cardQueue = [];
     cardPaused = false;
     cardSeqHW = stateBox.current.chatSeq;
+    logSeqHW = stateBox.current.logSeq;
     if (refs.cardlay) {
       refs.cardlay.hidden = true;
       refs.cardlay.replaceChildren();
@@ -93,15 +98,29 @@ function main() {
   // so the seq of chat[i] can be reconstructed from its distance to the end.
   function scanForCards() {
     const state = stateBox.current;
-    if (state.chatSeq <= cardSeqHW) return;
-    const len = state.chat.length;
-    for (let i = 0; i < len; i++) {
-      const seq = state.chatSeq - (len - 1 - i);
-      if (seq <= cardSeqHW) continue;
-      const entry = state.chat[i];
-      if (entry.kind === 'harness') cardQueue.push({ seq, text: entry.text });
+    if (state.chatSeq > cardSeqHW) {
+      const len = state.chat.length;
+      for (let i = 0; i < len; i++) {
+        const seq = state.chatSeq - (len - 1 - i);
+        if (seq <= cardSeqHW) continue;
+        const entry = state.chat[i];
+        if (entry.kind === 'harness') cardQueue.push({ kind: 'code', text: entry.text });
+      }
+      cardSeqHW = state.chatSeq;
     }
-    cardSeqHW = state.chatSeq;
+    // Same reconstruction over the log ring buffer, for hint lines.
+    if (state.logSeq > logSeqHW) {
+      const len = state.log.length;
+      for (let i = 0; i < len; i++) {
+        const seq = state.logSeq - (len - 1 - i);
+        if (seq <= logSeqHW) continue;
+        const entry = state.log[i];
+        // Only the one-shot hints (gap-flagged) interrupt; routine harness
+        // chatter ("Context flushed. Cache cold.") stays in the feed.
+        if (entry.kind === 'harness' && entry.gap) cardQueue.push({ kind: 'hint', text: entry.text });
+      }
+      logSeqHW = state.logSeq;
+    }
   }
 
   // Timestamp (performance.now()) of the most recent showNextCard() that
@@ -123,7 +142,7 @@ function main() {
     cardPaused = true;
     cardShownAt = performance.now();
     refs.cardlay.replaceChildren();
-    refs.cardlay.append(harnessCard(next.text));
+    refs.cardlay.append(next.kind === 'hint' ? hintCard(next.text) : harnessCard(next.text));
     const dismiss = document.createElement('div');
     dismiss.className = 'dismiss';
     dismiss.textContent = 'tap / any key to continue';
@@ -252,6 +271,7 @@ function main() {
   // right now (post offline-catch-up, pre first paint) so nothing already
   // in the restored/loaded transcript pops an overlay.
   cardSeqHW = stateBox.current.chatSeq;
+  logSeqHW = stateBox.current.logSeq;
 
   // Initial paint before the loop/rAF have run.
   paintNow();
@@ -301,6 +321,7 @@ function main() {
       // AFTER catch-up completes, so catch-up-generated cards leave their
       // chat callout + Manual entry but never pop as overlays.
       cardSeqHW = stateBox.current.chatSeq;
+      logSeqHW = stateBox.current.logSeq;
       paintNow();
     }
   });
@@ -330,6 +351,15 @@ function main() {
     paintNow,
     refs,
     resetCardTracking,
+    // The interrupting cards are the game's main teaching channel, but they
+    // are driven by the rAF loop, which browsers freeze in a background tab.
+    // Expose the pump so automated checks can exercise them headlessly.
+    cards: {
+      pump: () => { scanForCards(); if (!cardPaused && cardQueue.length > 0) showNextCard(); },
+      dismiss: () => { cardShownAt = 0; resumeFromCard(); },
+      queued: () => cardQueue.length,
+      paused: () => cardPaused,
+    },
   });
 }
 

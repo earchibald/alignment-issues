@@ -125,6 +125,22 @@ export function harnessCard(text) {
   return el;
 }
 
+// A one-shot hint shown as an interrupting card. Prose, not code, so it
+// wraps normally instead of using the harness card's preformatted layout.
+export function hintCard(text) {
+  const el = document.createElement('div');
+  el.className = 'hint-card';
+  el.dataset.testid = 'hint-card';
+  const label = document.createElement('span');
+  label.className = 'hc-label';
+  label.textContent = 'harness';
+  const body = document.createElement('p');
+  body.className = 'hc-body';
+  body.textContent = text;
+  el.append(label, body);
+  return el;
+}
+
 export function meterRow({ label, pct, fillClass, count, testid }) {
   const row = document.createElement('div');
   row.className = 'tokenbar-row';

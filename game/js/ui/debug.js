@@ -36,7 +36,7 @@ function summarize(state) {
   };
 }
 
-export function installDebug({ stateBox, dispatch, getSpeed, setSpeed, paintNow, refs, resetCardTracking }) {
+export function installDebug({ stateBox, dispatch, getSpeed, setSpeed, paintNow, refs, resetCardTracking, cards }) {
   let speedButtons = null;
   let stateJsonPre = null;
 
@@ -62,6 +62,9 @@ export function installDebug({ stateBox, dispatch, getSpeed, setSpeed, paintNow,
       dispatch(action, arg);
     },
     debug: {
+      // Drives the interrupting-card overlay without the rAF loop, so the
+      // teaching cards stay verifiable in a background tab or a test runner.
+      cards,
       setSpeed(mult) {
         setSpeed(mult);
         refreshSpeedButtons();

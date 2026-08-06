@@ -22,6 +22,14 @@
     <div id="cardlay" data-testid="harness-overlay" hidden></div>
     <div id="fx" aria-hidden="true"></div>
   </main>
+  <!-- Shown by CSS only on short landscape viewports (phones turned sideways). -->
+  <div id="rotate" data-testid="rotate-warning" role="alert">
+    <div class="rot-card">
+      <div class="rot-icon" aria-hidden="true">⟲</div>
+      <p class="rot-title">Please rotate your device</p>
+      <p class="rot-body">hi. you there? is built for portrait. Landscape is not supported — turn your device upright to continue.</p>
+    </div>
+  </div>
   <script type="module" src="js/main.js"></script>
 </body>
 </html>

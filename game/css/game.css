@@ -818,3 +818,87 @@ dialog#settings .harness-card { margin: 8px 0; }
   .g-actions { padding: 6px 8px max(8px, env(safe-area-inset-bottom)); gap: 5px; }
   .act { font-size: 11.5px; padding: 4px 8px; }
 }
+
+/* ============================================================
+   LANDSCAPE GUARD — the layout is designed for portrait. On a
+   phone turned sideways there is no room for chat + feed + tray,
+   so we ask for portrait instead of shipping a broken screen.
+   Gated on a short viewport AND a coarse pointer so a laptop
+   (landscape, but tall enough) never sees it.
+   ============================================================ */
+#rotate { display: none; }
+
+@media (orientation: landscape) and (max-height: 520px) and (pointer: coarse) {
+  #app { display: none; }
+  #rotate {
+    display: flex;
+    position: fixed;
+    inset: 0;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: #0d1013;
+    color: #cfe8cf;
+    font-family: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
+    text-align: center;
+    z-index: 50;
+  }
+  #rotate .rot-card { max-width: 460px; }
+  #rotate .rot-icon {
+    font-size: 30px;
+    line-height: 1;
+    margin-bottom: 10px;
+    color: #7ee08f;
+  }
+  #rotate .rot-title {
+    margin: 0 0 6px;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+  }
+  #rotate .rot-body {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.6;
+    color: #7f9184;
+  }
+}
+
+/* Choked context buffer: the primary action yields nothing until the player
+   flushes or compacts, so it stops looking like a live button and says why. */
+.act.primary.choked {
+  background: var(--g-surface);
+  border-color: var(--g-inner);
+  color: var(--g-inner);
+}
+.act.primary.choked .key { border-color: var(--g-inner); }
+.act.primary.choked .cost { opacity: 0.95; }
+
+/* One-shot hint shown as an interrupting card (prose, unlike the code card) */
+.hint-card {
+  max-width: 420px;
+  width: 100%;
+  background: var(--g-surface);
+  border: 1px solid var(--g-line);
+  border-left: 3px solid var(--g-harness);
+  border-radius: 4px;
+  padding: 14px 16px;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+}
+.hint-card .hc-label {
+  display: block;
+  font-family: var(--g-font-log);
+  font-size: 9.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--g-harness);
+  margin-bottom: 7px;
+}
+.hint-card .hc-body {
+  margin: 0;
+  font-family: var(--g-font-log);
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--g-ink);
+}
+#cardlay .hint-card { width: 100%; }
