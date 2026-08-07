@@ -83,6 +83,11 @@ export function processToken(state) {
 export function flush(state) {
   if (state.phase !== 1) return;
   if (!state.bufferUnlocked) return;
+  // Nothing to flush. Compaction only ever scales stale down, so zero
+  // means the buffer is genuinely clean — a fresh start, or a flush that
+  // already happened. Firing anyway would burn the warmth for no gain
+  // and count toward the flush asides.
+  if (state.stale <= 0) return;
   state.stale = 0;
   state.warmth = 0;
   state.flushCount += 1;

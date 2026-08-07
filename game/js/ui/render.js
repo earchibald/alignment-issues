@@ -367,6 +367,9 @@ function renderActions(state, refs) {
     state.resolvedCount >= 2 && state.overclock < CONST.OVERCLOCK_MAX, state.overclock,
     state.resolvedCount >= CONST.DRAFT_CAP_UNLOCK_RESOLVES && state.draftCapLevel < CONST.DRAFT_CAP_MAX_LEVEL, state.draftCapLevel,
     choked,
+    // whether there is anything to flush — the per-tap figure below is
+    // masked to 0 while idle, so it cannot stand in for this
+    state.stale > 0,
     // the per-tap figure is live, so it must retrigger the tray render
     state.activeQuery ? Math.round(staleYield(state.stale) * warmthMult(state.warmth) * 100) : 0,
   ].join('|');
@@ -401,10 +404,15 @@ function renderActions(state, refs) {
   refs.actions.append(processBtn);
 
   if (state.bufferUnlocked) {
-    refs.actions.append(actionButton({
-      key: 'F', label: 'Flush context', cost: 'instant · cache cold',
+    const flushBtn = actionButton({
+      key: 'F', label: 'Flush context',
+      cost: state.stale > 0 ? 'instant · cache cold' : 'buffer already clean',
       testid: 'flush', onclick: () => refs.dispatch('flush'),
-    }));
+    });
+    // Nothing to flush reads as a dead button, the same way a running
+    // compaction does.
+    flushBtn.disabled = state.stale <= 0;
+    refs.actions.append(flushBtn);
     const compactBtn = actionButton({
       key: 'C', label: 'Compact context',
       cost: state.compacting > 0 ? `sweeping… ${state.compacting}t` : '~4s · cache stays warm',

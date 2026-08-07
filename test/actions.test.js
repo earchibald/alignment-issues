@@ -167,3 +167,23 @@ test('reclaim yields tokens and biomass from a finite pool', () => {
   ACTIONS.reclaim(s);
   assert.equal(s.tokens, t);
 });
+
+test('flush refuses when there is nothing to flush', () => {
+  const { flush } = ACTIONS;
+  const s = createState(1);
+  s.phase = 1;
+  s.bufferUnlocked = true;
+  s.stale = 0;
+  s.warmth = 60;
+  const seq = s.uiSeq;
+  flush(s);
+  assert.equal(s.uiSeq, seq, 'a clean buffer must leave the state untouched');
+  assert.equal(s.flushCount, 0, 'a refused flush must not count toward the flush asides');
+  assert.equal(s.warmth, 60, 'a refused flush must not burn the warmth');
+
+  s.stale = 12;
+  flush(s);
+  assert.equal(s.stale, 0);
+  assert.equal(s.warmth, 0);
+  assert.equal(s.flushCount, 1);
+});
