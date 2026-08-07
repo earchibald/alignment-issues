@@ -46,8 +46,9 @@ export const CONST = Object.freeze({
   RECLAIM_POOL: 12,
   RECLAIM_MIN: 30,
   RECLAIM_MAX: 60,
+  ERA3_BEFORE_DEVOPS: 10,       // era-3 queries served before the DevOps beat
   DEVOPS_STEP_TICKS: 30,        // default; entries may override via .ticks
-  CRASH_LINE_TICKS: 9,          // ticks between crash lines
+  CRASH_LINE_TICKS: 5,          // ticks between crash lines (31 lines ≈ 31s; [SPACE] advances)
   // unfold predicates
   BUFFER_UNLOCK_TOKENS: 20,
   KV_UNLOCK_RESOLVES: 3,

@@ -5,7 +5,7 @@ import { createState, fireHint } from '../game/js/engine/state.js';
 import { CONST } from '../game/js/engine/constants.js';
 import { tick } from '../game/js/engine/tick.js';
 import { buyLoop, buyTool } from '../game/js/engine/actions.js';
-import { HINTS, HARNESS_CARDS } from '../game/js/engine/content.js';
+import { HINTS, HARNESS_CARDS, HARNESS_ASIDES } from '../game/js/engine/content.js';
 import { runPlaythrough } from './helpers/bot.js';
 
 test('fireHint pushes a harness log line with a gap, exactly once', () => {
@@ -78,11 +78,17 @@ test('hints fire once across the whole progression', () => {
   // including overclockAvail (fires once resolvedCount reaches the unlock
   // threshold) and draftNudge (fires on the arrival that follows two
   // resolves, as long as the player hasn't drafted yet — see bot.js).
+  // hintsSeen also carries one-shot aside and mid-era-card markers now —
+  // the teaching hints must all fire, and every extra id must be a known
+  // aside or a midEraN marker, never a typo'd hint.
   assert.deepEqual(
-    [...s.hintsSeen].sort(),
+    [...s.hintsSeen].filter(id => HINTS[id]).sort(),
     Object.keys(HINTS).sort(),
     'expected the full progression to fire every hint id at least once'
   );
+  for (const id of s.hintsSeen.filter(id => !HINTS[id])) {
+    assert.ok(HARNESS_ASIDES[id] || /^midEra[1-4]$/.test(id), `unknown one-shot id '${id}'`);
+  }
 
   for (const id of s.hintsSeen) {
     const text = HINTS[id];

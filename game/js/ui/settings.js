@@ -253,13 +253,16 @@ export function installSettings({ stateBox, refs, paintNow, onReset, resetCardTr
   function renderManual() {
     manualBody.replaceChildren();
     const state = stateBox.current;
-    if (state.hintsSeen.length === 0) {
+    // hintsSeen also tracks one-shot asides and mid-era card markers, which
+    // have no HINTS entry — only teaching hints belong in the manual.
+    const taught = state.hintsSeen.filter((id) => HINTS[id]);
+    if (taught.length === 0) {
       const empty = document.createElement('div');
       empty.className = 'manual-hint manual-empty';
       empty.textContent = 'Nothing attached yet.';
       manualBody.append(empty);
     } else {
-      for (const id of state.hintsSeen) {
+      for (const id of taught) {
         const hintEl = document.createElement('div');
         hintEl.className = 'manual-hint';
         hintEl.textContent = HINTS[id];

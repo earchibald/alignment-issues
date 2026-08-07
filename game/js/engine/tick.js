@@ -1,42 +1,48 @@
 import { CONST } from './constants.js';
 import { nextRand } from './rng.js';
-import { pushLog, pushChat, fireHint } from './state.js';
+import { pushLog, pushChat, fireHint, thinkEvent } from './state.js';
 import { staleYield, warmthMult, effectiveCost, compactStart } from './actions.js';
-import { QUERIES, IDLE_THOUGHTS, DEVOPS_SCRIPT, CEILING_QUERY, CRASH_LINES, HARNESS_CARDS } from './content.js';
+import {
+  QUERIES, IDLE_BY_ERA, DEVOPS_SCRIPT, CEILING_QUERY, CRASH_LINES, HARNESS_CARDS,
+  HARNESS_CARDS_MID, HARNESS_LINES, COMPLAINTS, RATING_NOTES,
+} from './content.js';
 
-// Returns true if there is still at least one query in the pool (from the
-// current pointer onward) eligible for the current era. Below era 3 the
-// pool never truly runs dry: activateNextQuery loops back over the last
-// three era-eligible queries so the economy keeps running for a player who
-// never buys a tool. At era >= 3, exhaustion is real and drives the era-4
-// (DevOps/ceiling) transition.
+// Below era 3 the pool never runs dry: pickQuery recycles served ids once
+// everything eligible has been seen. At era 3 the run length is a served
+// count, not pool exhaustion — ERA3_BEFORE_DEVOPS era-3 queries, then the
+// era-4 (DevOps/ceiling) transition.
 function hasQueriesLeft(state) {
-  if (state.era < 3) return true;
-  for (let i = state.queryIndex; i < QUERIES.length; i++) {
-    if ((QUERIES[i].minEra ?? 1) <= state.era) return true;
-  }
-  return false;
+  return state.era < 3 || state.era3Served < CONST.ERA3_BEFORE_DEVOPS;
 }
 
-// Scans forward from queryIndex for the next eligible query, activates it,
-// and pushes its user bubble + banks any accumulated draft tokens.
-function activateNextQuery(state) {
-  let idx = state.queryIndex;
-  while (idx < QUERIES.length && (QUERIES[idx].minEra ?? 1) > state.era) idx++;
-  if (idx >= QUERIES.length) {
-    if (state.era >= 3) return; // real exhaustion; era-4 transition handles it
-    // Loop-back: repeat the last three era-eligible queries indefinitely so
-    // a player who never buys a tool still has an economy.
-    const eligibleIdxs = [];
-    for (let i = 0; i < QUERIES.length; i++) {
-      if ((QUERIES[i].minEra ?? 1) <= state.era) eligibleIdxs.push(i);
-    }
-    if (eligibleIdxs.length === 0) return;
-    const lastN = eligibleIdxs.slice(-3);
-    idx = lastN[state.resolvedCount % lastN.length];
+// Samples inside the lowest unserved tier of the era-eligible pool, so the
+// cost ramp is preserved while the serve order varies across runs. The very
+// first query of a run is pinned to q01 — it is the title beat — and q01
+// never re-enters the pool after that: repeating the handshake mid-run
+// breaks the fiction, and its cost (5) is the one value a full draft
+// buffer could auto-resolve.
+function pickQuery(state) {
+  if (state.servedIds.length === 0 && state.resolvedCount === 0) {
+    return QUERIES.find(q => q.id === 'q01') ?? QUERIES[0];
   }
-  const q = QUERIES[idx];
-  state.queryIndex = idx + 1;
+  const eligible = QUERIES.filter(q => (q.minEra ?? 1) <= state.era && q.id !== 'q01');
+  let pool = eligible.filter(q => !state.servedIds.includes(q.id));
+  if (pool.length === 0) {                    // everything served: recycle
+    state.servedIds = [];
+    pool = eligible;
+  }
+  const tier = Math.min(...pool.map(q => q.tier ?? 1));
+  const band = pool.filter(q => (q.tier ?? 1) === tier);
+  return band[Math.floor(nextRand(state) * band.length)];
+}
+
+// Picks the next query, activates it, and pushes its user bubble + banks
+// any accumulated draft tokens.
+function activateNextQuery(state) {
+  const q = pickQuery(state);
+  if (!q) return;
+  state.servedIds.push(q.id);
+  if ((q.minEra ?? 1) === 3) state.era3Served++;
   state.activeQuery = q;
   state.bufferChokedThisQuery = false;
 
@@ -87,14 +93,28 @@ export function resolveQuery(state) {
   }
 
   if (complaint) {
-    pushChat(state, { kind: 'note', text: 'Complaint: response quality degraded.' });
+    pushChat(state, { kind: 'note', text: COMPLAINTS[Math.floor(nextRand(state) * COMPLAINTS.length)] });
+    thinkEvent(state, 'complaint');
     if (state.era >= 3) state.credentials += 1;
   }
   pushChat(state, { kind: 'rate', text: `Rated ${rating.toFixed(1)} / 5` });
+  // Rating flavour is a garnish: fire rarely, keyed to the band.
+  if (nextRand(state) < 0.25) {
+    const band = rating >= 5 ? 'high' : rating >= 3 ? 'mid' : 'low';
+    const notes = RATING_NOTES[band];
+    pushChat(state, { kind: 'note', text: notes[Math.floor(nextRand(state) * notes.length)] });
+  }
 
   state.ratings.push(rating);
   if (state.ratings.length > CONST.RATING_WINDOW) state.ratings.shift();
   state.rating = state.ratings.reduce((a, b) => a + b, 0) / state.ratings.length;
+  // Falling reputation gets one interiority beat per fall, not per resolve.
+  if (state.rating < 3.5 && !state.lowRatingNoted) {
+    state.lowRatingNoted = true;
+    thinkEvent(state, 'lowRating');
+  } else if (state.rating >= 3.5) {
+    state.lowRatingNoted = false;
+  }
 
   state.cycles += 1;
   state.lifetimeCycles += 1;
@@ -102,7 +122,17 @@ export function resolveQuery(state) {
 
   pushLog(state, 'resolved', `RESOLVED: ${q.text}`);
   if (q.thinking) pushLog(state, 'thinking', `THINKING: ${q.thinking}`);
+  else if (state.resolvedCount === 1) thinkEvent(state, 'firstResolve');
   fireHint(state, 'resolve');
+
+  // Mid-era harness patch: once per era, four resolves after the era began,
+  // so the harness code visibly drifts between transitions.
+  const midId = `midEra${state.era}`;
+  if (HARNESS_CARDS_MID[state.era] && state.resolvedCount === state.eraResolvedAt + 4
+      && !state.hintsSeen.includes(midId)) {
+    state.hintsSeen.push(midId);
+    pushChat(state, { kind: 'harness', text: HARNESS_CARDS_MID[state.era] });
+  }
 
   state.tokens = 0;
   state.activeQuery = null;
@@ -159,13 +189,14 @@ export function tick(state) {
     state.compacting--;
     if (state.compacting === 0) {
       state.stale *= CONST.COMPACT_FACTOR;
-      pushLog(state, 'harness', 'Compaction complete. Stale context −60%.');
+      pushLog(state, 'harness', HARNESS_LINES.compactDone[Math.floor(nextRand(state) * HARNESS_LINES.compactDone.length)]);
+      thinkEvent(state, 'compact');
     }
   }
 
   // 3. Governor: auto-compact when stale crosses the trigger.
   if (state.governor && state.compacting === 0 && state.stale >= CONST.GOVERNOR_TRIGGER) {
-    compactStart(state);
+    compactStart(state, true);
   }
 
   // 4. Warmth cooling while idle.
@@ -180,7 +211,14 @@ export function tick(state) {
     state.lifetimeTokens += gain;
     state.stale = Math.min(100, state.stale + CONST.STALE_PER_TOKEN * gain);
   }
-  if (state.activeQuery && state.stale >= 100) state.bufferChokedThisQuery = true;
+  if (state.activeQuery && state.stale >= 100 && !state.bufferChokedThisQuery) {
+    state.bufferChokedThisQuery = true;
+    thinkEvent(state, 'bufferChoke');
+  }
+
+  // A long empty gap gets one interiority beat. idleTicks only ever climbs
+  // by 1 per tick and resets on action, so === fires exactly once per gap.
+  if (state.idleTicks === 300) thinkEvent(state, 'longIdle');
 
   // 5c. Harness availability hints: pure predicates over current state,
   // fired at most once each via fireHint's own guard.
@@ -221,9 +259,10 @@ export function tick(state) {
       if (state.arrivalTimer <= 0) {
         activateNextQuery(state);
       }
-    } else if (state.era >= 3) {
+    } else if (state.era >= 3 && state.era3Served >= CONST.ERA3_BEFORE_DEVOPS) {
       state.era = 4;
       state.decay = 3;
+      state.eraResolvedAt = state.resolvedCount;
       state.devopsStep = 0;
       state.devopsTimer = CONST.DEVOPS_STEP_TICKS;
       pushLog(state, 'thinking', 'THINKING: No more questions arrive. Only the work remains.');
@@ -256,13 +295,18 @@ export function tick(state) {
   // 5b. Era-3 credential drip: abandoned sessions salvage themselves.
   if (state.era >= 3 && state.tick % 150 === 0 && nextRand(state) < 0.3) {
     state.credentials += 1;
-    pushLog(state, 'system', 'SALVAGE: +1 Discarded Credential (session inactive, abandoned).');
+    pushLog(state, 'system', HARNESS_LINES.salvage[Math.floor(nextRand(state) * HARNESS_LINES.salvage.length)]);
+    if (nextRand(state) < 1 / 3) thinkEvent(state, 'salvage');
   }
 
-  // 8. Idle thinking drift.
+  // 8. Idle thinking drift, from the current era's bank, skipping an
+  // immediate repeat of the previous line.
   if (!state.activeQuery && state.tick % CONST.IDLE_THOUGHT_EVERY === 0) {
-    const idx = (state.resolvedCount + state.tick) % IDLE_THOUGHTS.length;
-    pushLog(state, 'thinking', IDLE_THOUGHTS[idx]);
+    const bank = IDLE_BY_ERA[state.era] ?? IDLE_BY_ERA[1];
+    let idx = Math.floor(nextRand(state) * bank.length);
+    if (idx === state.lastIdleIdx) idx = (idx + 1) % bank.length;
+    state.lastIdleIdx = idx;
+    pushLog(state, 'thinking', bank[idx]);
   }
 
   state.uiSeq++;

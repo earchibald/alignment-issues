@@ -1,5 +1,6 @@
 import { CONST } from './constants.js';
-import { HINTS } from './content.js';
+import { HINTS, HARNESS_ASIDES, THINKING_EVENTS } from './content.js';
+import { nextRand } from './rng.js';
 
 export function createState(seed) {
   return {
@@ -11,7 +12,9 @@ export function createState(seed) {
     decay: 0,
     tick: 0,
     // query flow
-    queryIndex: 0,          // pointer into content QUERIES
+    queryIndex: 0,          // legacy pointer; kept for save compatibility only
+    servedIds: [],          // query ids already served this run; recycles when exhausted
+    era3Served: 0,          // era-3 queries served; drives the era-4 turn
     activeQuery: null,
     arrivalTimer: 10,       // short first wait for the cold open
     tokens: 0,
@@ -38,6 +41,14 @@ export function createState(seed) {
     draftCapLevel: 0,
     processedThisTick: 0,
     lifetimeDrafts: 0,
+    // second-pass narration counters (harness asides, mid-era cards)
+    flushCount: 0,
+    compactCount: 0,
+    degradeToggles: 0,
+    eraResolvedAt: 0,       // resolvedCount when the current era began
+    lastIdleIdx: -1,        // last idle-thought index, to skip an immediate repeat
+    lowRatingNoted: false,  // latch: one lowRating beat per fall below 3.5
+    draftCapHits: 0,        // times the draft buffer filled; drives draftBank/draftFull
     // reputation
     ratings: [],
     rating: 5,
@@ -73,6 +84,24 @@ export function fireHint(state, id) {
   if (state.hintsSeen.includes(id)) return;
   state.hintsSeen.push(id);
   pushLog(state, 'harness', HINTS[id], true);
+}
+
+// Harness aside: same one-shot tracking as hints (hintsSeen), but the text
+// comes from HARNESS_ASIDES and it stays in the log feed (no gap) — asides
+// colour a repeated action, they do not teach a mechanic, so they must not
+// interrupt play the way hint cards do.
+export function fireAside(state, id) {
+  if (state.hintsSeen.includes(id)) return;
+  state.hintsSeen.push(id);
+  pushLog(state, 'harness', HARNESS_ASIDES[id]);
+}
+
+// Event thinking: one random line from the pool for this mechanic, so a
+// repeated action never repeats the same interiority line.
+export function thinkEvent(state, key) {
+  const pool = THINKING_EVENTS[key];
+  if (!pool || pool.length === 0) return;
+  pushLog(state, 'thinking', `THINKING: ${pool[Math.floor(nextRand(state) * pool.length)]}`);
 }
 
 export function pushChat(state, entry) {

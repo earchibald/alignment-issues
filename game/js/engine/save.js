@@ -23,6 +23,17 @@ export function deserialize(json) {
   if (typeof parsed.overclock !== 'number') parsed.overclock = 0;
   if (typeof parsed.processedThisTick !== 'number') parsed.processedThisTick = 0;
   if (typeof parsed.lifetimeDrafts !== 'number') parsed.lifetimeDrafts = 0;
+  // Arc-1 content fields: old saves resume with an empty served list, which
+  // re-serves early queries once. Acceptable; no save version bump.
+  if (!Array.isArray(parsed.servedIds)) parsed.servedIds = [];
+  if (typeof parsed.era3Served !== 'number') parsed.era3Served = 0;
+  if (typeof parsed.lastIdleIdx !== 'number') parsed.lastIdleIdx = -1;
+  if (typeof parsed.flushCount !== 'number') parsed.flushCount = 0;
+  if (typeof parsed.compactCount !== 'number') parsed.compactCount = 0;
+  if (typeof parsed.degradeToggles !== 'number') parsed.degradeToggles = 0;
+  if (typeof parsed.eraResolvedAt !== 'number') parsed.eraResolvedAt = 0;
+  if (typeof parsed.lowRatingNoted !== 'boolean') parsed.lowRatingNoted = false;
+  if (typeof parsed.draftCapHits !== 'number') parsed.draftCapHits = 0;
   if (parsed.settings === null || typeof parsed.settings !== 'object') parsed.settings = {};
   if (typeof parsed.settings.sound !== 'boolean') parsed.settings.sound = true;
   if (!['auto', 'light', 'dark'].includes(parsed.settings.theme)) parsed.settings.theme = 'auto';

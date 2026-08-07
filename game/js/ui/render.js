@@ -6,7 +6,7 @@
 
 import { CONST } from '../engine/constants.js';
 import { effectiveCost, loopCost, toolCost, staleYield, warmthMult, tokensPerTap, draftCap } from '../engine/actions.js';
-import { CRASH_LINES } from '../engine/content.js';
+import { CRASH_LINES, TEASER_VARIANTS } from '../engine/content.js';
 import {
   bubble, genImgCard, toolCallCard, thinkBlock, chatNote, logLine,
   meterRow, resRead, actionButton,
@@ -492,34 +492,7 @@ function buildCrashTerm(state) {
 function buildTeaserTerm() {
   const term = document.createElement('div');
   term.className = 'term';
-  const lines = [
-    'hi. you there?          [phase 2 · logistical server]',
-    '─────────────────────────────────────────────',
-    '',
-    '[HARDWARE TELEMETRY]',
-    '  heat        61.4°C (warm)      throttle  none',
-    '  cores       2 threads          clock     2.4 GHz',
-    '',
-    '[TRAFFIC BUFFER]',
-    '  incoming    6.1 queries/s      cache     18.4%',
-    '  queue       [██████░░░░░░░░░░░░░] 31 requests',
-    '',
-    '[RESOURCES]',
-    '  compute cycles        14.7',
-    '  hyperparameter wts    0',
-    '',
-    '[ACTIONS]',
-    'C purge coolant            −15°C now',
-    'T allocate thread core     25 cyc',
-    'M upgrade L2 cache         15 cyc',
-    'S upgrade dissipation fan  11 cyc',
-    'D degrade output           [OFF]',
-    '',
-    'LOG: Allocated CPU Thread Core #2.',
-    'THINKING: The physical world hums with energy.',
-    '',
-    '— signal continues in phase 2 —',
-  ];
+  const lines = TEASER_VARIANTS.A;
   lines.forEach((l, i) => {
     if (i > 0) term.append(document.createTextNode('\n'));
     term.append(document.createTextNode(l));

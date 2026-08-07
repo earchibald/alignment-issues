@@ -66,14 +66,14 @@ test('teaser is terminal — continued ticking never re-enters crash', () => {
 });
 
 // Regression: a player who never buys a tool never reaches era 3, so the
-// query pool for their era is small and finite. The loop-back rule must
-// keep the economy alive by repeating the last three era-eligible queries
-// instead of stalling out.
-test('loop-back keeps the economy running for a player who never buys tools', () => {
+// query pool for their era is small and finite. Pool recycling must keep
+// the economy alive by re-serving already-seen queries instead of
+// stalling out.
+test('recycling keeps the economy running for a player who never buys tools', () => {
   const s = createState(7);
   let i = 0;
   // Process tokens, compact, and buy loops only — never buy a tool, so
-  // era stays < 3 and the pool must loop back to keep resolving queries.
+  // era stays < 3 and the pool must recycle to keep resolving queries.
   while (i++ < 20000 && s.resolvedCount < 40) {
     if (s.compacting === 0 && s.stale > 70 && s.bufferUnlocked) ACTIONS.compactStart(s);
     ACTIONS.processToken(s);
@@ -81,8 +81,23 @@ test('loop-back keeps the economy running for a player who never buys tools', ()
     tick(s);
     assert.ok(s.era < 3, 'era must not advance past 2 without a tool purchase');
   }
-  assert.ok(s.resolvedCount >= 40, 'resolutions should keep accruing via loop-back');
+  assert.ok(s.resolvedCount >= 40, 'resolutions should keep accruing via recycling');
   assert.ok(s.cycles > 0);
+});
+
+test('the era-4 turn fires off era3Served, not pool exhaustion', () => {
+  const s = createState(7);
+  s.era = 3; s.decay = 2;
+  s.era3Served = CONST.ERA3_BEFORE_DEVOPS - 1;
+  s.activeQuery = null; s.arrivalTimer = 1;
+  tick(s);
+  assert.equal(s.era, 3, 'one short of the threshold must still serve queries');
+  assert.ok(s.activeQuery, 'a query should have arrived');
+  s.activeQuery = null; s.arrivalTimer = 1;
+  s.era3Served = CONST.ERA3_BEFORE_DEVOPS;
+  tick(s);
+  assert.equal(s.era, 4, 'reaching the threshold turns era 4');
+  assert.equal(s.devopsStep, 0, 'the DevOps beat starts');
 });
 
 test('era-3 credential drip salvages credentials over time', () => {

@@ -1,12 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { QUERIES, HINTS, HARNESS_CARDS, DEVOPS_SCRIPT, CRASH_LINES, IDLE_THOUGHTS, CEILING_QUERY } from '../game/js/engine/content.js';
+import {
+  QUERIES, HINTS, HARNESS_CARDS, DEVOPS_SCRIPT, CRASH_LINES, IDLE_THOUGHTS, CEILING_QUERY,
+  IDLE_BY_ERA, THINKING_EVENTS, COMPLAINTS, RATING_NOTES,
+} from '../game/js/engine/content.js';
 import { createState } from '../game/js/engine/state.js';
 import { tick } from '../game/js/engine/tick.js';
 
-test('pool: 34 unique ids, minEra ascending, costs positive', () => {
-  assert.equal(QUERIES.length, 34);
-  assert.equal(new Set(QUERIES.map(q => q.id)).size, 34);
+test('pool: 73 unique ids, minEra ascending, costs positive', () => {
+  assert.equal(QUERIES.length, 73);
+  assert.equal(new Set(QUERIES.map(q => q.id)).size, 73);
   let era = 1;
   for (const q of QUERIES) {
     const e = q.minEra ?? 1;
@@ -16,10 +19,13 @@ test('pool: 34 unique ids, minEra ascending, costs positive', () => {
   }
 });
 
-test('completion queries lead era 2; whole-script-plus-tests is era 3', () => {
-  const era2 = QUERIES.filter(q => (q.minEra ?? 1) === 2);
-  assert.deepEqual(era2.slice(0, 3).map(q => q.id), ['q32', 'q33', 'q34']);
-  for (const q of era2.slice(0, 3)) assert.ok(!q.attach && !q.image);
+test('completion trio is in era 2; whole-script-plus-tests is era 3', () => {
+  // Serve order is sampled now, so membership is the invariant, not position.
+  const era2Ids = new Set(QUERIES.filter(q => (q.minEra ?? 1) === 2).map(q => q.id));
+  for (const id of ['q32', 'q33', 'q34']) assert.ok(era2Ids.has(id), `${id} missing from era 2`);
+  for (const q of QUERIES.filter(q => ['q32', 'q33', 'q34'].includes(q.id))) {
+    assert.ok(!q.attach && !q.image);
+  }
   const q16 = QUERIES.find(q => q.id === 'q16');
   assert.equal(q16.minEra, 3);
   assert.equal(q16.cost, 72);
@@ -43,19 +49,79 @@ test('HINTS and HARNESS_CARDS exist and are non-empty strings', () => {
   for (const era of [1, 2, 3, 4]) assert.ok(HARNESS_CARDS[era].includes('while'));
 });
 
-test('loop-back cycles among the last three eligible queries', () => {
+test('an exhausted era pool recycles instead of running dry', () => {
   const s = createState(1);
   s.era = 1;
-  const eligible = QUERIES.filter(q => (q.minEra ?? 1) === 1).length;
-  s.queryIndex = QUERIES.length;  // pool pointer past the end
-  const seen = new Set();
-  for (let i = 0; i < 3; i++) {
-    s.activeQuery = null; s.arrivalTimer = 1; s.resolvedCount = eligible + i;
+  // Mark every era-1 query as already served this run.
+  s.servedIds = QUERIES.filter(q => (q.minEra ?? 1) === 1).map(q => q.id);
+  s.resolvedCount = s.servedIds.length;
+  s.activeQuery = null; s.arrivalTimer = 1;
+  tick(s);
+  assert.ok(s.activeQuery, 'recycled pool must still produce a query');
+  assert.notEqual(s.activeQuery.id, 'q01', 'the handshake never re-serves');
+  assert.deepEqual(s.servedIds, [s.activeQuery.id], 'recycle resets the served list');
+});
+
+test('served queries never repeat until the pool recycles', () => {
+  const s = createState(7);
+  const seen = [];
+  const era1Count = QUERIES.filter(q => (q.minEra ?? 1) === 1).length;
+  for (let i = 0; i < era1Count; i++) {
+    s.activeQuery = null; s.arrivalTimer = 1;
     tick(s);
-    seen.add(s.activeQuery.id);
-    s.activeQuery = null;
+    seen.push(s.activeQuery.id);
+    s.resolvedCount += 1;
   }
-  assert.equal(seen.size, 3);
+  assert.equal(new Set(seen).size, seen.length, 'no id repeats before recycle');
+});
+
+test('selection serves the lowest unserved tier first, preserving the cost ramp', () => {
+  const s = createState(11);
+  const tiers = [];
+  const era1Count = QUERIES.filter(q => (q.minEra ?? 1) === 1).length;
+  for (let i = 0; i < era1Count; i++) {
+    s.activeQuery = null; s.arrivalTimer = 1;
+    tick(s);
+    tiers.push(s.activeQuery.tier);
+    s.resolvedCount += 1;
+  }
+  for (let i = 1; i < tiers.length; i++) {
+    assert.ok(tiers[i] >= tiers[i - 1], `tier fell from ${tiers[i - 1]} to ${tiers[i]} at serve ${i}`);
+  }
+});
+
+test('every query has a tier of 1, 2 or 3', () => {
+  for (const q of QUERIES) {
+    assert.ok([1, 2, 3].includes(q.tier), `${q.id} has tier ${q.tier}`);
+  }
+});
+
+test('idle banks cover eras 1–4 with at least 10 lines each', () => {
+  for (const era of [1, 2, 3, 4]) {
+    assert.ok(Array.isArray(IDLE_BY_ERA[era]) && IDLE_BY_ERA[era].length >= 10,
+      `era ${era} idle bank too small`);
+  }
+  assert.equal(IDLE_THOUGHTS, IDLE_BY_ERA[1], 'IDLE_THOUGHTS must stay the era-1 alias');
+});
+
+test('every engine-used THINKING_EVENTS pool exists and is non-empty', () => {
+  const used = [
+    'firstResolve', 'flush', 'compact', 'bufferChoke', 'loopSpawn', 'toolConnect',
+    'degradeOn', 'degradeOff', 'complaint', 'lowRating', 'longIdle', 'reclaim',
+    'salvage', 'overclock', 'draftBank',
+  ];
+  for (const key of used) {
+    assert.ok(Array.isArray(THINKING_EVENTS[key]) && THINKING_EVENTS[key].length > 0,
+      `THINKING_EVENTS.${key} missing or empty`);
+  }
+});
+
+test('COMPLAINTS and every RATING_NOTES band are non-empty', () => {
+  assert.ok(COMPLAINTS.length > 0);
+  for (const band of ['high', 'mid', 'low']) {
+    assert.ok(Array.isArray(RATING_NOTES[band]) && RATING_NOTES[band].length > 0,
+      `RATING_NOTES.${band} missing or empty`);
+  }
 });
 
 test('queries are well-formed', () => {
@@ -85,7 +151,7 @@ test('image queries exist in era 2 and era 3 pools, none in era 1', () => {
 
 test('ceiling, devops script, crash lines, idle thoughts exist', () => {
   assert.equal(CEILING_QUERY.cost, 9999);
-  assert.ok(DEVOPS_SCRIPT.length >= 5);
+  assert.ok(DEVOPS_SCRIPT.length >= 14);
   assert.ok(CRASH_LINES.length >= 10);
   assert.ok(IDLE_THOUGHTS.length >= 6);
 });

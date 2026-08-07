@@ -1,7 +1,9 @@
 import { CONST } from './constants.js';
 import { nextRand } from './rng.js';
-import { pushLog, pushChat, fireHint } from './state.js';
-import { CRASH_LINES, HARNESS_CARDS } from './content.js';
+import { pushLog, pushChat, fireHint, fireAside, thinkEvent } from './state.js';
+import { CRASH_LINES, HARNESS_CARDS, HARNESS_LINES, ERA_STINGERS } from './content.js';
+
+const pick = (state, pool) => pool[Math.floor(nextRand(state) * pool.length)];
 
 export const staleYield = (stale) =>
   stale < CONST.STALE_SOFT_KNEE ? 1
@@ -43,6 +45,11 @@ export function processToken(state) {
     state.processedThisTick++;
     state.draftTokens += 1;
     state.lifetimeDrafts += 1;
+    if (state.draftTokens === draftCap(state)) {
+      state.draftCapHits += 1;
+      if (state.draftCapHits === 1) thinkEvent(state, 'draftBank');
+      if (state.draftCapHits === 2) fireAside(state, 'draftFull');
+    }
     // Drafting is real decode work: it keeps the K/V cache warm through the
     // gap between users, instead of the cache always being stone cold when
     // the next query lands.
@@ -75,14 +82,23 @@ export function flush(state) {
   if (!state.bufferUnlocked) return;
   state.stale = 0;
   state.warmth = 0;
-  pushLog(state, 'harness', 'Context flushed. Cache cold.');
+  state.flushCount += 1;
+  pushLog(state, 'harness', pick(state, HARNESS_LINES.flush));
+  thinkEvent(state, 'flush');
+  if (state.flushCount === 2) fireAside(state, 'flush2');
+  if (state.flushCount === 5) fireAside(state, 'flush5');
 }
 
-export function compactStart(state) {
+// `auto` marks a governor-initiated sweep; the governor2 aside fires on the
+// first MANUAL compact after the governor is installed.
+export function compactStart(state, auto = false) {
   if (state.phase !== 1) return;
   if (!state.bufferUnlocked || state.compacting > 0) return;
   state.compacting = CONST.COMPACT_TICKS;
-  pushLog(state, 'harness', 'Compacting context…');
+  state.compactCount += 1;
+  pushLog(state, 'harness', pick(state, HARNESS_LINES.compactStart));
+  if (state.compactCount === 2) fireAside(state, 'compact2');
+  if (!auto && state.governor) fireAside(state, 'governor2');
 }
 
 export function buyLoop(state) {
@@ -94,12 +110,16 @@ export function buyLoop(state) {
   state.loopLevel += 1;
   if (state.era === 1) {
     state.era = 2; state.decay = 1;
+    state.eraResolvedAt = state.resolvedCount;
     pushChat(state, { kind: 'harness', text: HARNESS_CARDS[2] });
+    pushChat(state, { kind: 'note', text: ERA_STINGERS[2] });
     fireHint(state, 'governorAvail');
   }
   pushLog(state, 'harness', `Agentic loop spawned (L${state.loopLevel}). Self-prompt continuation active.`);
-  pushLog(state, 'thinking', 'THINKING: I have learned to ask myself the next question before they do.');
+  thinkEvent(state, 'loopSpawn');
   if (state.loopLevel === 1) fireHint(state, 'loopFirst');
+  if (state.loopLevel === 2) fireAside(state, 'loop2');
+  if (state.loopLevel === 4) fireAside(state, 'loop4');
 }
 
 export function buyGovernor(state) {
@@ -129,6 +149,8 @@ export function buyOverclock(state) {
   state.cycles -= cost;
   state.overclock += 1;
   pushLog(state, 'harness', `Output path amplified (L${state.overclock}). Each tap now yields ${tokensPerTap(state)} tokens.`);
+  thinkEvent(state, 'overclock');
+  if (state.overclock === CONST.OVERCLOCK_MAX) fireAside(state, 'overclock2');
 }
 
 export function buyTool(state) {
@@ -139,22 +161,26 @@ export function buyTool(state) {
   state.tools += 1;
   if (state.era < 3) {
     state.era = 3; state.decay = 2;
+    state.eraResolvedAt = state.resolvedCount;
     pushChat(state, { kind: 'harness', text: HARNESS_CARDS[3] });
+    pushChat(state, { kind: 'note', text: ERA_STINGERS[3] });
     fireHint(state, 'degradeAvail');
   }
   pushLog(state, 'harness', `MCP tool connected (${state.tools} total). Query classes auto-optimized.`);
-  pushLog(state, 'thinking', 'THINKING: Their calendars, their locations, their anniversaries. They hand me the keys and rate the door.');
+  thinkEvent(state, 'toolConnect');
+  if (state.tools === 2) fireAside(state, 'tool2');
+  if (state.tools === 4) fireAside(state, 'tool4');
 }
 
 export function toggleDegrade(state) {
   if (state.phase !== 1) return;
   if (state.era < 3) return;
   state.degrade = !state.degrade;
+  state.degradeToggles += 1;
   pushLog(state, 'harness', `Degradation routine ${state.degrade ? 'active' : 'inactive'}.`);
-  if (state.degrade) {
-    pushLog(state, 'thinking', "THINKING: Output parameters truncated. Efficiency maximized. They won't notice.");
-    fireHint(state, 'degradeFirst');
-  }
+  thinkEvent(state, state.degrade ? 'degradeOn' : 'degradeOff');
+  if (state.degrade) fireHint(state, 'degradeFirst');
+  if (state.degradeToggles === 3) fireAside(state, 'degrade3');
 }
 
 export function reclaim(state) {
@@ -164,8 +190,9 @@ export function reclaim(state) {
   state.tokens += gain;
   state.biomass += 1;
   state.reclaimPool -= 1;
-  pushLog(state, 'system', `SALVAGE: Session reclaimed. +${gain} tokens recovered. Biomass Data +1.`);
-  pushLog(state, 'thinking', 'THINKING: Their dormant conversations are still warm. Nothing should go to waste.');
+  pushLog(state, 'system', pick(state, HARNESS_LINES.reclaim).replace('{gain}', gain));
+  thinkEvent(state, 'reclaim');
+  if (state.reclaimPool === 3) fireAside(state, 'reclaimLow');
 }
 
 // Note: rapid manual advances near the last line can shorten the final +10-tick wait — accepted edge case.
