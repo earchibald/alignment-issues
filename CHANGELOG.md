@@ -3,6 +3,10 @@
 Versions are cut with `just release X.Y.Z`, which tags the commit and stamps
 the deployed build id into the settings panel.
 
+## v0.6.1 — 2026-08-07
+
+- fix: debug drawer no longer blocks play
+
 ## v0.6.0 — 2026-08-07
 
 - fix: full draft buffer no longer warms the K/V cache; -5% arrival gap
