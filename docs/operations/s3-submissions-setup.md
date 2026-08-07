@@ -45,7 +45,13 @@ secrets). Note the `function_url` output; step 4 needs it.
        aws_access_key_id     = <key id>
        aws_secret_access_key = <secret>
 
-4. Verify: `node scripts/sessions.mjs list` — expect `no submissions`.
+4. Named profiles do not inherit region from `[default]`. Add to
+   `~/.aws/config`:
+
+       [profile hyt-analyst]
+       region = <your region>
+
+5. Verify: `node scripts/sessions.mjs list` — expect `no submissions`.
 
 ## 4. Configure GitHub and deploy
 

@@ -4,7 +4,7 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
-  parseArgs, groupKeysBySession, keyBasename, resolveBucket, listSessions,
+  parseArgs, groupKeysBySession, keyBasename, resolveBucket, resolveRegion, listSessions,
   pullSession, rmSession,
 } from '../scripts/sessions.mjs';
 
@@ -63,6 +63,32 @@ test('resolveBucket: env override wins; outputs file read; clear error when abse
   assert.equal(resolveBucket({ env: {}, outputsPath }), 'from-file');
   assert.throws(() => resolveBucket({ env: {}, outputsPath: join(dir, 'missing.json') }),
     /no bucket configured/);
+});
+
+test('resolveRegion: env override wins; outputs file read; absent is not fatal', () => {
+  assert.equal(resolveRegion({ env: { HYT_REGION: 'from-env' } }), 'from-env');
+  const dir = mkdtempSync(join(tmpdir(), 'hyt-outputs-'));
+  const outputsPath = join(dir, 'outputs.json');
+  writeFileSync(outputsPath, JSON.stringify({ bucket: 'from-file', region: 'us-west-2' }));
+  assert.equal(resolveRegion({ env: {}, outputsPath }), 'us-west-2');
+  assert.equal(resolveRegion({ env: {}, outputsPath: join(dir, 'missing.json') }), null);
+});
+
+test('listSessions appends --region when a region is given', () => {
+  const invocations = [];
+  const runner = (cmd, args) => {
+    invocations.push({ cmd, args });
+    return JSON.stringify({ Contents: [] });
+  };
+  listSessions('my-bucket', { runner, region: 'us-west-2' });
+  assert.deepEqual(invocations[0].args, [
+    's3api', 'list-objects-v2',
+    '--bucket', 'my-bucket',
+    '--prefix', 'submissions/',
+    '--output', 'json',
+    '--profile', 'hyt-analyst',
+    '--region', 'us-west-2',
+  ]);
 });
 
 test('listSessions shells the aws CLI with the analyst profile', () => {

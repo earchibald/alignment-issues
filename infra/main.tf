@@ -167,6 +167,14 @@ resource "aws_lambda_function_url" "broker" {
   }
 }
 
+resource "aws_lambda_permission" "broker_url_public" {
+  statement_id           = "AllowPublicFunctionUrl"
+  action                 = "lambda:InvokeFunctionUrl"
+  function_name          = aws_lambda_function.broker.function_name
+  principal              = "*"
+  function_url_auth_type = "NONE"
+}
+
 # --- analyst: agent-side retrieval principal -------------------------
 # Spec reconciliation: the tool contract includes `rm`, so DeleteObject is
 # granted alongside Get/List, all scoped to submissions/*.

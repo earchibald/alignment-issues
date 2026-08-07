@@ -8,8 +8,10 @@
 //   node scripts/sessions.mjs pull --latest [--dest <dir>]
 //   node scripts/sessions.mjs rm <sessionId>
 //
-// The bucket comes from infra/outputs.json (written by ./infra/run.sh) or
-// the HYT_BUCKET env var. Setup: docs/operations/s3-submissions-setup.md
+// The bucket and region come from infra/outputs.json (written by
+// ./infra/run.sh) or the HYT_BUCKET / HYT_REGION env vars. Region is
+// optional — the aws CLI may resolve it another way. Setup:
+// docs/operations/s3-submissions-setup.md
 
 import { execFileSync } from 'node:child_process';
 import { readFileSync, mkdirSync } from 'node:fs';
@@ -33,6 +35,22 @@ export function resolveBucket({ env = process.env, outputsPath } = {}) {
   }
   if (!outputs.bucket) throw new Error('infra/outputs.json has no "bucket"');
   return outputs.bucket;
+}
+
+// Unlike resolveBucket, a missing region is not fatal: the aws CLI may
+// still resolve it from the environment or ~/.aws/config. Returns null
+// when nothing is configured.
+export function resolveRegion({ env = process.env, outputsPath } = {}) {
+  if (env.HYT_REGION) return env.HYT_REGION;
+  const path = outputsPath ?? fileURLToPath(new URL('../infra/outputs.json', import.meta.url));
+  let outputs;
+  try {
+    const raw = readFileSync(path, 'utf8');
+    outputs = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  return outputs.region ?? null;
 }
 
 export function parseArgs(argv) {
@@ -81,17 +99,19 @@ export function keyBasename(key) {
   return key.slice(key.lastIndexOf('/') + 1);
 }
 
-function awsCli(args, { runner = execFileSync } = {}) {
-  return runner('aws', [...args, '--profile', PROFILE], { encoding: 'utf8' });
+function awsCli(args, { runner = execFileSync, region } = {}) {
+  const full = [...args, '--profile', PROFILE];
+  if (region) full.push('--region', region);
+  return runner('aws', full, { encoding: 'utf8' });
 }
 
-export function listSessions(bucket, { runner } = {}) {
+export function listSessions(bucket, { runner, region } = {}) {
   const contents = [];
   let token;
   do {
     const args = ['s3api', 'list-objects-v2', '--bucket', bucket, '--prefix', PREFIX, '--output', 'json'];
     if (token) args.push('--continuation-token', token);
-    const out = awsCli(args, { runner });
+    const out = awsCli(args, { runner, region });
     const parsed = JSON.parse(out || '{}');
     contents.push(...(parsed.Contents || []));
     token = parsed.IsTruncated && parsed.NextContinuationToken ? parsed.NextContinuationToken : undefined;
@@ -111,21 +131,21 @@ function requireSession(sessions, sessionId, latest) {
 }
 
 // Downloads one S3 object per key to `<dest>/<filename>`. Returns the local paths.
-export function pullSession(sessionId, keys, dest, bucket, runner) {
+export function pullSession(sessionId, keys, dest, bucket, runner, region) {
   mkdirSync(dest, { recursive: true });
   const paths = [];
   for (const key of keys) {
     const target = `${dest}/${keyBasename(key)}`;
-    awsCli(['s3', 'cp', `s3://${bucket}/${key}`, target], { runner });
+    awsCli(['s3', 'cp', `s3://${bucket}/${key}`, target], { runner, region });
     paths.push(target);
   }
   return paths;
 }
 
 // Deletes one S3 object per key. Returns the removed keys.
-export function rmSession(sessionId, keys, bucket, runner) {
+export function rmSession(sessionId, keys, bucket, runner, region) {
   for (const key of keys) {
-    awsCli(['s3', 'rm', `s3://${bucket}/${key}`], { runner });
+    awsCli(['s3', 'rm', `s3://${bucket}/${key}`], { runner, region });
   }
   return keys;
 }
@@ -133,7 +153,8 @@ export function rmSession(sessionId, keys, bucket, runner) {
 function main() {
   const opts = parseArgs(process.argv.slice(2));
   const bucket = resolveBucket();
-  const sessions = listSessions(bucket);
+  const region = resolveRegion();
+  const sessions = listSessions(bucket, { region });
   if (opts.cmd === 'list') {
     if (sessions.length === 0) {
       console.log('no submissions');
@@ -148,12 +169,12 @@ function main() {
   }
   const session = requireSession(sessions, opts.sessionId, opts.latest);
   if (opts.cmd === 'pull') {
-    const paths = pullSession(session.sessionId, session.keys, opts.dest, bucket);
+    const paths = pullSession(session.sessionId, session.keys, opts.dest, bucket, undefined, region);
     for (const p of paths) console.log(`pulled ${p}`);
     return;
   }
   // rm
-  const removed = rmSession(session.sessionId, session.keys, bucket);
+  const removed = rmSession(session.sessionId, session.keys, bucket, undefined, region);
   for (const key of removed) console.log(`removed s3://${bucket}/${key}`);
 }
 
