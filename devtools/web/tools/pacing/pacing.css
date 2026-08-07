@@ -1,0 +1,120 @@
+/* Pacing lab. Borrows the control-bar shape from the diffusion tool so the
+   two tabs feel like one suite, and adds the chart chrome. */
+
+.pacing-tool { padding: 8px 24px 24px; }
+
+/* The simulation frame is a compute surface, not a view: it renders nothing
+   and must never take layout or a click. */
+.sim-frame {
+  position: absolute;
+  width: 1px; height: 1px;
+  border: 0; opacity: 0; pointer-events: none;
+  left: -9999px; top: 0;
+}
+
+/* --- controls --- */
+
+.pacing-tool .controlbar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.pacing-tool .controlbar fieldset {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  margin: 0;
+  padding: 4px 10px 9px;
+  min-width: 0;
+}
+.pacing-tool .controlbar legend {
+  color: var(--dim); font-size: 10px;
+  text-transform: uppercase; letter-spacing: 0.08em;
+}
+.pacing-tool .ctrl { display: block; margin-top: 6px; cursor: help; min-width: 0; }
+.pacing-tool .ctrl .head {
+  display: flex; align-items: baseline; gap: 6px;
+  font-size: 11.5px; color: var(--dim);
+}
+.pacing-tool .ctrl .head .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pacing-tool .ctrl output {
+  margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--ink);
+}
+.pacing-tool .ctrl input[type="range"] { width: 100%; margin: 2px 0 0; accent-color: var(--accent); }
+.pacing-tool .ctrl .default {
+  display: block; font-family: var(--mono); font-size: 9.5px; color: var(--dim); opacity: 0.7;
+}
+/* A changed knob is marked, so "what am I actually looking at" never needs a
+   diff against constants.js. */
+.pacing-tool .ctrl.changed { box-shadow: inset 2px 0 0 var(--warn); padding-left: 6px; margin-left: -8px; }
+.pacing-tool .ctrl.changed .head { color: var(--ink); }
+.pacing-tool .ctrl.changed output { color: var(--warn); }
+
+/* --- run row --- */
+
+.pacing-tool .runrow { display: flex; align-items: center; gap: 10px; margin: 2px 0 10px; }
+.pacing-tool .runrow button {
+  background: #1b2130; border: 1px solid var(--line); color: var(--ink);
+  border-radius: 5px; padding: 5px 10px; font-size: 11.5px; cursor: pointer;
+}
+.pacing-tool .runrow button:hover { border-color: var(--accent); }
+.pacing-tool .status { font-family: var(--mono); font-size: 11px; color: var(--dim); }
+.pacing-tool .status.ok { color: var(--hot); }
+.pacing-tool .status.error { color: var(--danger); }
+
+/* --- summary --- */
+
+.pacing-tool .summary {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px; margin-bottom: 12px;
+}
+.pacing-tool .stat {
+  border: 1px solid var(--line); border-left-width: 3px; border-radius: 6px;
+  background: var(--panel); padding: 7px 10px; cursor: help;
+}
+.pacing-tool .stat .v { display: block; font-family: var(--mono); font-size: 16px; color: var(--ink); }
+.pacing-tool .stat .k { display: block; font-size: 10.5px; color: var(--dim); margin-top: 1px; }
+.pacing-tool .stat.good { border-left-color: var(--hot); }
+.pacing-tool .stat.good .v { color: var(--hot); }
+.pacing-tool .stat.warn { border-left-color: var(--warn); }
+.pacing-tool .stat.warn .v { color: var(--warn); }
+.pacing-tool .stat.bad { border-left-color: var(--danger); }
+.pacing-tool .stat.bad .v { color: var(--danger); }
+
+/* --- panels --- */
+
+.pacing-tool .panel {
+  border: 1px solid var(--line); border-radius: 8px;
+  background: var(--panel); padding: 9px 12px 6px; margin-bottom: 10px;
+}
+.pacing-tool .panel h2 {
+  margin: 0 0 4px; font-size: 12px; letter-spacing: 0.02em; color: var(--ink); cursor: help;
+}
+.pacing-tool .plot { overflow-x: auto; }
+
+/* --- chart primitives --- */
+
+.pacing-tool .chart { display: block; font-family: var(--mono); }
+.pacing-tool .chart .axis { stroke: var(--line); stroke-width: 1; }
+.pacing-tool .chart .grid { stroke: var(--line); stroke-width: 1; opacity: 0.35; }
+.pacing-tool .chart .tick { fill: var(--dim); font-size: 9px; }
+.pacing-tool .chart .tick.end { text-anchor: end; }
+.pacing-tool .chart .line { fill: none; stroke: var(--accent); stroke-width: 1.6; }
+.pacing-tool .chart .dot { fill: var(--accent); }
+.pacing-tool .chart .reveal { stroke: var(--hot); stroke-width: 1; stroke-dasharray: 2 3; opacity: 0.75; }
+.pacing-tool .chart .revealtext { fill: var(--hot); font-size: 8.5px; opacity: 0.9; }
+.pacing-tool .chart .eralabel { fill: var(--dim); font-size: 8.5px; }
+.pacing-tool .chart .gapbar { fill: var(--accent); opacity: 0.55; }
+/* Two mechanics in the same breath is the failure this chart exists to show,
+   so it is coloured as a fault rather than left to be eyeballed. */
+.pacing-tool .chart .gapbar.tight { fill: var(--danger); opacity: 0.85; }
+.pacing-tool .chart .spreadbar { fill: var(--accent); opacity: 0.6; }
+
+/* Era bands: faint behind the data, solid in the stacked bar. */
+.pacing-tool .chart .era { opacity: 0.07; }
+.pacing-tool .chart .era.solid { opacity: 0.55; }
+.pacing-tool .chart .era1 { fill: #5aa9ff; }
+.pacing-tool .chart .era2 { fill: #7de2b0; }
+.pacing-tool .chart .era3 { fill: #f0b45e; }
+.pacing-tool .chart .era4 { fill: #ff7b72; }

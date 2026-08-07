@@ -1,0 +1,25 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>pacing runner</title>
+<!-- Redirects the engine's own constants module to the shim, so the real
+     engine runs against the tool's knobs without a line of game code
+     knowing about it. /engine-raw is left alone: that is how the shim
+     reads the defaults. -->
+<script type="importmap">
+{ "imports": { "/gamejs/engine/constants.js": "/tools/pacing/const-shim.js" } }
+</script>
+<script type="module">
+// The frame is created fresh for every run, so the module graph — and with
+// it the frozen CONST — is built once against these overrides and thrown
+// away. That is cheaper to reason about than trying to invalidate a cache.
+const req = JSON.parse(decodeURIComponent(location.hash.slice(1)));
+globalThis.__PACING_OVERRIDES__ = req.overrides;
+try {
+  const { runAll } = await import('/tools/pacing/run.js');
+  const t0 = performance.now();
+  const runs = runAll(req.seeds);
+  parent.postMessage({ token: req.token, ok: true, runs, ms: performance.now() - t0 }, location.origin);
+} catch (err) {
+  parent.postMessage({ token: req.token, ok: false, error: String(err && err.stack || err) }, location.origin);
+}
+</script>

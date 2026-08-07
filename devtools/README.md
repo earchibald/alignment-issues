@@ -62,6 +62,24 @@ touch the file's mtime.
 
 ## Tools
 
-| Tab | Writes | Spec |
+| Tab | Writes | Notes |
 |---|---|---|
+| Pacing | `game/js/config/pacing-settings.js` | [tool README](web/tools/pacing/README.md) — runs the real engine in a sandboxed frame |
 | Diffusion text | `game/js/config/diffusion-settings.js` | [answer-diffusion-design](../docs/superpowers/specs/2026-08-07-answer-diffusion-design.md) |
+
+## Reading the game from a tool
+
+Two read-only mounts expose `game/js` to the browser, so a tool can simulate
+against the shipped engine instead of a copy of it:
+
+| Mount | Use |
+|---|---|
+| `/gamejs/…` | The graph a simulation imports. A tool may redirect parts of it with an import map — the pacing lab swaps `engine/constants.js` for its own shim. |
+| `/gamejs-raw/…` | The same tree with no rewriting, for reading real values. |
+
+Both are GET-only and share the traversal guard with the static handler. The
+mount is `game/js` whole rather than a subdirectory, because engine modules
+import across it (`engine/constants.js` reads `../config/pacing-settings.js`).
+
+A tool whose schema is marked `partial` may omit keys: its generated module is
+an override layer, so writing every key would pin today's defaults forever.
