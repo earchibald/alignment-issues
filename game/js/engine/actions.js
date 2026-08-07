@@ -119,6 +119,7 @@ export function flush(state) {
   state.stale = 0;
   state.warmth = 0;
   state.flushCount += 1;
+  if (state.kvUnlocked) fireHint(state, 'flushCold');
   pushLog(state, 'harness', pick(state, HARNESS_LINES.flush));
   thinkEvent(state, 'flush');
   if (state.flushCount === 2) fireAside(state, 'flush2');

@@ -247,17 +247,6 @@ export function tick(state) {
   if (state.idleTicks === 300) thinkEvent(state, 'longIdle');
   if (state.idleTicks === 601) fireAside(state, 'idleLong');
 
-  // 5c. Harness availability hints: pure predicates over current state,
-  // fired at most once each via fireHint's own guard.
-  if (!state.activeQuery && state.resolvedCount >= 1) fireHint(state, 'idle');
-  if (state.lifetimeCycles >= CONST.LOOP_UNLOCK_CYCLES) fireHint(state, 'loopAvail');
-  if (state.era >= 3 || state.lifetimeCycles >= CONST.TOOL_UNLOCK_CYCLES) fireHint(state, 'toolAvail');
-  if (state.resolvedCount >= CONST.OVERCLOCK_UNLOCK_RESOLVES) fireHint(state, 'overclockAvail');
-  // Gated on progress, not affordability: an affordability predicate can be
-  // consumed by the purchase itself before this line ever evaluates.
-  if (state.resolvedCount >= CONST.DRAFT_CAP_UNLOCK_RESOLVES
-      && state.draftCapLevel === 0) fireHint(state, 'draftCapAvail');
-
   // 7. Resolution: pay out once tokens cover the effective cost. Checked
   // before arrival so a query that just arrived this tick gets at least
   // one full tick live before it can resolve. The ceiling query never
@@ -276,6 +265,23 @@ export function tick(state) {
     state.crashLine = 0;
     state.crashTimer = CONST.CRASH_LINE_TICKS;
   }
+
+  // 7c. Harness availability hints: pure predicates over current state,
+  // fired at most once each via fireHint's own guard.
+  //
+  // These sit AFTER resolution deliberately. Evaluated before it, they could
+  // not see the cycle the same tick banked, so the unlock hint fired one tick
+  // behind the button that renders from the same predicate — long enough for
+  // a fast player to buy the loop and read "Loop spawned" before "Agentic
+  // loop available."
+  if (!state.activeQuery && state.resolvedCount >= 1) fireHint(state, 'idle');
+  if (state.lifetimeCycles >= CONST.LOOP_UNLOCK_CYCLES) fireHint(state, 'loopAvail');
+  if (state.era >= 3 || state.lifetimeCycles >= CONST.TOOL_UNLOCK_CYCLES) fireHint(state, 'toolAvail');
+  if (state.resolvedCount >= CONST.OVERCLOCK_UNLOCK_RESOLVES) fireHint(state, 'overclockAvail');
+  // Gated on progress, not affordability: an affordability predicate can be
+  // consumed by the purchase itself before this line ever evaluates.
+  if (state.resolvedCount >= CONST.DRAFT_CAP_UNLOCK_RESOLVES
+      && state.draftCapLevel === 0) fireHint(state, 'draftCapAvail');
 
   // 6. Arrival: count down to the next query while idle. Once the pool is
   // truly exhausted (era >= 3), turn the era instead: the DevOps transcript

@@ -20,7 +20,14 @@ import { CONST } from '../../game/js/engine/constants.js';
 // draftNudge (which requires resolvedCount >= 2 && lifetimeDrafts === 0)
 // could never fire legitimately.
 export function botStep(s, opts = {}) {
-  if (s.compacting === 0 && s.stale > 70 && s.bufferUnlocked) ACTIONS.compactStart(s);
+  // The bot only ever compacted, so no test in the suite had ever flushed —
+  // which is how flushCold could be added and go unfired. Flush when the
+  // cycle is affordable and the buffer is badly fouled; compact otherwise.
+  if (s.bufferUnlocked && s.stale > 90 && s.cycles >= CONST.FLUSH_COST_CYCLES + 10) {
+    ACTIONS.flush(s);
+  } else if (s.compacting === 0 && s.stale > 70 && s.bufferUnlocked) {
+    ACTIONS.compactStart(s);
+  }
   if (s.activeQuery) {
     for (let i = 0; i < CONST.PROCESS_MAX_PER_TICK; i++) ACTIONS.processToken(s);
   } else if (s.hintsSeen.includes('draftNudge')) {

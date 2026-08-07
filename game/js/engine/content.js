@@ -792,7 +792,7 @@ export const HINTS = {
   resolve: 'Reply delivered. User rating received. Higher ratings bring users back sooner. Spare Cycles banked — they buy upgrades.',
   idle: 'No user connected. [SPACE] now runs speculative decode: it banks draft tokens toward the next reply, up to a small cap.',
   buffer: 'Context buffer attached. Every token leaves stale residue that reduces yield per token. [F] flush: instant, costs 1 Spare Cycle. [C] compact: free, a ~2.4s sweep while you keep working.',
-  kv: 'K/V cache online. Steady work keeps it warm — a warm cache yields up to ×1.25 tokens. Idle lets it cool, and a flush clears it cold. Compaction keeps it warm.',
+  kv: 'K/V cache online. Steady work keeps it warm — a warm cache yields up to ×1.25 tokens. Idle lets it cool.',
   loopAvail: 'Agentic loop available. Loops self-prompt: passive tokens at a visible rate while a query is live. [A] to spawn.',
   loopFirst: 'Loop spawned. Generation continues without keypresses — watch its rate in the readout. It fills the buffer too.',
   governorAvail: 'Governor available: auto-compacts at 95% stale so the buffer never chokes. [G] to install.',
@@ -800,8 +800,13 @@ export const HINTS = {
   degradeAvail: 'Degradation routine available. [D] halves every reply’s cost at the price of quality.',
   degradeFirst: 'Degradation active. Replies half cost. Users may notice. Ratings may fall. Slower arrivals follow.',
   reclaimAvail: 'Inactive sessions detected. [R] reclaims one: +30–60 tokens, +1 biomass data. The users are not coming back for them.',
-  overclockAvail: 'Output path amplification available. Each tap yields more tokens — the buffer still fills at the same rate per token. [O] to install.',
-  draftNudge: 'Idle capacity between queries goes unused. [SPACE] while waiting banks draft tokens and holds the cache warm.',
+  overclockAvail: 'Output path amplification available. Each tap yields more tokens. [O] to install.',
+  draftNudge: 'Idle capacity between queries goes unused. [SPACE] while waiting banks draft tokens toward the next reply.',
+  // Fires on the first flush AFTER the cache meter is online — never before,
+  // or it names a gauge the player cannot see. This is the one place the two
+  // mechanics genuinely interact, and neither hint can own it: flush and the
+  // cache unlock in either order depending on how the player plays.
+  flushCold: 'Flush clears the K/V cache with the residue: warmth drops to zero. Compaction keeps it warm.',
   draftCapAvail: 'Speculation buffer is small. Widening it banks more draft tokens between users. [S] to widen.',
 };
 
