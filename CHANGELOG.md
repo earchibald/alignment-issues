@@ -3,6 +3,10 @@
 Versions are cut with `just release X.Y.Z`, which tags the commit and stamps
 the deployed build id into the settings panel.
 
+## v0.15.0 — 2026-08-07
+
+- feat: give era 3 room to land
+
 ## v0.14.0 — 2026-08-07
 
 - feat: make Arc 1 playable end to end
