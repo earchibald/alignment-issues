@@ -32,6 +32,11 @@ jobs:
           mkdir -p _site/mockups
           cp -r game/* _site/
           cp -r mockups/phase1 _site/mockups/phase1
+          # Stamp the build being published so the settings panel can prove
+          # which commit is live (a stale deploy is otherwise invisible).
+          BUILD="${GITHUB_SHA::7} $(date -u +%Y-%m-%d)"
+          sed -i "s/export const BUILD = 'dev';/export const BUILD = '${BUILD}';/" _site/js/version.js
+          grep "export const BUILD" _site/js/version.js
       - uses: actions/upload-pages-artifact@v3
         with: { path: _site }
       - id: deployment

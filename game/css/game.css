@@ -939,3 +939,12 @@ dialog#settings .harness-card { margin: 8px 0; }
 html, body,
 #app, #app *,
 #rotate, #rotate * { touch-action: manipulation; }
+
+/* Version/build line at the foot of the settings sheet */
+dialog#settings .settings-about {
+  font-family: var(--g-font-log);
+  font-size: 10.5px;
+  color: var(--g-ink-dim);
+  letter-spacing: 0.02em;
+  margin: 4px 0 2px;
+}

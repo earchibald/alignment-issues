@@ -73,6 +73,35 @@ preflight:
     echo "==> tests"
     npm test
 
+# Cut a release: bump the version, tag it, push, deploy. `just release 0.5.0`
+release version: preflight
+    #!/usr/bin/env bash
+    set -euo pipefail
+    v="{{version}}"
+    [[ "$v" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "!! '$v' is not X.Y.Z"; exit 1; }
+    git rev-parse -q --verify "refs/tags/v$v" >/dev/null && { echo "!! tag v$v already exists"; exit 1; }
+
+    prev=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+    echo "==> releasing v$v${prev:+ (previous: $prev)}"
+
+    # Version lives in exactly two places; keep them in lockstep.
+    sed -i '' "s/^export const VERSION = '.*';/export const VERSION = '$v';/" game/js/version.js
+    node -e "const f='package.json',p=require('./'+f);p.version='$v';require('fs').writeFileSync(f,JSON.stringify(p,null,2)+'\n')"
+
+    # Changelog entry from the commit subjects since the last tag.
+    range=${prev:+$prev..HEAD}
+    { echo "## v$v — $(date -u +%Y-%m-%d)"; echo; git log --no-merges --pretty='- %s' ${range:-HEAD}; echo; } > .release-notes
+    if [ -f CHANGELOG.md ]; then cat .release-notes CHANGELOG.md > .changelog.tmp; else cp .release-notes .changelog.tmp; fi
+    mv .changelog.tmp CHANGELOG.md
+    rm -f .release-notes
+
+    git add game/js/version.js package.json CHANGELOG.md
+    git commit -m "release: v$v"
+    git tag -a "v$v" -m "v$v"
+    git push origin main --follow-tags
+    just deploy
+    echo "==> v$v released"
+
 # Check what the live site is actually serving (catches a stale or reverted deploy)
 verify:
     #!/usr/bin/env bash
@@ -84,7 +113,9 @@ verify:
     local_arrival=$(grep -o 'ARRIVAL_BASE_TICKS: [0-9]*' game/js/engine/constants.js)
     live_q=$(curl -s {{site}}/js/engine/content.js | grep -co "id: 'q" || true)
     local_q=$(grep -co "id: 'q" game/js/engine/content.js)
-    echo "    live : $live_arrival, $live_q queries"
+    live_ver=$(curl -s {{site}}/js/version.js | grep -o "VERSION = '[^']*'" || echo "VERSION = '?'")
+    live_build=$(curl -s {{site}}/js/version.js | grep -o "BUILD = '[^']*'" || echo "BUILD = '?'")
+    echo "    live : $live_arrival, $live_q queries, $live_ver, $live_build"
     echo "    local: $local_arrival, $local_q queries"
     if [ "$live_arrival" = "$local_arrival" ] && [ "$live_q" = "$local_q" ]; then
       echo "==> live site matches the working tree"

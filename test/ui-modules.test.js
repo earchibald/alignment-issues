@@ -40,3 +40,17 @@ test('components.js exports every builder the renderer calls', async () => {
     assert.equal(typeof mod[name], 'function', `components.js is missing ${name}`);
   }
 });
+
+test('version.js exposes a semver VERSION and a BUILD stamp', async () => {
+  const { VERSION, BUILD } = await import('../game/js/version.js');
+  assert.match(VERSION, /^\d+\.\d+\.\d+$/, `VERSION "${VERSION}" is not semver`);
+  assert.equal(typeof BUILD, 'string');
+  assert.ok(BUILD.length > 0);
+});
+
+test('package.json version matches game/js/version.js', async () => {
+  const { VERSION } = await import('../game/js/version.js');
+  const { readFileSync } = await import('node:fs');
+  const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+  assert.equal(pkg.version, VERSION, 'package.json and version.js have drifted');
+});

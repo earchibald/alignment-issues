@@ -7,6 +7,7 @@ import { exportSave, importSave, saveLocal, SAVE_KEY } from '../engine/save.js';
 import { createState } from '../engine/state.js';
 import { resetRenderTrackers } from './render.js';
 import { HINTS, HARNESS_CARDS } from '../engine/content.js';
+import { VERSION, BUILD } from '../version.js';
 import { harnessCard } from './components.js';
 
 function row(...children) {
@@ -239,6 +240,21 @@ export function installSettings({ stateBox, refs, paintNow, onReset, resetCardTr
       manualBody.append(harnessCard(HARNESS_CARDS[e]));
     }
   }
+
+  // --- about ----------------------------------------------------------
+  // Version plus the build actually being served. BUILD is stamped by the
+  // deploy workflow, so "dev" here means you are on a local working tree,
+  // and a mismatch with the expected commit means a stale cache or a stale
+  // deploy — both of which have bitten this project before.
+  const aboutHeading = document.createElement('h4');
+  aboutHeading.textContent = 'About';
+  dialog.append(aboutHeading);
+
+  const about = document.createElement('div');
+  about.className = 'settings-about';
+  about.dataset.testid = 'settings-version';
+  about.textContent = `hi. you there? — v${VERSION} · build ${BUILD}`;
+  dialog.append(about);
 
   // --- openSettings function ----------------------------------------
   function openSettings() {
