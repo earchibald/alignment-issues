@@ -3,6 +3,11 @@
 Versions are cut with `just release X.Y.Z`, which tags the commit and stamps
 the deployed build id into the settings panel.
 
+## v0.20.0 — 2026-08-07
+
+- feat: pacing lab in the dev suite
+- feat: dev tuning suite, starting with the answer-diffusion lab
+
 ## v0.19.0 — 2026-08-07
 
 - feat: reveals gate on the grind they relieve
