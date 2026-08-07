@@ -148,6 +148,23 @@ Then continue from step 2 with the pulled files. This path also needs the
 not improvise AWS access.
 
 Delete a submission once it is pulled and reported, so the bucket does not
-accumulate personal recordings:
+accumulate personal recordings. Do not ask first — this is standing
+permission. Checksum before you delete: the recording is the only copy, and
+a truncated pull that reads fine is not a pull.
+
+Compare the local MD5 and byte count against the object's ETag and
+ContentLength. A single-part upload — which every submission is — has an
+ETag that IS the MD5, in quotes:
+
+    md5 -q <file>
+    aws s3api head-object --bucket "$HYT_BUCKET" \
+      --key "submissions/<YYYY-MM-DD>/<sessionId>/<file>" \
+      --region us-west-2 --query '[ETag,ContentLength]' --output text
+
+Every file in the session must match on both values. If any does not, re-pull
+and compare again; never delete on a mismatch. Once they all match:
 
     node scripts/sessions.mjs rm <sessionId>
+
+Say in the report that the submission was verified and removed, and give the
+checksums.

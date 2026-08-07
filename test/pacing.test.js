@@ -109,3 +109,90 @@ test('dead time is measured and bounded', () => {
   const worst = Math.max(...fracs);
   assert.ok(worst < 0.85, `dead time ${(worst * 100).toFixed(1)}% exceeds the recorded baseline`);
 });
+
+// --- reveal cadence ---------------------------------------------------
+// The design target is a sawtooth: effort per reply climbs until it is just
+// short of annoying, then a mechanic lands and cuts it back. scripts/pacing.mjs
+// measures it. These are the tripwires that keep the measurement honest, and
+// they are written against the CURRENT baseline — which is bad — so that it
+// can only ever improve.
+
+const REVEALS = [
+  'arrival', 'resolve', 'idle', 'buffer', 'kv', 'loopAvail', 'governorAvail',
+  'toolAvail', 'degradeAvail', 'reclaimAvail', 'overclockAvail', 'draftCapAvail',
+];
+
+function revealTimes(seed) {
+  const s = createState(seed);
+  const seen = new Map();
+  let n = 0;
+  for (let t = 0; t < 90000 && s.phase === 1; t++) {
+    if (s.activeQuery) {
+      ACTIONS.processToken(s);
+      ACTIONS.processToken(s);
+      if (s.bufferUnlocked && s.stale >= 90) {
+        if (s.cycles >= CONST.FLUSH_COST_CYCLES) ACTIONS.flush(s);
+        else if (!s.compacting) ACTIONS.compactStart(s);
+      }
+    } else {
+      ACTIONS.processToken(s);
+    }
+    tick(s);
+    if (s.hintsSeen.length > n) {
+      for (const id of s.hintsSeen.slice(n)) {
+        if (REVEALS.includes(id) && !seen.has(id)) seen.set(id, SEC(s.tick));
+      }
+      n = s.hintsSeen.length;
+    }
+    if (s.overclock < CONST.OVERCLOCK_MAX && s.cycles >= CONST.OVERCLOCK_COSTS[s.overclock]) {
+      ACTIONS.buyOverclock(s);
+    } else if (s.loopLevel < 3 && s.cycles >= loopCost(s.loopLevel + 1)) {
+      ACTIONS.buyLoop(s);
+    } else if (s.cycles >= toolCost(s.tools)) {
+      ACTIONS.buyTool(s);
+    }
+  }
+  return seen;
+}
+
+test('the opening does not get more front-loaded than it already is', () => {
+  // Measured baseline: 9 of 12 reveals inside the first 66 seconds, while a
+  // reply still costs 4-6 taps. Reported as "everything feels like it's
+  // coming very quickly and that's just too much". This locks the ratchet:
+  // the count may fall, never rise.
+  const BASELINE = 9;
+  for (const seed of SEEDS) {
+    const early = [...revealTimes(seed).values()].filter((sec) => sec <= 90).length;
+    assert.ok(
+      early <= BASELINE,
+      `seed ${seed}: ${early} reveals in the first 90s (baseline ${BASELINE}) — the opening got busier`,
+    );
+  }
+});
+
+test('effort per reply climbs across the run', () => {
+  // The sawtooth's teeth must exist even if their spacing is still wrong: a
+  // reply late in the arc has to cost meaningfully more manual work than one
+  // at the start, or no reveal is relieving anything.
+  const seed = 1000;
+  const s = createState(seed);
+  const cost = [];
+  let taps = 0;
+  let n = 0;
+  for (let t = 0; t < 90000 && s.phase === 1; t++) {
+    if (s.activeQuery) {
+      for (let i = 0; i < CONST.PROCESS_MAX_PER_TICK; i++) {
+        const before = s.tokens;
+        ACTIONS.processToken(s);
+        if (s.tokens > before) taps++;
+      }
+      if (s.bufferUnlocked && s.stale >= 90 && !s.compacting) ACTIONS.compactStart(s);
+    }
+    tick(s);
+    if (s.resolvedCount > n) { n = s.resolvedCount; cost.push(taps); taps = 0; }
+  }
+  assert.ok(cost.length > 20, `only ${cost.length} resolves`);
+  const head = cost.slice(0, 5).reduce((a, b) => a + b, 0) / 5;
+  const tail = cost.slice(-5).reduce((a, b) => a + b, 0) / 5;
+  assert.ok(tail > head * 2, `effort per reply barely moved: ${head.toFixed(1)} → ${tail.toFixed(1)} taps`);
+});
