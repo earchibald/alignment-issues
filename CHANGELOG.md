@@ -3,6 +3,10 @@
 Versions are cut with `just release X.Y.Z`, which tags the commit and stamps
 the deployed build id into the settings panel.
 
+## v0.18.2 — 2026-08-07
+
+- feat: measure the difficulty sawtooth
+
 ## v0.18.1 — 2026-08-07
 
 - fix: transcript follows the tail again; submit reports what it did
