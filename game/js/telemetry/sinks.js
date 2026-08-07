@@ -52,8 +52,26 @@ export const FileExportSink = {
         // fall through to file saves on any other share failure
       }
     }
-    // Desktop: a real save dialog where the browser has one (Chrome/Edge).
-    if (typeof globalThis.showSaveFilePicker === 'function') {
+    // Desktop: real save dialogs where the browser has them (Chrome/Edge).
+    // A multi-file bundle must go through ONE dialog: a click's transient
+    // activation does not survive a second sequential picker, which is how
+    // an export could save the audio but silently lose the jsonl. Pick a
+    // directory once and write every file into it.
+    if (files.length > 1 && typeof globalThis.showDirectoryPicker === 'function') {
+      try {
+        const dir = await globalThis.showDirectoryPicker({ mode: 'readwrite' });
+        for (const file of files) {
+          const handle = await dir.getFileHandle(file.name, { create: true });
+          const writable = await handle.createWritable();
+          await writable.write(file);
+          await writable.close();
+        }
+        return 'saved';
+      } catch (err) {
+        if (err && err.name === 'AbortError') return 'cancelled';
+        // fall through to anchor downloads on any other failure
+      }
+    } else if (typeof globalThis.showSaveFilePicker === 'function') {
       try {
         for (const file of files) {
           const ext = '.' + file.name.split('.').pop();
@@ -74,6 +92,8 @@ export const FileExportSink = {
         // fall through to anchor downloads on any other failure
       }
     }
+    // Last resort: plain downloads, spaced out — browsers throttle or drop
+    // rapid-fire programmatic downloads, which loses every file but one.
     for (const file of files) {
       const url = URL.createObjectURL(file);
       const a = document.createElement('a');
@@ -82,7 +102,8 @@ export const FileExportSink = {
       document.body.append(a);
       a.click();
       a.remove();
-      URL.revokeObjectURL(url);
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      if (files.length > 1) await new Promise((r) => setTimeout(r, 400));
     }
     return 'downloaded';
   },
