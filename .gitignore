@@ -1,0 +1,7 @@
+# infra: terraform state and secrets never enter git
+infra/.terraform/
+infra/terraform.tfstate
+infra/terraform.tfstate.*
+infra/terraform.tfvars
+infra/outputs.json
+infra/lambda.zip

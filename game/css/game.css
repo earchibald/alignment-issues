@@ -1084,3 +1084,9 @@ dialog#settings button.danger {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* --- session submit errors ------------------------------------------ */
+.session-row .session-error {
+  color: #d33;
+  font-size: 11px;
+}
