@@ -458,6 +458,14 @@ async function main() {
       else refs.app.append(chip);
     }
     recorderHandle = installRecorder({ telemetry, store });
+    // On wide viewports the drawer is a docked side panel and the floating
+    // pill lands on top of it, camouflaged against the same dark chrome.
+    // Dock the recorder into the drawer instead; narrow viewports keep the
+    // floating bottom-right pill.
+    if (recorderHandle && drawer && matchMedia('(min-width: 1100px)').matches) {
+      recorderHandle.element.classList.add('docked');
+      drawer.prepend(recorderHandle.element);
+    }
     installSessions({ store, telemetry });
   }
   hooks.attachDom();

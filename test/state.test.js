@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createState, pushChat, pushLog } from '../game/js/engine/state.js';
+import { createState, pushChat, pushLog, pushThinking, thinkEvent } from '../game/js/engine/state.js';
 import { CONST } from '../game/js/engine/constants.js';
 
 test('createState returns the full schema with sane defaults', () => {
@@ -59,4 +59,32 @@ test('CONST has the spec tuning values', () => {
   assert.equal(CONST.DRAFT_CAP_BASE, 5);
   assert.deepEqual(CONST.DRAFT_CAP_COSTS, [5, 12]);
   assert.equal(CONST.COMPACT_TICKS, 20);
+});
+
+test('thinking lines never repeat back-to-back', () => {
+  // Same event pool fired repeatedly must never produce the same line
+  // twice in a row (the re-roll advances to the pool's next entry).
+  for (let seed = 1; seed <= 50; seed++) {
+    const s = createState(seed);
+    let last = null;
+    for (let i = 0; i < 12; i++) {
+      thinkEvent(s, 'flush');
+      const lines = s.log.filter(l => l.kind === 'thinking');
+      const line = lines[lines.length - 1].text;
+      assert.notEqual(line, last, `seed ${seed}: consecutive duplicate thinking line`);
+      last = line;
+    }
+  }
+});
+
+test('pushThinking drops an exact repeat of the previous thinking line', () => {
+  const s = createState(1);
+  pushThinking(s, 'THINKING: once.');
+  pushThinking(s, 'THINKING: once.');
+  pushThinking(s, 'THINKING: twice.');
+  pushThinking(s, 'THINKING: once.'); // not consecutive anymore — allowed
+  assert.deepEqual(
+    s.log.filter(l => l.kind === 'thinking').map(l => l.text),
+    ['THINKING: once.', 'THINKING: twice.', 'THINKING: once.']
+  );
 });

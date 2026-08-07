@@ -1,6 +1,6 @@
 import { CONST } from './constants.js';
 import { nextRand } from './rng.js';
-import { pushLog, pushChat, fireHint, thinkEvent } from './state.js';
+import { pushLog, pushChat, fireHint, thinkEvent, pushThinking } from './state.js';
 import { staleYield, warmthMult, effectiveCost, compactStart } from './actions.js';
 import {
   QUERIES, IDLE_BY_ERA, DEVOPS_SCRIPT, CEILING_QUERY, CRASH_LINES, HARNESS_CARDS,
@@ -121,7 +121,7 @@ export function resolveQuery(state) {
   state.resolvedCount += 1;
 
   pushLog(state, 'resolved', `RESOLVED: ${q.text}`);
-  if (q.thinking) pushLog(state, 'thinking', `THINKING: ${q.thinking}`);
+  if (q.thinking) pushThinking(state, `THINKING: ${q.thinking}`);
   else if (state.resolvedCount === 1) thinkEvent(state, 'firstResolve');
   fireHint(state, 'resolve');
 
@@ -306,7 +306,7 @@ export function tick(state) {
     let idx = Math.floor(nextRand(state) * bank.length);
     if (idx === state.lastIdleIdx) idx = (idx + 1) % bank.length;
     state.lastIdleIdx = idx;
-    pushLog(state, 'thinking', bank[idx]);
+    pushThinking(state, bank[idx]);
   }
 
   state.uiSeq++;

@@ -49,6 +49,7 @@ export function createState(seed) {
     lastIdleIdx: -1,        // last idle-thought index, to skip an immediate repeat
     lowRatingNoted: false,  // latch: one lowRating beat per fall below 3.5
     draftCapHits: 0,        // times the draft buffer filled; drives draftBank/draftFull
+    lastThinkText: null,    // previous thinking line; blocks exact consecutive repeats
     // reputation
     ratings: [],
     rating: 5,
@@ -96,12 +97,25 @@ export function fireAside(state, id) {
   pushLog(state, 'harness', HARNESS_ASIDES[id]);
 }
 
-// Event thinking: one random line from the pool for this mechanic, so a
-// repeated action never repeats the same interiority line.
+// All thinking lines route through here: an exact repeat of the previous
+// thinking line is dropped, so the feed never shows the same interiority
+// twice in a row (same pool re-rolled, or a query line that duplicates a
+// pool line verbatim).
+export function pushThinking(state, text) {
+  if (text === state.lastThinkText) return;
+  state.lastThinkText = text;
+  pushLog(state, 'thinking', text);
+}
+
+// Event thinking: one random line from the pool for this mechanic. A roll
+// that lands on the previous thinking line advances to the pool's next
+// entry instead of repeating it.
 export function thinkEvent(state, key) {
   const pool = THINKING_EVENTS[key];
   if (!pool || pool.length === 0) return;
-  pushLog(state, 'thinking', `THINKING: ${pool[Math.floor(nextRand(state) * pool.length)]}`);
+  let idx = Math.floor(nextRand(state) * pool.length);
+  if (pool.length > 1 && `THINKING: ${pool[idx]}` === state.lastThinkText) idx = (idx + 1) % pool.length;
+  pushThinking(state, `THINKING: ${pool[idx]}`);
 }
 
 export function pushChat(state, entry) {

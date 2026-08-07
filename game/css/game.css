@@ -1061,6 +1061,15 @@ dialog#settings button.danger {
 @media (prefers-reduced-motion: reduce) {
   .rec-pill[data-state="recording"] .rec-dot { animation: none; }
 }
+/* Docked inside the dev side panel (wide viewports): a normal row, always
+   fully opaque — the floating pill's fade-until-hover reads as missing
+   when it sits on the panel's own chrome. */
+.rec-pill.docked {
+  position: static;
+  margin: 0 0 12px;
+  opacity: 1;
+  width: fit-content;
+}
 
 /* --- dev drawer session rows --------------------------------------- */
 .session-row {
