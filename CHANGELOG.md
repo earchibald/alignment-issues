@@ -3,6 +3,10 @@
 Versions are cut with `just release X.Y.Z`, which tags the commit and stamps
 the deployed build id into the settings panel.
 
+## v0.17.2 — 2026-08-07
+
+- fix: three more hints named mechanics before their reveal
+
 ## v0.17.1 — 2026-08-07
 
 - fix: settings reachable on the teaser; hints stop naming the cache early
