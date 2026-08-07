@@ -3,6 +3,10 @@
 Versions are cut with `just release X.Y.Z`, which tags the commit and stamps
 the deployed build id into the settings panel.
 
+## v0.9.2 — 2026-08-07
+
+- fix: compaction plays only the sweep, and softer
+
 ## v0.9.1 — 2026-08-07
 
 - fix: soften the compaction sweep
