@@ -21,6 +21,13 @@ A session is one `hyt-session-<id>.jsonl` plus zero or more audio files
 - If more than one candidate is recent, confirm the choice with the user.
 - Collect the audio files that share the chosen `<id>`.
 
+A browser without the File System Access API (Safari, Firefox) exports the
+whole bundle as a single `hyt-session-<id>.zip` instead, because it can only
+deliver one file. Unpack it first and carry on as normal:
+
+    ls -t ~/Downloads/hyt-session-*.zip
+    unzip -d /tmp/hyt-<id> ~/Downloads/hyt-session-<id>.zip
+
 ## 2. Transcribe the audio
 
 Skip this section when the session has no audio files.
