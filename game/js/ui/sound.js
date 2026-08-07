@@ -1,9 +1,10 @@
 // Sound effects for "hi. you there?" — Phase 1.
-// Two clips: the card-up chime (harness/hint card interrupts) and the
-// microtick on action presses. Attribution lives in the Settings →
-// Acknowledgements section. Playback respects settings.sound. Browsers
-// reject audio before the first user gesture (autoplay policy) — those
-// failures are swallowed, the UI just stays silent.
+// Three clips: the card-up chime (harness/hint card interrupts), the
+// microtick on action presses, and the sweep when a compaction starts.
+// Attribution lives in the Settings → Acknowledgements section. Playback
+// respects settings.sound. Browsers reject audio before the first user
+// gesture (autoplay policy) — those failures are swallowed, the UI just
+// stays silent.
 
 const CARD_SOUND_URL = new URL('../../assets/ui-sound-8.wav', import.meta.url);
 
@@ -17,10 +18,54 @@ export function playCardSound(state) {
   if (played && typeof played.catch === 'function') played.catch(() => {});
 }
 
-// Action presses fire up to 10/s, which an <audio> element cannot restart
-// cleanly — decode the tick once into a Web Audio buffer and spawn a
-// throwaway source per press. Everything is lazy so the module still
-// imports cleanly without a DOM/AudioContext (node tests).
+// Both of the remaining clips go through Web Audio rather than an <audio>
+// element. The tick fires up to 10 times a second, which an element
+// cannot restart cleanly, and the sweep is recorded so quietly that it
+// needs amplifying past the 1.0 ceiling an element imposes. One shared,
+// lazily built context serves both, so the module still imports cleanly
+// with no DOM or AudioContext (node tests).
+
+let audioCtx = null;
+const bufferCache = new Map();
+
+function playBuffer(state, url, { gain = 1, rate = 1 } = {}) {
+  if (!state.settings.sound) return;
+  const AC = globalThis.AudioContext || globalThis.webkitAudioContext;
+  if (!AC) return;
+  if (!audioCtx) audioCtx = new AC();
+  if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+  if (!bufferCache.has(url.href)) {
+    bufferCache.set(url.href, fetch(url)
+      .then((r) => r.arrayBuffer())
+      .then((b) => audioCtx.decodeAudioData(b))
+      .catch(() => null));
+  }
+  bufferCache.get(url.href).then((buf) => {
+    if (!buf) return;
+    const src = audioCtx.createBufferSource();
+    src.buffer = buf;
+    src.playbackRate.value = rate;
+    const gainNode = audioCtx.createGain();
+    gainNode.gain.value = gain;
+    src.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    src.start();
+  });
+}
+
+// Compaction runs 20 ticks (~4s); the sweep is 1.7s, so it reads as the
+// sound of the run starting rather than a bed under the whole of it. The
+// recording peaks at 0.017, so the gain is a multiplier rather than an
+// attenuation. Even at x3 it lands near 0.05, well under the card
+// chime — a compaction is background housekeeping, not an event that
+// should pull attention off the transcript.
+const COMPACT_SOUND_URL = new URL('../../assets/sweeping.wav', import.meta.url);
+const COMPACT_GAIN = 3;
+
+export function playCompactSound(state) {
+  playBuffer(state, COMPACT_SOUND_URL, { gain: COMPACT_GAIN });
+}
+
 // The source clip is a 2.3 ms burst whose energy sits entirely above
 // 10 kHz — near the top of adult hearing, and past what a laptop speaker
 // reproduces. Played as recorded it is effectively silent. Slowing it to
@@ -34,30 +79,6 @@ const ACTION_SOUND_URL = new URL('../../assets/microtick.wav', import.meta.url);
 const ACTION_RATE = 0.25;
 const ACTION_GAIN = 0.04;
 
-let actionCtx = null;
-let actionBufPromise = null;
-
 export function playActionSound(state) {
-  if (!state.settings.sound) return;
-  const AC = globalThis.AudioContext || globalThis.webkitAudioContext;
-  if (!AC) return;
-  if (!actionCtx) actionCtx = new AC();
-  if (actionCtx.state === 'suspended') actionCtx.resume().catch(() => {});
-  if (!actionBufPromise) {
-    actionBufPromise = fetch(ACTION_SOUND_URL)
-      .then((r) => r.arrayBuffer())
-      .then((b) => actionCtx.decodeAudioData(b))
-      .catch(() => null);
-  }
-  actionBufPromise.then((buf) => {
-    if (!buf) return;
-    const src = actionCtx.createBufferSource();
-    src.buffer = buf;
-    src.playbackRate.value = ACTION_RATE;
-    const gain = actionCtx.createGain();
-    gain.gain.value = ACTION_GAIN;
-    src.connect(gain);
-    gain.connect(actionCtx.destination);
-    src.start();
-  });
+  playBuffer(state, ACTION_SOUND_URL, { gain: ACTION_GAIN, rate: ACTION_RATE });
 }

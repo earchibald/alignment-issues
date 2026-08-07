@@ -318,6 +318,7 @@ export function installSettings({ stateBox, refs, paintNow, onReset, resetCardTr
   ackBody.append(
     ackEntry('ui sound 8.wav by nezuai -- ', 'https://freesound.org/s/582609/', ' -- License: Attribution 4.0'),
     ackEntry('microtick.wav by Saltbearer -- ', 'https://freesound.org/s/481984/', ' -- License: Creative Commons 0'),
+    ackEntry('Sweeping by georgesavic -- ', 'https://freesound.org/s/593466/', ' -- License: Creative Commons 0'),
   );
   dialog.append(ackBody);
 

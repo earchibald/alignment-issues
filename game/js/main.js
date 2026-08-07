@@ -11,7 +11,7 @@ import { harnessCard, hintCard } from './ui/components.js';
 import { installKeys } from './ui/keys.js';
 import { installDebug } from './ui/debug.js';
 import { installSettings } from './ui/settings.js';
-import { playCardSound, playActionSound } from './ui/sound.js';
+import { playCardSound, playActionSound, playCompactSound } from './ui/sound.js';
 import { IdbStore, MemoryStore, DEV_KEY, TELEMETRY_OPTOUT_KEY } from './telemetry/store.js';
 import { createTelemetry } from './telemetry/capture.js';
 import { installTelemetryHooks } from './telemetry/hooks.js';
@@ -260,7 +260,20 @@ async function main() {
   // removes it (that's this task's job) — clear it the first time the
   // condition stops holding, right after render so the class change lands
   // in the same paint.
+  // The compaction sweep is driven off the state transition, not off the
+  // button: the governor starts compactions on its own, and a press that
+  // is refused (buffer locked, or one already running) must stay silent.
+  // Seeded below from the state as it stands after offline catch-up, so a
+  // restored mid-compaction save does not fire it on load.
+  let lastCompacting = 0;
+  function watchCompaction() {
+    const now = stateBox.current.compacting;
+    if (now > 0 && lastCompacting === 0) playCompactSound(stateBox.current);
+    lastCompacting = now;
+  }
+
   function paintNow() {
+    watchCompaction();
     render(stateBox.current, refs);
     lastPaintedSeq = stateBox.current.uiSeq;
     hooks.afterPaint();
@@ -338,6 +351,7 @@ async function main() {
   // in the restored/loaded transcript pops an overlay.
   cardSeqHW = stateBox.current.chatSeq;
   logSeqHW = stateBox.current.logSeq;
+  lastCompacting = stateBox.current.compacting;
 
   // Initial paint before the loop/rAF have run.
   paintNow();
