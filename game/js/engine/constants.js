@@ -50,9 +50,11 @@ export const CONST = Object.freeze({
   RECLAIM_MAX: 60,
   // Queries served per tier band within an era: the target tier steps up
   // every N serves, so an era climbs 1 -> 2 -> 3 across its own length.
-  // Era 3 is bounded at ERA3_BEFORE_DEVOPS, so its bands are tighter.
-  ERA_TIER_STEP: { 1: 5, 2: 7, 3: 3, 4: 3 },
-  ERA3_BEFORE_DEVOPS: 10,       // era-3 queries served before the DevOps beat
+  // Era 3 is bounded at ERA3_BEFORE_DEVOPS; a step of 5 divides that
+  // budget into three even bands, so the climax climbs across its whole
+  // length instead of reaching tier 3 in its first minute.
+  ERA_TIER_STEP: { 1: 5, 2: 7, 3: 5, 4: 5 },
+  ERA3_BEFORE_DEVOPS: 15,       // era-3 queries served before the DevOps beat
   DEVOPS_STEP_TICKS: 30,        // default; entries may override via .ticks
   CRASH_LINE_TICKS: 5,          // ticks between crash lines (31 lines ≈ 31s; [SPACE] advances)
   // unfold predicates
