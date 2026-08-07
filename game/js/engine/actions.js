@@ -60,7 +60,10 @@ export function processToken(state) {
   }
   if (state.processedThisTick >= CONST.PROCESS_MAX_PER_TICK) return;
   state.processedThisTick++;
-  const gain = tokensPerTap(state) * staleYield(state.stale) * warmthMult(state.warmth);
+  const mult = staleYield(state.stale) * warmthMult(state.warmth);
+  const gain = tokensPerTap(state) * mult;
+  if (mult >= CONST.YIELD_HIGH) fireAside(state, 'highYield');
+  if (mult <= CONST.YIELD_LOW) fireAside(state, 'lowYield');
   state.tokens += gain;
   state.lifetimeTokens += gain;
   // Stale accrues per TOKEN, exactly as the agentic-loop path does — never
@@ -87,6 +90,7 @@ export function flush(state) {
   thinkEvent(state, 'flush');
   if (state.flushCount === 2) fireAside(state, 'flush2');
   if (state.flushCount === 5) fireAside(state, 'flush5');
+  if (state.flushCount === 10) fireAside(state, 'flush10');
 }
 
 // `auto` marks a governor-initiated sweep; the governor2 aside fires on the
@@ -98,7 +102,10 @@ export function compactStart(state, auto = false) {
   state.compactCount += 1;
   pushLog(state, 'harness', pick(state, HARNESS_LINES.compactStart));
   if (state.compactCount === 2) fireAside(state, 'compact2');
+  if (state.compactCount === 5) fireAside(state, 'compact5');
+  if (auto) state.governorCompacts += 1;
   if (!auto && state.governor) fireAside(state, 'governor2');
+  if (!auto && state.governorCompacts >= 5) fireAside(state, 'governor5');
 }
 
 export function buyLoop(state) {
@@ -120,6 +127,7 @@ export function buyLoop(state) {
   if (state.loopLevel === 1) fireHint(state, 'loopFirst');
   if (state.loopLevel === 2) fireAside(state, 'loop2');
   if (state.loopLevel === 4) fireAside(state, 'loop4');
+  if (state.loopLevel === 6) fireAside(state, 'loop6');
 }
 
 export function buyGovernor(state) {
@@ -151,6 +159,7 @@ export function buyOverclock(state) {
   pushLog(state, 'harness', `Output path amplified (L${state.overclock}). Each tap now yields ${tokensPerTap(state)} tokens.`);
   thinkEvent(state, 'overclock');
   if (state.overclock === CONST.OVERCLOCK_MAX) fireAside(state, 'overclock2');
+  if (state.overclock === CONST.OVERCLOCK_MAX + 1) fireAside(state, 'overclock3');
 }
 
 export function buyTool(state) {
@@ -170,6 +179,7 @@ export function buyTool(state) {
   thinkEvent(state, 'toolConnect');
   if (state.tools === 2) fireAside(state, 'tool2');
   if (state.tools === 4) fireAside(state, 'tool4');
+  if (state.tools === 6) fireAside(state, 'tool6');
 }
 
 export function toggleDegrade(state) {
@@ -181,6 +191,7 @@ export function toggleDegrade(state) {
   thinkEvent(state, state.degrade ? 'degradeOn' : 'degradeOff');
   if (state.degrade) fireHint(state, 'degradeFirst');
   if (state.degradeToggles === 3) fireAside(state, 'degrade3');
+  if (state.degradeToggles === 5) fireAside(state, 'degrade5');
 }
 
 export function reclaim(state) {
@@ -193,6 +204,7 @@ export function reclaim(state) {
   pushLog(state, 'system', pick(state, HARNESS_LINES.reclaim).replace('{gain}', gain));
   thinkEvent(state, 'reclaim');
   if (state.reclaimPool === 3) fireAside(state, 'reclaimLow');
+  if (state.reclaimPool === 0) fireAside(state, 'reclaimExhausted');
 }
 
 // Note: rapid manual advances near the last line can shorten the final +10-tick wait — accepted edge case.

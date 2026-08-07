@@ -1,6 +1,6 @@
 import { CONST } from './constants.js';
 import { nextRand } from './rng.js';
-import { pushLog, pushChat, fireHint, thinkEvent, pushThinking } from './state.js';
+import { pushLog, pushChat, fireHint, fireAside, thinkEvent, pushThinking } from './state.js';
 import { staleYield, warmthMult, effectiveCost, compactStart } from './actions.js';
 import {
   QUERIES, IDLE_BY_ERA, DEVOPS_SCRIPT, CEILING_QUERY, CRASH_LINES, HARNESS_CARDS,
@@ -57,6 +57,7 @@ function activateNextQuery(state) {
   if (q.attach) entry.attach = q.attach;
   pushChat(state, entry);
 
+  if (state.draftTokens > 0 && state.draftCapHits > 0) fireAside(state, 'draftEmpty');
   state.tokens += state.draftTokens;
   state.draftTokens = 0;
 
@@ -219,6 +220,7 @@ export function tick(state) {
   // A long empty gap gets one interiority beat. idleTicks only ever climbs
   // by 1 per tick and resets on action, so === fires exactly once per gap.
   if (state.idleTicks === 300) thinkEvent(state, 'longIdle');
+  if (state.idleTicks === 601) fireAside(state, 'idleLong');
 
   // 5c. Harness availability hints: pure predicates over current state,
   // fired at most once each via fireHint's own guard.

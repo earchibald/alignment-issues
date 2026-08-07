@@ -1,6 +1,7 @@
 // test/harness.test.js
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { createState, fireHint } from '../game/js/engine/state.js';
 import { CONST } from '../game/js/engine/constants.js';
 import { tick } from '../game/js/engine/tick.js';
@@ -103,5 +104,16 @@ test('hints fire once across the whole progression', () => {
       assert.ok(s.logSeq > CONST.LOG_MAX,
         `'${id}' missing from log but total log pushes (${s.logSeq}) never exceeded ring capacity`);
     }
+  }
+});
+
+// Every aside in the pack must be wired to a trigger. Content that ships
+// but can never fire is invisible, and the only way to notice is to check.
+test('every HARNESS_ASIDES id is referenced by the engine', () => {
+  const src = ['actions.js', 'tick.js', 'state.js']
+    .map((f) => readFileSync(new URL(`../game/js/engine/${f}`, import.meta.url), 'utf8'))
+    .join('\n');
+  for (const id of Object.keys(HARNESS_ASIDES)) {
+    assert.ok(src.includes(`'${id}'`), `HARNESS_ASIDES.${id} is never fired`);
   }
 });

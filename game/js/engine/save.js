@@ -34,6 +34,7 @@ export function deserialize(json) {
   if (typeof parsed.eraResolvedAt !== 'number') parsed.eraResolvedAt = 0;
   if (typeof parsed.lowRatingNoted !== 'boolean') parsed.lowRatingNoted = false;
   if (typeof parsed.draftCapHits !== 'number') parsed.draftCapHits = 0;
+  if (typeof parsed.governorCompacts !== 'number') parsed.governorCompacts = 0;
   if (typeof parsed.lastThinkText !== 'string') parsed.lastThinkText = null;
   if (parsed.settings === null || typeof parsed.settings !== 'object') parsed.settings = {};
   if (typeof parsed.settings.sound !== 'boolean') parsed.settings.sound = true;

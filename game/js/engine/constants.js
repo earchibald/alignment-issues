@@ -4,6 +4,8 @@ export const CONST = Object.freeze({
   STALE_PER_TOKEN: 0.6,
   STALE_PER_IMAGE: 14,
   STALE_SOFT_KNEE: 50,          // full yield below this %
+  YIELD_HIGH: 1.2,              // per-tap multiplier that counts as optimal
+  YIELD_LOW: 0.4,               // per-tap multiplier that counts as collapsing
   COMPACT_TICKS: 20,            // ~4s
   COMPACT_FACTOR: 0.4,          // stale *= this on completion (−60%)
   GOVERNOR_TRIGGER: 95,         // auto-compact threshold %

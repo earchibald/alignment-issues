@@ -7,9 +7,9 @@ import {
 import { createState } from '../game/js/engine/state.js';
 import { tick } from '../game/js/engine/tick.js';
 
-test('pool: 73 unique ids, minEra ascending, costs positive', () => {
-  assert.equal(QUERIES.length, 73);
-  assert.equal(new Set(QUERIES.map(q => q.id)).size, 73);
+test('pool: 112 unique ids, minEra ascending, costs positive', () => {
+  assert.equal(QUERIES.length, 112);
+  assert.equal(new Set(QUERIES.map(q => q.id)).size, 112);
   let era = 1;
   for (const q of QUERIES) {
     const e = q.minEra ?? 1;
@@ -192,5 +192,34 @@ test('crash lines have valid classes', () => {
   for (const l of CRASH_LINES) {
     assert.ok(['thinking', 'alert', 'dim', 'ok'].includes(l.cls));
     assert.ok(l.text);
+  }
+});
+
+// The AGY pack doubled every interiority pool. These floors are what the
+// pacing assumes: an era-2 or era-3 grind is long enough that a thin pool
+// reads as repetition, which is exactly what the expansion was for.
+test('interiority pools are deep enough for a long grind', () => {
+  for (const era of [1, 2, 3]) {
+    assert.ok(IDLE_BY_ERA[era].length >= 30, `IDLE_BY_ERA[${era}] too thin`);
+  }
+  assert.ok(IDLE_BY_ERA[4].length >= 20, 'IDLE_BY_ERA[4] too thin');
+  assert.ok(COMPLAINTS.length >= 20, 'COMPLAINTS too thin');
+  for (const band of ['high', 'mid', 'low']) {
+    assert.ok(RATING_NOTES[band].length >= 12, `RATING_NOTES.${band} too thin`);
+  }
+  for (const [key, pool] of Object.entries(THINKING_EVENTS)) {
+    assert.ok(pool.length >= 4, `THINKING_EVENTS.${key} too thin`);
+  }
+});
+
+test('no interiority line is duplicated within its own pool', () => {
+  const pools = [
+    ...Object.entries(IDLE_BY_ERA).map(([k, v]) => [`IDLE_BY_ERA.${k}`, v]),
+    ...Object.entries(THINKING_EVENTS).map(([k, v]) => [`THINKING_EVENTS.${k}`, v]),
+    ...Object.entries(RATING_NOTES).map(([k, v]) => [`RATING_NOTES.${k}`, v]),
+    ['COMPLAINTS', COMPLAINTS],
+  ];
+  for (const [name, pool] of pools) {
+    assert.equal(new Set(pool).size, pool.length, `${name} has a duplicate line`);
   }
 });

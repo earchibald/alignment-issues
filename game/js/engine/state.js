@@ -49,6 +49,7 @@ export function createState(seed) {
     lastIdleIdx: -1,        // last idle-thought index, to skip an immediate repeat
     lowRatingNoted: false,  // latch: one lowRating beat per fall below 3.5
     draftCapHits: 0,        // times the draft buffer filled; drives draftBank/draftFull
+    governorCompacts: 0,    // sweeps the governor started on its own; drives governor5
     lastThinkText: null,    // previous thinking line; blocks exact consecutive repeats
     // reputation
     ratings: [],
