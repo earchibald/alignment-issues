@@ -3,6 +3,21 @@
 Versions are cut with `just release X.Y.Z`, which tags the commit and stamps
 the deployed build id into the settings panel.
 
+## v0.13.0 — 2026-08-07
+
+- fix: run.sh accepts terraform or tofu; manual notes OpenTofu path
+- fix: function-URL invoke permission; region plumbing for analyst profile
+- docs: operator manual — actionable token kill switch, chdir outputs
+- docs: S3 submissions operator manual
+- fix: sessions.mjs pagination, testable pull/rm argv, id validation
+- feat: sessions.mjs retrieval tool + S3 source in analyze-session skill
+- feat: S3Sink client, submit button, deploy-time config injection
+- feat: S3 submission infra — broker lambda, terraform, wrapper
+- fix: empty configured token means submissions disabled (503), before compare
+- fix: constant-time token compare; empty configured token never grants
+- feat: broker grant validation core (pure, node-tested)
+- plan: S3 submission pathway (plan 3 of 3)
+
 ## v0.12.3 — 2026-08-07
 
 - fix: compact refuses a clean buffer too
