@@ -3,6 +3,10 @@
 Versions are cut with `just release X.Y.Z`, which tags the commit and stamps
 the deployed build id into the settings panel.
 
+## v0.8.1 — 2026-08-07
+
+- fix: pitch the action tick into the audible band
+
 ## v0.8.0 — 2026-08-07
 
 - feat: microtick sound on action presses
