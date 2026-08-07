@@ -108,9 +108,11 @@ test('arrivalDelay adds a capped reading bonus from lastReplyChars', () => {
   s.lastReplyChars = 0;
   const base = arrivalDelay(s);
   s.lastReplyChars = 100;
-  assert.equal(arrivalDelay(s), base + 25);   // ceil(100 * 0.25)
+  assert.equal(arrivalDelay(s), base + Math.ceil(100 * CONST.READ_TICKS_PER_CHAR));
   s.lastReplyChars = 10000;
-  assert.equal(arrivalDelay(s), base + 60);   // capped at READ_TICKS_MAX
+  assert.equal(arrivalDelay(s), base + CONST.READ_TICKS_MAX);
+  // The cap must actually bind, or the second assertion proves nothing.
+  assert.ok(10000 * CONST.READ_TICKS_PER_CHAR > CONST.READ_TICKS_MAX);
 });
 
 test('resolveQuery records reply length for the reading bonus', () => {
