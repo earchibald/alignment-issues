@@ -19,17 +19,18 @@ import { pathToFileURL } from 'node:url';
 const PROFILE = 'hyt-analyst';
 const PREFIX = 'submissions/';
 const USAGE = 'usage: sessions.mjs list | pull <sessionId>|--latest [--dest <dir>] | rm <sessionId>';
+const SESSION_ID_RE = /^\d{13}-[a-z0-9]{4}$/;
 
 export function resolveBucket({ env = process.env, outputsPath } = {}) {
   if (env.HYT_BUCKET) return env.HYT_BUCKET;
   const path = outputsPath ?? fileURLToPath(new URL('../infra/outputs.json', import.meta.url));
-  let raw;
+  let outputs;
   try {
-    raw = readFileSync(path, 'utf8');
+    const raw = readFileSync(path, 'utf8');
+    outputs = JSON.parse(raw);
   } catch {
     throw new Error('no bucket configured: set HYT_BUCKET or run ./infra/run.sh outputs');
   }
-  const outputs = JSON.parse(raw);
   if (!outputs.bucket) throw new Error('infra/outputs.json has no "bucket"');
   return outputs.bucket;
 }
@@ -53,6 +54,9 @@ export function parseArgs(argv) {
     }
     if (cmd === 'pull' && !out.latest && !out.sessionId) {
       throw new Error(`pull needs <sessionId> or --latest — ${USAGE}`);
+    }
+    if (out.sessionId && !out.latest && !SESSION_ID_RE.test(out.sessionId)) {
+      throw new Error(`bad session id: ${out.sessionId}`);
     }
     return out;
   }
@@ -82,12 +86,17 @@ function awsCli(args, { runner = execFileSync } = {}) {
 }
 
 export function listSessions(bucket, { runner } = {}) {
-  const out = awsCli(
-    ['s3api', 'list-objects-v2', '--bucket', bucket, '--prefix', PREFIX, '--output', 'json'],
-    { runner },
-  );
-  const parsed = JSON.parse(out || '{}');
-  const keys = (parsed.Contents || []).map((c) => c.Key);
+  const contents = [];
+  let token;
+  do {
+    const args = ['s3api', 'list-objects-v2', '--bucket', bucket, '--prefix', PREFIX, '--output', 'json'];
+    if (token) args.push('--continuation-token', token);
+    const out = awsCli(args, { runner });
+    const parsed = JSON.parse(out || '{}');
+    contents.push(...(parsed.Contents || []));
+    token = parsed.IsTruncated && parsed.NextContinuationToken ? parsed.NextContinuationToken : undefined;
+  } while (token);
+  const keys = contents.map((c) => c.Key);
   return groupKeysBySession(keys);
 }
 
@@ -99,6 +108,26 @@ function requireSession(sessions, sessionId, latest) {
   const hit = sessions.find((s) => s.sessionId === sessionId);
   if (!hit) throw new Error(`session not found: ${sessionId}`);
   return hit;
+}
+
+// Downloads one S3 object per key to `<dest>/<filename>`. Returns the local paths.
+export function pullSession(sessionId, keys, dest, bucket, runner) {
+  mkdirSync(dest, { recursive: true });
+  const paths = [];
+  for (const key of keys) {
+    const target = `${dest}/${keyBasename(key)}`;
+    awsCli(['s3', 'cp', `s3://${bucket}/${key}`, target], { runner });
+    paths.push(target);
+  }
+  return paths;
+}
+
+// Deletes one S3 object per key. Returns the removed keys.
+export function rmSession(sessionId, keys, bucket, runner) {
+  for (const key of keys) {
+    awsCli(['s3', 'rm', `s3://${bucket}/${key}`], { runner });
+  }
+  return keys;
 }
 
 function main() {
@@ -119,19 +148,13 @@ function main() {
   }
   const session = requireSession(sessions, opts.sessionId, opts.latest);
   if (opts.cmd === 'pull') {
-    mkdirSync(opts.dest, { recursive: true });
-    for (const key of session.keys) {
-      const target = `${opts.dest}/${keyBasename(key)}`;
-      awsCli(['s3', 'cp', `s3://${bucket}/${key}`, target]);
-      console.log(`pulled ${target}`);
-    }
+    const paths = pullSession(session.sessionId, session.keys, opts.dest, bucket);
+    for (const p of paths) console.log(`pulled ${p}`);
     return;
   }
   // rm
-  for (const key of session.keys) {
-    awsCli(['s3', 'rm', `s3://${bucket}/${key}`]);
-    console.log(`removed s3://${bucket}/${key}`);
-  }
+  const removed = rmSession(session.sessionId, session.keys, bucket);
+  for (const key of removed) console.log(`removed s3://${bucket}/${key}`);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
