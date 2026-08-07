@@ -54,9 +54,6 @@ body {
   --g-ink-dim: #6b7684;
   --g-accent: #2f6fed;
   --g-accent-ink: #ffffff;
-  --g-bubble-user: #f2f4f7;
-  --g-bubble-sys: #2f6fed;
-  --g-bubble-sys-ink: #ffffff;
   --g-inner: #a2790d;
   --g-resolved: #2f8f4e;
   --g-harness: #0e6b77;
@@ -81,7 +78,6 @@ body {
   --g-ink: #2a2e2c;
   --g-ink-dim: #63685f;
   --g-accent: #3e5f9e;
-  --g-bubble-sys: #3e5f9e;
   --g-inner: #8d6a06;
   --g-harness: #175a64;
   --g-radius: 6px;
@@ -95,9 +91,6 @@ body {
   --g-ink-dim: #5f6b5e;
   --g-accent: #3fae5c;
   --g-accent-ink: #08110a;
-  --g-bubble-user: #181d1a;
-  --g-bubble-sys: #1d2a20;
-  --g-bubble-sys-ink: #8fd39f;
   --g-inner: #e8b84b;
   --g-resolved: #7ee08f;
   --g-harness: #5fc6c9;
@@ -113,9 +106,6 @@ body {
   --g-ink-dim: #3f5a44;
   --g-accent: #7ee08f;
   --g-accent-ink: #060807;
-  --g-bubble-user: #0c100d;
-  --g-bubble-sys: #0c100d;
-  --g-bubble-sys-ink: #7ee08f;
   --g-inner: #e8b84b;
   --g-resolved: #7ee08f;
   --g-harness: #5fc6c9;
@@ -136,9 +126,6 @@ body {
   --g-ink-dim: #8a94a1;
   --g-accent: #4d8dff;
   --g-accent-ink: #ffffff;
-  --g-bubble-user: #212730;
-  --g-bubble-sys: #2f6fed;
-  --g-bubble-sys-ink: #ffffff;
   --g-inner: #d9a92f;
   --g-resolved: #4fbf72;
   --g-harness: #4db8c9;
@@ -161,7 +148,6 @@ body {
   --g-ink: #d8d5c2;
   --g-ink-dim: #8f8c76;
   --g-accent: #7d97c9;
-  --g-bubble-sys: #3e5f9e;
   --g-inner: #e6bb5a;
   --g-resolved: #6fcf88;
   --g-harness: #6fc3cc;
@@ -235,52 +221,72 @@ body:has(#app[data-theme="light"][data-decay="2"]) { background: #dfe3e8; }
   color: var(--g-ink-dim);
 }
 
+/* Non-scrolling frame around the transcript. It exists only to give the
+   thought layer something to anchor to that is not itself a scroller. */
+#chatwrap {
+  flex: 1;
+  position: relative;
+  display: flex;
+  min-height: 0;
+}
 .g-chat {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 16px 14px 8px;
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
-.bubble {
-  max-width: 82%;
-  padding: 9px 13px;
-  border-radius: var(--g-radius);
-  font-size: 13.5px;
-  line-height: 1.45;
+/* Transcript entries: flat, full-width blocks. Speaker is carried by the
+   header and by type, never by which side of the screen the text sits on —
+   one column reads as a system log, two columns read as a chat app. */
+.entry {
+  align-self: stretch;
+  max-width: 100%;
   overflow-wrap: anywhere;
 }
-.bubble .who {
-  display: block;
+.e-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
   font-family: var(--g-font-log);
   font-size: 10px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
-  opacity: 0.65;
-  margin-bottom: 3px;
+  color: var(--g-ink-dim);
+  margin-bottom: 4px;
 }
-.bubble.user {
-  align-self: flex-start;
-  background: var(--g-bubble-user);
-  border: 1px solid var(--g-line);
-  border-bottom-left-radius: 4px;
+.e-ts { opacity: 0.6; font-variant-numeric: tabular-nums; }
+.e-who { font-weight: 700; }
+/* The rule is a flex-grown border, so it always fills the remaining width
+   and never wraps the way a run of box-drawing characters would. */
+.e-rule {
+  flex: 1;
+  height: 0;
+  border-top: 1px solid var(--g-line);
 }
-.bubble.sys {
-  align-self: flex-end;
-  background: var(--g-bubble-sys);
-  color: var(--g-bubble-sys-ink);
-  border-bottom-right-radius: 4px;
+.e-body {
+  font-size: 13.5px;
+  line-height: 1.5;
 }
-#app[data-decay="3"] .bubble, #app[data-decay="4"] .bubble {
-  border-bottom-left-radius: var(--g-radius);
-  border-bottom-right-radius: var(--g-radius);
-  border: 1px solid var(--g-line);
+.entry.user .e-body {
+  color: var(--g-ink);
 }
-.bubble.corrupt {
+.entry.sys .e-who { color: var(--g-accent); }
+.entry.sys .e-rule { border-top-color: var(--g-accent); opacity: 0.35; }
+.entry.sys .e-body {
+  color: var(--g-ink);
+  /* The reply is the machine speaking. Monospace separates it from the
+     human above it without needing a coloured slab behind it. */
+  font-family: var(--g-font-log);
+  font-size: 12.5px;
+  line-height: 1.55;
+}
+.entry.corrupt .e-body {
   text-shadow: 1px 0 rgba(216,74,61,0.55), -1px 0 rgba(47,111,237,0.55);
 }
-.bubble .leak { opacity: 0.55; }
+.entry .leak { opacity: 0.55; }
 
 /* File attachments on user queries */
 .attach {
@@ -519,26 +525,110 @@ body:has(#app[data-theme="light"][data-decay="2"]) { background: #dfe3e8; }
 .toolcall .t-name { font-weight: 700; }
 .toolcall .t-ret { color: var(--g-ink-dim); }
 
-/* Inline thinking blocks (decay 3: coding-agent era) */
-.think-block {
+/* Folded interiority. Closed by default: the player opts in to the AI's
+   inner life, exactly as they would expand a chain of thought in a real
+   assistant. The transient card (#thoughts) is what makes that safe. */
+.fold {
   align-self: stretch;
   font-family: var(--g-font-log);
-  font-size: 11px;
+  border-left: 2px solid var(--g-inner);
+  padding-left: 10px;
+  /* Pull back most of the .g-chat flex gap so a thought reads as belonging to
+     the exchange above it, not as a separate turn in the transcript. */
+  margin-top: -7px;
+}
+.fold-sum {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  list-style: none;
+  cursor: pointer;
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  color: var(--g-inner);
+  opacity: 0.85;
+  padding: 2px 0;
+  /* Comfortable tap target on touch without adding visual weight. */
+  min-height: 22px;
+  user-select: none;
+}
+.fold-sum::-webkit-details-marker { display: none; }
+.fold-sum::before {
+  content: "▶";
+  font-size: 8px;
+  line-height: 1;
+  transition: transform 120ms ease;
+}
+.fold[open] > .fold-sum::before { transform: rotate(90deg); }
+.fold-sum:hover { opacity: 1; }
+.fold-sum:focus-visible { outline: 1px solid var(--g-inner); outline-offset: 2px; }
+.fs-label { text-transform: uppercase; font-weight: 600; }
+.fs-dur { opacity: 0.6; font-variant-numeric: tabular-nums; }
+.fold-body {
+  font-size: 11.5px;
   line-height: 1.6;
   color: var(--g-inner);
   font-style: italic;
-  border-left: 3px solid var(--g-inner);
-  padding: 4px 10px;
+  padding: 3px 0 5px;
   white-space: pre-wrap;
 }
-.think-block .tb-label {
+
+/* Transient thought cards: the leak. Fixed layer, never in the scroll flow. */
+#thoughts {
+  /* Anchored to #chatwrap, so the cards sit at the foot of the transcript —
+     inside the game column on a wide screen, and never over the status strip
+     or the action buttons, which must stay tappable. */
+  position: absolute;
+  right: 12px;
+  bottom: 8px;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: min(360px, calc(100vw - 28px));
+  /* The layer must never eat a tap meant for the action buttons under it;
+     only the cards themselves are clickable. */
+  pointer-events: none;
+}
+.thought-card {
+  pointer-events: auto;
+  cursor: pointer;
+  font-family: var(--g-font-log);
+  background: color-mix(in srgb, var(--g-bg) 82%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid var(--g-inner);
+  border-left-width: 3px;
+  border-radius: 3px;
+  padding: 8px 11px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.22);
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 320ms ease, transform 320ms ease;
+}
+.thought-card.in { opacity: 1; transform: translateY(0); }
+.thought-card.out { opacity: 0; transform: translateY(-4px); }
+.thought-card .tc-label {
   display: block;
-  font-style: normal;
-  font-size: 9.5px;
-  letter-spacing: 0.12em;
+  font-size: 9px;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  opacity: 0.7;
+  color: var(--g-inner);
+  opacity: 0.75;
   margin-bottom: 3px;
+}
+.thought-card .tc-body {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.55;
+  font-style: italic;
+  color: var(--g-inner);
+}
+@media (prefers-reduced-motion: reduce) {
+  .thought-card { transition: opacity 320ms ease; transform: none; }
+  .thought-card.in, .thought-card.out { transform: none; }
+  .fold-sum::before { transition: none; }
 }
 
 /* Harness-voice cards: pseudocode addressed to the player, out-of-band */
@@ -869,7 +959,9 @@ dialog#settings .harness-card { margin: 8px 0; }
 @media (max-width: 430px) {
   .g-header { padding: 10px 12px; }
   .g-chat { padding: 12px 10px 6px; gap: 8px; }
-  .bubble { font-size: 13px; max-width: 88%; }
+  .e-body { font-size: 13px; }
+  .entry.sys .e-body { font-size: 12px; }
+  #thoughts { right: 8px; bottom: 6px; max-width: calc(100vw - 16px); }
   .g-log { font-size: 10.5px; padding: 6px 10px; }
   .g-status { padding: 8px 10px 4px; }
   .g-actions { padding: 6px 8px max(8px, env(safe-area-inset-bottom)); gap: 5px; }

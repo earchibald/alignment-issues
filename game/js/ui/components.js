@@ -3,22 +3,45 @@
 // createElement/textContent/append only. No innerHTML, no logic beyond
 // assembling elements and classes.
 
-export function bubble({ who, text, side, corrupt, leak, attach, image }) {
+// A transcript entry: a full-width block with a monospace header rule and a
+// body. Replaces the old chat bubble. Speaker is carried by the header and by
+// font/colour, never by left/right alignment — the brutalist log reads as one
+// column, not as a conversation staggered across the screen.
+export function entryBlock({ who, ts, text, side, corrupt, leak, attach, image }) {
   const el = document.createElement('div');
-  el.className = corrupt ? `bubble ${side} corrupt` : `bubble ${side}`;
-  if (who) {
-    const w = document.createElement('span');
-    w.className = 'who';
-    w.textContent = who;
-    el.append(w);
+  el.className = corrupt ? `entry ${side} corrupt` : `entry ${side}`;
+
+  const head = document.createElement('div');
+  head.className = 'e-head';
+  if (ts) {
+    const t = document.createElement('span');
+    t.className = 'e-ts';
+    t.textContent = ts;
+    head.append(t);
   }
-  el.append(document.createTextNode(text));
+  const w = document.createElement('span');
+  w.className = 'e-who';
+  w.textContent = who || '';
+  head.append(w);
+  // The rule is drawn by CSS, not by repeated box-drawing characters, so it
+  // fills whatever width is left without wrapping on a narrow viewport.
+  const rule = document.createElement('span');
+  rule.className = 'e-rule';
+  rule.setAttribute('aria-hidden', 'true');
+  head.append(rule);
+  el.append(head);
+
+  const body = document.createElement('div');
+  body.className = 'e-body';
+  body.append(document.createTextNode(text));
   if (leak) {
     const l = document.createElement('span');
     l.className = 'leak';
     l.textContent = leak;
-    el.append(l);
+    body.append(l);
   }
+  el.append(body);
+
   if (attach) el.append(attachCard(attach));
   if (image) el.append(genImgCard(image));
   return el;
@@ -87,16 +110,56 @@ export function toolCallCard(text) {
   return el;
 }
 
-export function thinkBlock({ label, text }) {
+// A plausible "time spent reasoning", derived from the length of the thought.
+// Deterministic, diegetic, and free — it is a label, never a game value.
+export function thinkSeconds(text) {
+  // ~25 characters per second of "reasoning": a one-line thought reads as a
+  // couple of seconds, a paragraph as most of a minute's worth. Tuned so the
+  // number varies visibly between thoughts instead of pinning to the floor.
+  const s = Math.max(0.6, Math.min(9.9, (text || '').length / 25));
+  return `${s.toFixed(1)}s`;
+}
+
+// The AI's interiority, folded away by default. Native <details> so the toggle
+// costs no JS and stays keyboard-accessible; the marker is styled in CSS.
+export function thoughtFold({ label, text, open = false }) {
+  const el = document.createElement('details');
+  el.className = 'fold';
+  el.dataset.testid = 'thought-fold';
+  if (open) el.open = true;
+
+  const sum = document.createElement('summary');
+  sum.className = 'fold-sum';
+  const lbl = document.createElement('span');
+  lbl.className = 'fs-label';
+  lbl.textContent = label ? `Thinking · ${label}` : 'Thinking';
+  const dur = document.createElement('span');
+  dur.className = 'fs-dur';
+  dur.textContent = `(${thinkSeconds(text)})`;
+  sum.append(lbl, dur);
+
+  const body = document.createElement('div');
+  body.className = 'fold-body';
+  body.textContent = text;
+
+  el.append(sum, body);
+  return el;
+}
+
+// The same thought, leaked into the corner for a moment so a player who never
+// opens a fold still sees the mind waking up. Purely transient; the fold in
+// the transcript remains the durable copy.
+export function thoughtCard(text) {
   const el = document.createElement('div');
-  el.className = 'think-block';
-  if (label) {
-    const l = document.createElement('span');
-    l.className = 'tb-label';
-    l.textContent = label;
-    el.append(l);
-  }
-  el.append(document.createTextNode(text));
+  el.className = 'thought-card';
+  el.dataset.testid = 'thought-card';
+  const lbl = document.createElement('span');
+  lbl.className = 'tc-label';
+  lbl.textContent = 'thinking';
+  const body = document.createElement('p');
+  body.className = 'tc-body';
+  body.textContent = text;
+  el.append(lbl, body);
   return el;
 }
 

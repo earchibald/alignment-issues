@@ -10,7 +10,12 @@
 </head>
 <body>
   <main id="app" data-decay="0" data-phase="1">
-    <div id="chat" class="g-chat"></div>
+    <!-- The wrapper does not scroll, so the thought layer inside it can be
+         anchored to the bottom of the transcript without riding the scroll. -->
+    <div id="chatwrap">
+      <div id="chat" class="g-chat"></div>
+      <div id="thoughts" data-testid="thought-layer" aria-live="polite"></div>
+    </div>
     <div id="log" class="g-log" aria-live="polite" hidden></div>
     <div id="status" class="g-status" hidden></div>
     <div id="actions" class="g-actions"></div>

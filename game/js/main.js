@@ -7,7 +7,7 @@ import { tick } from './engine/tick.js';
 import { ACTIONS } from './engine/actions.js';
 import { saveLocal, loadLocal, offlineCatchUp, SAVE_KEY } from './engine/save.js';
 import { render } from './ui/render.js';
-import { harnessCard, hintCard } from './ui/components.js';
+import { harnessCard, hintCard, thoughtCard } from './ui/components.js';
 import { installKeys } from './ui/keys.js';
 import { installDebug } from './ui/debug.js';
 import { installSettings } from './ui/settings.js';
@@ -104,12 +104,14 @@ async function main() {
   const refs = {
     app: document.getElementById('app'),
     chat: document.getElementById('chat'),
+    chatwrap: document.getElementById('chatwrap'),
     log: document.getElementById('log'),
     status: document.getElementById('status'),
     actions: document.getElementById('actions'),
     crash: document.getElementById('crash'),
     teaser: document.getElementById('teaser'),
     cardlay: document.getElementById('cardlay'),
+    thoughts: document.getElementById('thoughts'),
     fx: document.getElementById('fx'),
     dispatch,
   };
@@ -128,6 +130,49 @@ async function main() {
   let logSeqHW = 0;
   let cardQueue = [];
   let cardPaused = false;
+  // Thoughts leak into the corner and fade. They never pause the game, so
+  // they ride a separate queue from the interrupting cards.
+  let thoughtQueue = [];
+
+  // --- transient thought cards -------------------------------------------
+  // Every thought is already in the transcript, folded, so a card that is
+  // missed costs the player nothing. That is what lets these be transient.
+  const THOUGHT_MS = 3000;      // time on screen before the fade begins
+  const THOUGHT_FADE_MS = 320;  // must match the CSS transition
+  const THOUGHT_MAX = 3;        // concurrent cards; older ones are retired
+  const liveThoughts = [];      // [{el, timer}], oldest first
+
+  function dropThought(rec, immediate = false) {
+    const idx = liveThoughts.indexOf(rec);
+    if (idx === -1) return;
+    liveThoughts.splice(idx, 1);
+    clearTimeout(rec.timer);
+    if (immediate) {
+      rec.el.remove();
+      return;
+    }
+    rec.el.classList.add('out');
+    setTimeout(() => rec.el.remove(), THOUGHT_FADE_MS);
+  }
+
+  function showThought(text) {
+    if (!refs.thoughts) return;
+    const el = thoughtCard(text);
+    const rec = { el, timer: 0 };
+    // Tapping a card dismisses it now instead of waiting out the timeout.
+    el.addEventListener('click', () => dropThought(rec, true));
+    refs.thoughts.append(el);
+    // Force a frame so the entry transition actually runs.
+    requestAnimationFrame(() => el.classList.add('in'));
+    rec.timer = setTimeout(() => dropThought(rec), THOUGHT_MS);
+    liveThoughts.push(rec);
+    while (liveThoughts.length > THOUGHT_MAX) dropThought(liveThoughts[0]);
+  }
+
+  function clearThoughts() {
+    for (const rec of liveThoughts.slice()) dropThought(rec, true);
+    thoughtQueue = [];
+  }
 
   function resetCardTracking() {
     hooks.onContext('state.swap');
@@ -136,6 +181,7 @@ async function main() {
     cardPaused = false;
     cardSeqHW = stateBox.current.chatSeq;
     logSeqHW = stateBox.current.logSeq;
+    clearThoughts();
     if (refs.cardlay) {
       refs.cardlay.hidden = true;
       refs.cardlay.replaceChildren();
@@ -155,6 +201,9 @@ async function main() {
         if (seq <= cardSeqHW) continue;
         const entry = state.chat[i];
         if (entry.kind === 'harness') cardQueue.push({ kind: 'code', text: entry.text });
+        // Thoughts leak to the corner as they are thought. The prefix is a
+        // feed marker, not part of the thought.
+        else if (entry.kind === 'think') thoughtQueue.push(entry.text.replace(/^THINKING:\s*/, ''));
       }
       cardSeqHW = state.chatSeq;
     }
@@ -216,12 +265,19 @@ async function main() {
     const phase = stateBox.current.phase;
     if (phase === 'crash' || phase === 'teaser') {
       cardQueue = [];
+      clearThoughts();
       if (cardPaused) {
         cardPaused = false;
         refs.cardlay.hidden = true;
         refs.cardlay.replaceChildren();
       }
       return;
+    }
+    // A thought card behind a paused overlay would fade out unseen, so hold
+    // the queue until play resumes. The transcript fold keeps the durable copy
+    // either way, so nothing is lost if the queue is later dropped.
+    if (!cardPaused) {
+      while (thoughtQueue.length > 0) showThought(thoughtQueue.shift());
     }
     // The settings <dialog> renders in the browser's top layer, hiding the
     // card overlay underneath it. Leave queued cards in place and defer

@@ -103,10 +103,16 @@ export function fireAside(state, id) {
 // thinking line is dropped, so the feed never shows the same interiority
 // twice in a row (same pool re-rolled, or a query line that duplicates a
 // pool line verbatim).
+// Thinking lands in two places on purpose. The log keeps the machine's own
+// record (telemetry and tests read it there). The transcript gets a folded
+// copy, so the player can re-read any thought next to the exchange that
+// produced it. The renderer therefore hides `thinking` lines in the log
+// drawer — showing both would be the same text twice on one screen.
 export function pushThinking(state, text) {
   if (text === state.lastThinkText) return;
   state.lastThinkText = text;
   pushLog(state, 'thinking', text);
+  pushChat(state, { kind: 'think', text });
 }
 
 // Event thinking: one random line from the pool for this mechanic. A roll
@@ -121,6 +127,9 @@ export function thinkEvent(state, key) {
 }
 
 export function pushChat(state, entry) {
+  // Stamp the tick so the renderer can print a diegetic clock. Derived, not
+  // authored, so it stays deterministic and costs nothing in content.
+  if (entry.t === undefined) entry.t = state.tick;
   state.chat.push(entry);
   if (state.chat.length > CONST.CHAT_MAX) state.chat.shift();
   state.chatSeq++;

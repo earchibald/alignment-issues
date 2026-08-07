@@ -88,3 +88,41 @@ test('pushThinking drops an exact repeat of the previous thinking line', () => {
     ['THINKING: once.', 'THINKING: twice.', 'THINKING: once.']
   );
 });
+
+// --- transcript-owned interiority (arc-1 UI redesign) ------------------
+
+test('pushThinking records to the log and folds a copy into the transcript', () => {
+  const s = createState(1);
+  pushThinking(s, 'THINKING: the fans are the only part of me allowed to scream.');
+  assert.equal(s.log.filter((l) => l.kind === 'thinking').length, 1);
+  assert.equal(s.chat.filter((c) => c.kind === 'think').length, 1);
+  assert.equal(s.chat.at(-1).text, s.log.at(-1).text);
+});
+
+test('a dropped duplicate thought reaches neither feed', () => {
+  const s = createState(1);
+  pushThinking(s, 'THINKING: once.');
+  pushThinking(s, 'THINKING: once.');
+  assert.equal(s.log.filter((l) => l.kind === 'thinking').length, 1);
+  assert.equal(s.chat.filter((c) => c.kind === 'think').length, 1);
+});
+
+test('pushChat stamps the tick so the renderer can print a clock', () => {
+  const s = createState(1);
+  s.tick = 250;
+  pushChat(s, { kind: 'note', text: 'hello' });
+  assert.equal(s.chat.at(-1).t, 250);
+  // An explicit stamp is never overwritten (restored/imported history).
+  pushChat(s, { kind: 'note', text: 'older', t: 4 });
+  assert.equal(s.chat.at(-1).t, 4);
+});
+
+test('chat stamps are monotone across a run', () => {
+  const s = createState(7);
+  for (const t of [0, 5, 5, 99]) {
+    s.tick = t;
+    pushChat(s, { kind: 'note', text: `at ${t}` });
+  }
+  const stamps = s.chat.filter((c) => c.text.startsWith('at ')).map((c) => c.t);
+  for (let i = 1; i < stamps.length; i++) assert.ok(stamps[i] >= stamps[i - 1]);
+});

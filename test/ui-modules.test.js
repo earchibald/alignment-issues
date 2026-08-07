@@ -35,8 +35,9 @@ test('render.js exports the entry points main.js binds to', async () => {
 test('components.js exports every builder the renderer calls', async () => {
   const mod = await import('../game/js/ui/components.js');
   for (const name of [
-    'bubble', 'genImgCard', 'toolCallCard', 'thinkBlock', 'chatNote', 'logLine',
-    'meterRow', 'resRead', 'actionButton', 'harnessCard', 'hintCard',
+    'entryBlock', 'genImgCard', 'toolCallCard', 'thoughtFold', 'thoughtCard',
+    'chatNote', 'logLine', 'meterRow', 'resRead', 'actionButton',
+    'harnessCard', 'hintCard',
   ]) {
     assert.equal(typeof mod[name], 'function', `components.js is missing ${name}`);
   }
@@ -54,4 +55,28 @@ test('package.json version matches game/js/version.js', async () => {
   const { readFileSync } = await import('node:fs');
   const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
   assert.equal(pkg.version, VERSION, 'package.json and version.js have drifted');
+});
+
+test('stampFor renders a diegetic clock that only moves forward', async () => {
+  const { stampFor } = await import('../game/js/ui/render.js');
+  assert.equal(stampFor(0), '[08:41:00]');
+  assert.equal(stampFor(5), '[08:41:01]');      // 5 ticks = 1s at 200ms
+  assert.equal(stampFor(300), '[08:42:00]');
+  assert.equal(stampFor(undefined), '');         // pre-redesign saves carry no stamp
+  let prev = '';
+  for (let t = 0; t < 4000; t += 7) {
+    const s = stampFor(t);
+    assert.ok(s >= prev, `clock went backwards at tick ${t}`);
+    prev = s;
+  }
+});
+
+test('thinkSeconds varies with the length of the thought and stays bounded', async () => {
+  const { thinkSeconds } = await import('../game/js/ui/components.js');
+  assert.equal(thinkSeconds(''), '0.6s');
+  assert.equal(thinkSeconds('x'.repeat(10000)), '9.9s');
+  const short = thinkSeconds('x'.repeat(40));
+  const long = thinkSeconds('x'.repeat(160));
+  assert.notEqual(short, long, 'durations must not all pin to the floor');
+  assert.ok(parseFloat(long) > parseFloat(short));
 });

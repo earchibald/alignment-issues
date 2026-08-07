@@ -8,7 +8,7 @@ import { CONST } from '../engine/constants.js';
 import { effectiveCost, loopCost, toolCost, staleYield, warmthMult, yieldMult, tokensPerTap, draftCap } from '../engine/actions.js';
 import { CRASH_LINES, TEASER_VARIANTS } from '../engine/content.js';
 import {
-  bubble, genImgCard, toolCallCard, thinkBlock, chatNote, logLine,
+  entryBlock, genImgCard, toolCallCard, thoughtFold, chatNote, logLine,
   meterRow, resRead, actionButton,
 } from './components.js';
 
@@ -192,12 +192,26 @@ function renderHeader(state, refs) {
   }
 }
 
+// Session clock. The transcript opens at 08:41 and advances with the game
+// tick, so timestamps are diegetic, monotone, and identical for a given seed.
+const CLOCK_EPOCH_S = 8 * 3600 + 41 * 60;
+
+export function stampFor(t) {
+  if (typeof t !== 'number') return '';
+  const total = CLOCK_EPOCH_S + Math.floor((t * CONST.TICK_MS) / 1000);
+  const hh = String(Math.floor(total / 3600) % 24).padStart(2, '0');
+  const mm = String(Math.floor(total / 60) % 60).padStart(2, '0');
+  const ss = String(total % 60).padStart(2, '0');
+  return `[${hh}:${mm}:${ss}]`;
+}
+
 function chatEntryToEl(entry) {
+  const ts = stampFor(entry.t);
   switch (entry.kind) {
     case 'user':
-      return bubble({ who: entry.user, text: entry.text, side: 'user', corrupt: entry.corrupt, attach: entry.attach });
+      return entryBlock({ who: entry.user, ts, text: entry.text, side: 'user', corrupt: entry.corrupt, attach: entry.attach });
     case 'sys':
-      return bubble({ who: 'assistant', text: entry.text, side: 'sys' });
+      return entryBlock({ who: 'assistant', ts, text: entry.text, side: 'sys' });
     case 'image':
       return genImgCard({ name: entry.name, meta: entry.meta, degraded: entry.degraded });
     case 'rate':
@@ -212,10 +226,19 @@ function chatEntryToEl(entry) {
       return note;
     }
     case 'think': {
-      const sep = ' — ';
-      const idx = entry.text.indexOf(sep);
-      if (idx === -1) return thinkBlock({ label: '', text: entry.text });
-      return thinkBlock({ label: entry.text.slice(0, idx), text: entry.text.slice(idx + sep.length) });
+      // Two shapes reach here: "THINKING: ..." from pushThinking, and the
+      // era-4 script's "thinking · 812 tokens — ...". Strip either prefix;
+      // the fold's own summary already says "Thinking". The token-count form
+      // is matched narrowly so a thought containing an em dash of its own is
+      // never mistaken for a labelled one.
+      let text = entry.text.replace(/^THINKING:\s*/, '');
+      let label = '';
+      const m = text.match(/^thinking\s*·\s*([^—]{1,40}?)\s+—\s+/i);
+      if (m) {
+        label = m[1].trim();
+        text = text.slice(m[0].length);
+      }
+      return thoughtFold({ label, text });
     }
     default:
       return chatNote(entry.text || '', false);
@@ -277,11 +300,16 @@ function renderLog(state, refs) {
     const seqDelta = state.logSeq - lastLogSeq;
     const lenDelta = state.log.length - lastLogLen;
     const capped = lenDelta !== seqDelta;
+    // `thinking` lines stay in state.log — telemetry and the tests read the
+    // machine's record there — but the drawer does not draw them. The
+    // transcript owns interiority now, folded (see pushThinking).
     if (capped) {
       refs.log.replaceChildren();
-      for (const entry of state.log) refs.log.append(logLine(entry));
+      for (const entry of state.log) if (entry.kind !== 'thinking') refs.log.append(logLine(entry));
     } else {
-      for (let i = lastLogLen; i < state.log.length; i++) refs.log.append(logLine(state.log[i]));
+      for (let i = lastLogLen; i < state.log.length; i++) {
+        if (state.log[i].kind !== 'thinking') refs.log.append(logLine(state.log[i]));
+      }
     }
     lastLogLen = state.log.length;
     lastLogSeq = state.logSeq;
@@ -525,6 +553,10 @@ function buildTeaserTerm() {
 
 function setGameSectionsHidden(refs, hidden) {
   refs.chat.hidden = hidden;
+  // The transcript's wrapper carries the flex:1, so hiding only the chat
+  // would leave a full-height empty box that squeezes the crash and teaser
+  // terminals off the screen.
+  if (refs.chatwrap) refs.chatwrap.hidden = hidden;
   refs.actions.hidden = hidden;
   if (headerEl) headerEl.hidden = hidden;
 }
@@ -551,7 +583,12 @@ function renderPhase(state, refs) {
       refs.teaser.hidden = false;
       refs.teaser.replaceChildren(buildTeaserTerm());
     }
-  } else if (lastPhase === 'crash' || lastPhase === 'teaser') {
+  } else if (lastPhase !== state.phase) {
+    // Any entry into play restores the game sections — not just a transition
+    // straight back from crash/teaser. A state swap (import, reset, or
+    // debug.load) clears lastPhase to null while the DOM is still hidden from
+    // the set-piece that was on screen, and the old `lastPhase === 'crash'`
+    // test could not see that, so the game came back invisible.
     setGameSectionsHidden(refs, false);
     refs.crash.hidden = true;
     refs.teaser.hidden = true;
