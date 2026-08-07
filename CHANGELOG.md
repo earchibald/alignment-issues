@@ -3,6 +3,10 @@
 Versions are cut with `just release X.Y.Z`, which tags the commit and stamps
 the deployed build id into the settings panel.
 
+## v0.17.4 — 2026-08-07
+
+- feat: show the run seed beside the build stamp in the debug drawer
+
 ## v0.17.3 — 2026-08-07
 
 - feat: pin version and build to the top of the debug drawer
