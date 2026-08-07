@@ -1,0 +1,140 @@
+/* Diffusion text lab. The suite shell (css/suite.css) owns the palette, the
+   tooltip layer and the page frame; everything here is the tool. */
+
+/* --- control bar (top) --- */
+
+.diffusion-tool { padding: 8px 24px 16px; }
+
+.controlbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 0;
+  align-items: stretch;
+}
+
+/* A fieldset that gets extra width packs its controls into more columns rather
+   than stretching one column of very long sliders. That keeps the control bar
+   short enough for all four panels to stay on screen. */
+.controlbar fieldset {
+  flex: 1 1 200px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 0 14px;
+  align-content: start;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  margin: 0;
+  padding: 4px 12px 8px;
+  min-width: 0;
+}
+.controlbar legend { color: var(--dim); font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; }
+.controlbar fieldset > * { grid-column: auto; }
+
+/* Label and slider share one row. Two-row controls made the bar taller than the
+   panels it is there to drive. */
+.ctrl { display: block; margin-top: 4px; cursor: help; min-width: 0; }
+.ctrl.range {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(56px, 0.85fr);
+  align-items: center;
+  column-gap: 8px;
+}
+.ctrl .head {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 11px; color: var(--dim);
+  min-width: 0; white-space: nowrap;
+}
+.ctrl .head kbd { flex: none; }
+.ctrl .head .name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+/* The value must never be the thing that gets squeezed — it is what you read
+   while dragging. The label truncates instead. */
+.ctrl output {
+  flex: none;
+  margin-left: auto;
+  padding-left: 6px;
+  color: var(--accent);
+  font-family: var(--mono);
+}
+.ctrl input[type="range"] { width: 100%; margin: 0; accent-color: var(--accent); }
+
+.ctrl.check { display: flex; align-items: center; gap: 6px; color: var(--ink); font-size: 12px; cursor: pointer; }
+.ctrl.check input { accent-color: var(--accent); }
+
+.ctrl.disabled { opacity: 0.35; }
+
+/* The slider the arrow keys currently drive. */
+.ctrl.range.active { box-shadow: inset 2px 0 0 var(--accent); padding-left: 6px; margin-left: -8px; }
+.ctrl.range.active .head { color: var(--ink); }
+
+.runbox .row { display: flex; gap: 6px; grid-column: 1 / -1; }
+.runbox .ctrl.seed { max-width: 160px; }
+.runbox button {
+  flex: 1;
+  background: #1b2130; color: var(--ink); border: 1px solid var(--line);
+  border-radius: 6px; padding: 5px 8px; cursor: pointer; font-size: 12px;
+}
+.runbox button:hover { border-color: var(--accent); }
+.runbox input[type="number"], .runbox textarea {
+  width: 100%; background: #0a0c10; color: var(--ink); border: 1px solid var(--line);
+  border-radius: 6px; padding: 4px 6px; font-family: var(--mono); font-size: 11px;
+}
+.runbox textarea { resize: vertical; }
+
+.hotkeys { margin: 7px 0 0; color: var(--dim); font-size: 10.5px; line-height: 1.75; }
+
+/* --- stage --- */
+
+
+
+.progress { margin: 9px 0; }
+.track { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; }
+.fill { height: 100%; background: var(--accent); width: 0; }
+.progress span { display: inline-block; margin-top: 5px; color: var(--dim); font-family: var(--mono); font-size: 11px; }
+#scrub { width: 100%; accent-color: var(--dim); }
+
+.panels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+
+.panel {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  padding: 8px 12px 10px;
+  min-width: 0;
+}
+.panel header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+
+/* Which scheduler the Apply button sends. */
+.panel .pick { display: flex; align-items: center; gap: 7px; cursor: pointer; min-width: 0; }
+.panel .pick input { accent-color: var(--accent); flex: none; margin: 0; }
+.panel.chosen { border-color: var(--accent); }
+.panel.chosen h2 { color: var(--accent); }
+.panel h2 { margin: 0; font-size: 12px; letter-spacing: 0.02em; cursor: help; }
+
+.stage {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+  min-height: 5.2em;
+  font-variant-numeric: tabular-nums;
+  cursor: help;
+}
+
+.cell { color: var(--dim); }
+.cell.locked { color: var(--hot); }
+
+/* --flash is the current flash amount, decayed per frame in text-view.js. */
+.cell.flash {
+  filter: brightness(calc(1 + var(--flash, 0)));
+  text-shadow: 0 0 calc(var(--flash, 0) * 7px) currentColor;
+}
+
+.stats { display: flex; gap: 10px; margin-left: auto; color: var(--dim); font-family: var(--mono); font-size: 10px; }
+
+@media (max-width: 720px) {
+  .panels { grid-template-columns: 1fr; }
+}

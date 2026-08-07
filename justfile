@@ -21,6 +21,11 @@ serve:
     @echo "serving game/ at http://localhost:{{port}}/  (ctrl-c to stop)"
     cd game && python3 -m http.server {{port}}
 
+# Dev tuning suite at http://localhost:8899/ — tune effects, then apply them to the project
+devtools port="8899":
+    @echo "dev suite at http://localhost:{{port}}/  (ctrl-c to stop)"
+    node devtools/server.js {{port}}
+
 # Publish main to GitHub Pages: preflight, dispatch pinned to main, watch, verify live
 deploy: preflight
     #!/usr/bin/env bash
