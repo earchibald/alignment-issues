@@ -11,7 +11,9 @@ import { harnessCard, hintCard } from './ui/components.js';
 import { installKeys } from './ui/keys.js';
 import { installDebug } from './ui/debug.js';
 import { installSettings } from './ui/settings.js';
-import { playCardSound, playActionSound, playCompactSound, playFlushSound } from './ui/sound.js';
+import {
+  playCardSound, playActionSound, playCompactSound, playFlushSound, playOverclockSound,
+} from './ui/sound.js';
 import { IdbStore, MemoryStore, DEV_KEY, TELEMETRY_OPTOUT_KEY } from './telemetry/store.js';
 import { createTelemetry } from './telemetry/capture.js';
 import { installTelemetryHooks } from './telemetry/hooks.js';
@@ -330,6 +332,7 @@ async function main() {
   function playSoundFor(name) {
     if (name === 'compactStart') return;
     if (name === 'flush') playFlushSound(stateBox.current);
+    else if (name === 'buyOverclock') playOverclockSound(stateBox.current);
     else playActionSound(stateBox.current);
   }
 
