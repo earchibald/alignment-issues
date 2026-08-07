@@ -50,6 +50,11 @@ export function createState(seed) {
     lastIdleIdx: -1,        // last idle-thought index, to skip an immediate repeat
     lowRatingNoted: false,  // latch: one lowRating beat per fall below 3.5
     draftCapHits: 0,        // times the draft buffer filled; drives draftBank/draftFull
+    // Felt grind, in landed manual presses. Reveals gate on this rather than
+    // on a resolve count, so a mechanic arrives when the problem it solves is
+    // actually being felt. See scripts/pacing.mjs.
+    tapsThisQuery: 0,
+    lastResolveTaps: 0,
     governorCompacts: 0,    // sweeps the governor started on its own; drives governor5
     lastThinkText: null,    // previous thinking line; blocks exact consecutive repeats
     // reputation

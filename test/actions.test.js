@@ -187,6 +187,9 @@ test('buyLoop gates on cycles and doubles in cost', () => {
   ACTIONS.buyLoop(s);
   assert.equal(s.loopLevel, 0);
   s.lifetimeCycles = 6;
+  // Loops are revealed by grind, not by cycles alone: a reply has to be
+  // outrunning hand-generation first.
+  s.lastResolveTaps = CONST.REVEAL_TAPS_LOOP;
   s.cycles = loopCost(1) + loopCost(2);
   ACTIONS.buyLoop(s);
   ACTIONS.buyLoop(s);

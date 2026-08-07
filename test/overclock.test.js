@@ -55,9 +55,13 @@ test('the buffer chokes after the same token total regardless of amplification',
   assert.ok(Math.abs(atL0 - atL2) <= 3, `choke totals diverged: ${atL0} vs ${atL2}`);
 });
 
-test('buyOverclock: unlock hint after 2nd resolve, costs 3 then 8, max 2', () => {
+test('buyOverclock: revealed once a reply is real work, costs 3 then 8, max 2', () => {
   const s = createState(1);
+  // Two resolves is the floor, but the reveal now waits for the grind it
+  // relieves: a reply that cost REVEAL_TAPS_OVERCLOCK landed presses.
   s.resolvedCount = 2; tick(s);
+  assert.ok(!s.hintsSeen.includes('overclockAvail'), 'a trivial reply must not earn amplification');
+  s.lastResolveTaps = CONST.REVEAL_TAPS_OVERCLOCK; tick(s);
   assert.ok(s.hintsSeen.includes('overclockAvail'));
   s.cycles = 20;
   buyOverclock(s); assert.equal(s.overclock, 1); assert.equal(s.cycles, 17);
@@ -77,6 +81,9 @@ test('draftNudge fires on an arrival when player has never drafted', () => {
 test('unlock lines are harness-voiced', () => {
   const s = createState(1);
   s.lifetimeTokens = CONST.BUFFER_UNLOCK_TOKENS - 1;
+  // The buffer reveal now also needs residue that would actually be costing
+  // yield — see REVEAL_STALE_BUFFER.
+  s.stale = CONST.REVEAL_STALE_BUFFER;
   s.activeQuery = QUERIES[0];
   processToken(s);
   const line = s.log.find(l => l.text === 'Context buffer telemetry attached.');
