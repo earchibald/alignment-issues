@@ -1,0 +1,11 @@
+# Copy to terraform.tfvars (git-ignored) and fill in.
+# terraform.tfvars holds the submit token — NEVER commit it.
+
+bucket_name    = "hyt-submissions-CHANGE-ME" # globally unique
+region         = "us-west-2"
+allowed_origin = "https://earchibald.github.io"
+
+# Generate one: openssl rand -hex 24
+submit_token = "CHANGE-ME"
+
+# expire_days = 90
