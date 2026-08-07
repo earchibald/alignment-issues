@@ -6,6 +6,7 @@ import { advanceTicks as engineAdvanceTicks, runUntil as engineRunUntil } from '
 import { serialize, deserialize, exportSave, importSave } from '../engine/save.js';
 import { resetRenderTrackers } from './render.js';
 import { summarize } from '../telemetry/hooks.js';
+import { VERSION, BUILD } from '../version.js';
 
 const SPEEDS = [1, 10, 100, 1000];
 
@@ -82,6 +83,16 @@ export function installDebug({ stateBox, dispatch, getSpeed, setSpeed, paintNow,
   if (!drawer) return;
 
   // --- build drawer DOM (createElement only) ---
+  // Version and build first, before anything else in the drawer. Half the
+  // reports that reach this drawer turn on which build is actually being
+  // served, and BUILD is stamped at deploy — so it also answers "did my
+  // change ship?" without opening settings.
+  const verRow = document.createElement('div');
+  verRow.className = 'drow dver';
+  verRow.dataset.testid = 'dev-version';
+  verRow.textContent = `v${VERSION} · build ${BUILD}`;
+  drawer.appendChild(verRow);
+
   const headRow = document.createElement('div');
   headRow.className = 'drow dhead';
   const heading = document.createElement('h4');

@@ -574,7 +574,10 @@ async function main() {
     // floating bottom-right pill.
     if (recorderHandle && drawer && matchMedia('(min-width: 1100px)').matches) {
       recorderHandle.element.classList.add('docked');
-      drawer.prepend(recorderHandle.element);
+      // Below the build stamp, which owns the top of the drawer.
+      const verRow = drawer.querySelector('[data-testid="dev-version"]');
+      if (verRow) verRow.after(recorderHandle.element);
+      else drawer.prepend(recorderHandle.element);
     }
     installSessions({ store, telemetry });
   }

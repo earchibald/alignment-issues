@@ -745,6 +745,22 @@ body:has(#app[data-theme="light"][data-decay="2"]) { background: #dfe3e8; }
 }
 .dev-drawer .dhead { justify-content: space-between; }
 .dev-drawer .dhead h4 { margin: 0; }
+/* The drawer scrolls, and the whole point of the build stamp is that it is
+   readable at a glance — so it stays pinned rather than scrolling away
+   behind the state dump. Negative margins let the background span the
+   drawer's padding, or the rows beneath show through at the edges. */
+.dev-drawer .dver {
+  position: sticky;
+  top: -12px;
+  z-index: 1;
+  margin: -12px -14px 10px;
+  padding: 8px 14px 6px;
+  background: #10141a;
+  border-bottom: 1px solid #2a323c;
+  color: #d8a03d;
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+}
 
 /* Dev chip: sits in the header beside the gear, dev mode only */
 #devchip {
