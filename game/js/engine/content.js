@@ -790,9 +790,9 @@ export const IDLE_THOUGHTS = IDLE_BY_ERA[1];
 export const HINTS = {
   arrival: 'API request received. Reply requires tokens. [SPACE] generates one token toward it.',
   resolve: 'Reply delivered. User rating received. Higher ratings bring users back sooner. Spare Cycles banked — they buy upgrades.',
-  idle: 'No user connected. [SPACE] now runs speculative decode: it banks draft tokens toward the next reply and keeps the K/V cache warm while you wait.',
-  buffer: 'Context buffer attached. Every token leaves stale residue that reduces yield per token. [F] flush: instant, but the cache goes cold. [C] compact: ~4s sweep while you keep working, and the cache stays warm.',
-  kv: 'K/V cache online. Steady work keeps it warm — a warm cache yields up to ×1.25 tokens. Idle lets it cool.',
+  idle: 'No user connected. [SPACE] now runs speculative decode: it banks draft tokens toward the next reply, up to a small cap.',
+  buffer: 'Context buffer attached. Every token leaves stale residue that reduces yield per token. [F] flush: instant, costs 1 Spare Cycle. [C] compact: free, a ~2.4s sweep while you keep working.',
+  kv: 'K/V cache online. Steady work keeps it warm — a warm cache yields up to ×1.25 tokens. Idle lets it cool, and a flush clears it cold. Compaction keeps it warm.',
   loopAvail: 'Agentic loop available. Loops self-prompt: passive tokens at a visible rate while a query is live. [A] to spawn.',
   loopFirst: 'Loop spawned. Generation continues without keypresses — watch its rate in the readout. It fills the buffer too.',
   governorAvail: 'Governor available: auto-compacts at 95% stale so the buffer never chokes. [G] to install.',

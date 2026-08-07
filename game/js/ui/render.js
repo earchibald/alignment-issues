@@ -582,6 +582,19 @@ function buildTeaserTerm() {
   return term;
 }
 
+// The teaser is a terminal state: the tick loop returns early forever, so a
+// player who reaches it has no move left. The gear lives in the header, and
+// the header is hidden for the full-bleed set-piece — which left the only
+// route back (reset) unreachable. Relocate the control onto the terminal
+// screen instead of hiding it with the chrome it happens to sit in.
+function setGearOnTerm(refs, on) {
+  const gearBtn = document.getElementById('gear');
+  if (!gearBtn) return;
+  gearBtn.classList.toggle('on-term', on);
+  if (on) refs.app.append(gearBtn);
+  else if (headerEl) headerEl.append(gearBtn);
+}
+
 function setGameSectionsHidden(refs, hidden) {
   refs.chat.hidden = hidden;
   // The transcript's wrapper carries the flex:1, so hiding only the chat
@@ -613,6 +626,7 @@ function renderPhase(state, refs) {
       refs.crash.hidden = true;
       refs.teaser.hidden = false;
       refs.teaser.replaceChildren(buildTeaserTerm());
+      setGearOnTerm(refs, true);
     }
   } else if (lastPhase !== state.phase) {
     // Any entry into play restores the game sections — not just a transition
@@ -621,6 +635,7 @@ function renderPhase(state, refs) {
     // the set-piece that was on screen, and the old `lastPhase === 'crash'`
     // test could not see that, so the game came back invisible.
     setGameSectionsHidden(refs, false);
+    setGearOnTerm(refs, false);
     refs.crash.hidden = true;
     refs.teaser.hidden = true;
   }

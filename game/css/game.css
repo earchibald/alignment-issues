@@ -810,6 +810,19 @@ body:has(#app[data-theme="light"][data-decay="2"]) { background: #dfe3e8; }
 #gear:focus-visible { outline: 2px solid var(--g-accent); outline-offset: 2px; }
 #app[data-decay="3"] #gear, #app[data-decay="4"] #gear { color: var(--g-ink); }
 
+/* On the terminal set-pieces the header is gone, so the gear rides on top of
+   the full-bleed screen — the only way out of the teaser's dead end. */
+#gear.on-term {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  z-index: 3;
+  margin-left: 0;
+  color: #3f5a44;
+}
+#app[data-decay="3"] #gear.on-term, #app[data-decay="4"] #gear.on-term { color: #7ee08f; }
+#gear.on-term:hover, #gear.on-term:focus-visible { color: #cfe8cf; }
+
 /* Settings dialog */
 dialog#settings {
   position: relative;
