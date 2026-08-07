@@ -5,6 +5,7 @@
 import { advanceTicks as engineAdvanceTicks, runUntil as engineRunUntil } from '../engine/tick.js';
 import { serialize, deserialize, exportSave, importSave } from '../engine/save.js';
 import { resetRenderTrackers } from './render.js';
+import { summarize } from '../telemetry/hooks.js';
 
 const SPEEDS = [1, 10, 100, 1000];
 
@@ -15,25 +16,6 @@ function deepFreeze(obj) {
     deepFreeze(obj[key]);
   }
   return obj;
-}
-
-function summarize(state) {
-  return {
-    era: state.era,
-    decay: state.decay,
-    phase: state.phase,
-    tick: state.tick,
-    tokens: state.tokens,
-    cycles: state.cycles,
-    stale: state.stale,
-    warmth: state.warmth,
-    rating: state.rating,
-    loopLevel: state.loopLevel,
-    tools: state.tools,
-    reclaimPool: state.reclaimPool,
-    credentials: state.credentials,
-    biomass: state.biomass,
-  };
 }
 
 export function installDebug({ stateBox, dispatch, getSpeed, setSpeed, paintNow, refs, resetCardTracking, cards }) {
@@ -250,11 +232,6 @@ export function installDebug({ stateBox, dispatch, getSpeed, setSpeed, paintNow,
     else startRefresh();
   });
   observer.observe(drawer, { attributes: true, attributeFilter: ['hidden'] });
-
-  if (typeof location !== 'undefined' && location.search) {
-    const params = new URLSearchParams(location.search);
-    if (params.get('debug') === '1') drawer.hidden = false;
-  }
 
   if (!drawer.hidden) startRefresh();
 }

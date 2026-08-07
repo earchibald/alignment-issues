@@ -9,6 +9,7 @@ import { resetRenderTrackers } from './render.js';
 import { HINTS, HARNESS_CARDS } from '../engine/content.js';
 import { VERSION, BUILD } from '../version.js';
 import { harnessCard } from './components.js';
+import { TELEMETRY_OPTOUT_KEY } from '../telemetry/store.js';
 
 function row(...children) {
   const el = document.createElement('div');
@@ -17,7 +18,7 @@ function row(...children) {
   return el;
 }
 
-export function installSettings({ stateBox, refs, paintNow, onReset, resetCardTracking }) {
+export function installSettings({ stateBox, refs, paintNow, onReset, resetCardTracking, onTelemetryToggle }) {
   const gear = document.getElementById('gear');
   const dialog = document.getElementById('settings');
   if (!dialog) return;
@@ -50,6 +51,21 @@ export function installSettings({ stateBox, refs, paintNow, onReset, resetCardTr
   });
   soundLabel.append(soundCheckbox, document.createTextNode(' Sound'));
   dialog.append(row(soundLabel));
+
+  // --- telemetry toggle -------------------------------------------
+  const telLabel = document.createElement('label');
+  telLabel.className = 'settings-label';
+  const telCheckbox = document.createElement('input');
+  telCheckbox.type = 'checkbox';
+  telCheckbox.dataset.testid = 'settings-telemetry';
+  telCheckbox.checked = globalThis.localStorage.getItem(TELEMETRY_OPTOUT_KEY) !== '1';
+  telCheckbox.addEventListener('change', () => {
+    if (telCheckbox.checked) globalThis.localStorage.removeItem(TELEMETRY_OPTOUT_KEY);
+    else globalThis.localStorage.setItem(TELEMETRY_OPTOUT_KEY, '1');
+    if (onTelemetryToggle) onTelemetryToggle(telCheckbox.checked);
+  });
+  telLabel.append(telCheckbox, document.createTextNode(' Session telemetry'));
+  dialog.append(row(telLabel));
 
   // --- theme selector -------------------------------------------------
   const themeHeading = document.createElement('h4');
@@ -304,6 +320,7 @@ export function installSettings({ stateBox, refs, paintNow, onReset, resetCardTr
   // --- openSettings function ----------------------------------------
   function openSettings() {
     soundCheckbox.checked = !!stateBox.current.settings.sound;
+    telCheckbox.checked = globalThis.localStorage.getItem(TELEMETRY_OPTOUT_KEY) !== '1';
     const theme = stateBox.current.settings.theme || 'auto';
     themeAuto.radio.checked = theme === 'auto';
     themeLight.radio.checked = theme === 'light';
