@@ -1,0 +1,14 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dev-suite",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "devtools/server.js",
+        "8899"
+      ],
+      "port": 8899
+    }
+  ]
+}

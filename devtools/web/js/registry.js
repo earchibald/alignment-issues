@@ -1,0 +1,9 @@
+// The tool registry. Adding a tool to the suite means adding one line here.
+//
+// Each entry is lazily imported the first time its tab is opened, so a suite of
+// twenty tools still costs one tool's worth of parsing at start-up.
+
+export const TOOLS = [
+  { id: 'pacing', label: 'Pacing', load: () => import('../tools/pacing/tool.js') },
+  { id: 'diffusion', label: 'Diffusion text', load: () => import('../tools/diffusion/tool.js') },
+];

@@ -1,4 +1,9 @@
-export const CONST = Object.freeze({
+import { PACING_SETTINGS } from '../config/pacing-settings.js';
+
+// Defaults. Anything the dev suite's Pacing tool applies lands in
+// config/pacing-settings.js and wins over the value here, so these stay
+// readable as the documented baseline rather than being rewritten in place.
+const DEFAULTS = ({
   TICK_MS: 200,
   // stale context
   STALE_PER_TOKEN: 0.6,
@@ -105,3 +110,5 @@ export const CONST = Object.freeze({
   CHAT_MAX: 60,
   OFFLINE_MAX_STEPS: 10000,
 });
+
+export const CONST = Object.freeze({ ...DEFAULTS, ...PACING_SETTINGS });
