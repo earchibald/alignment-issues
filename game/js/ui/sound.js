@@ -1,6 +1,9 @@
 // Sound effects for "hi. you there?" — Phase 1.
-// Three clips: the card-up chime (harness/hint card interrupts), the
-// microtick on action presses, and the sweep when a compaction starts.
+// The card-up chime (harness/hint card interrupts), the microtick on
+// action presses, and a clip of its own for each act that deserves more
+// than a tick: flush, compaction, and the upgrades that change the shape
+// of the machine. Each of those replaces the tick rather than stacking
+// on it.
 // Attribution lives in the Settings → Acknowledgements section. Playback
 // respects settings.sound. Browsers reject audio before the first user
 // gesture (autoplay policy) — those failures are swallowed, the UI just
@@ -18,12 +21,12 @@ export function playCardSound(state) {
   if (played && typeof played.catch === 'function') played.catch(() => {});
 }
 
-// Both of the remaining clips go through Web Audio rather than an <audio>
-// element. The tick fires up to 10 times a second, which an element
-// cannot restart cleanly, and the sweep is recorded so quietly that it
-// needs amplifying past the 1.0 ceiling an element imposes. One shared,
-// lazily built context serves both, so the module still imports cleanly
-// with no DOM or AudioContext (node tests).
+// Everything below the chime goes through Web Audio rather than an
+// <audio> element. The tick fires up to 10 times a second, which an
+// element cannot restart cleanly, and the sweep is recorded so quietly
+// that it needs amplifying past the 1.0 ceiling an element imposes. One
+// shared, lazily built context serves them all, so the module still
+// imports cleanly with no DOM or AudioContext (node tests).
 
 let audioCtx = null;
 const bufferCache = new Map();
@@ -86,6 +89,23 @@ const OVERCLOCK_GAIN = 0.5;
 
 export function playOverclockSound(state) {
   playBuffer(state, OVERCLOCK_SOUND_URL, { gain: OVERCLOCK_GAIN });
+}
+
+// Widening the speculation buffer is the other permanent upgrade, so it
+// gets its own clip on the same footing as the drop.
+const DRAFTCAP_SOUND_URL = new URL('../../assets/buffer-whir.wav', import.meta.url);
+const DRAFTCAP_GAIN = 0.4;
+
+export function playDraftCapSound(state) {
+  playBuffer(state, DRAFTCAP_SOUND_URL, { gain: DRAFTCAP_GAIN });
+}
+
+// A spawned loop is machinery starting up, so it gets the mechanism.
+const LOOP_SOUND_URL = new URL('../../assets/loop-mechanism.wav', import.meta.url);
+const LOOP_GAIN = 0.25;
+
+export function playLoopSound(state) {
+  playBuffer(state, LOOP_SOUND_URL, { gain: LOOP_GAIN });
 }
 
 // The source clip is a 2.3 ms burst whose energy sits entirely above

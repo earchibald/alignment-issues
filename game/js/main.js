@@ -13,6 +13,7 @@ import { installDebug } from './ui/debug.js';
 import { installSettings } from './ui/settings.js';
 import {
   playCardSound, playActionSound, playCompactSound, playFlushSound, playOverclockSound,
+  playDraftCapSound, playLoopSound,
 } from './ui/sound.js';
 import { IdbStore, MemoryStore, DEV_KEY, TELEMETRY_OPTOUT_KEY } from './telemetry/store.js';
 import { createTelemetry } from './telemetry/capture.js';
@@ -333,6 +334,8 @@ async function main() {
     if (name === 'compactStart') return;
     if (name === 'flush') playFlushSound(stateBox.current);
     else if (name === 'buyOverclock') playOverclockSound(stateBox.current);
+    else if (name === 'buyDraftCap') playDraftCapSound(stateBox.current);
+    else if (name === 'buyLoop') playLoopSound(stateBox.current);
     else playActionSound(stateBox.current);
   }
 

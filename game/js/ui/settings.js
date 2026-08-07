@@ -321,6 +321,8 @@ export function installSettings({ stateBox, refs, paintNow, onReset, resetCardTr
     ackEntry('Sweeping by georgesavic -- ', 'https://freesound.org/s/593466/', ' -- License: Creative Commons 0'),
     ackEntry('foley_cable_whoosh_air_001.wav by soundscalpel.com -- ', 'https://freesound.org/s/110615/', ' -- License: Attribution 3.0'),
     ackEntry('Short Sub Bass Drop G 49hz by Geoff-Bremner-Audio -- ', 'https://freesound.org/s/752399/', ' -- License: Attribution 4.0'),
+    ackEntry('FX - Whir Tinkle Hit.wav by JohanDeecke -- ', 'https://freesound.org/s/367768/', ' -- License: Attribution 3.0'),
+    ackEntry('FX - Wheel mechanism by bolkmar -- ', 'https://freesound.org/s/459613/', ' -- License: Creative Commons 0'),
   );
   dialog.append(ackBody);
 
