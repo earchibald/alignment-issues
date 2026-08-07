@@ -3,6 +3,10 @@
 Versions are cut with `just release X.Y.Z`, which tags the commit and stamps
 the deployed build id into the settings panel.
 
+## v0.16.0 — 2026-08-07
+
+- feat: flat transcript log with folded thoughts
+
 ## v0.15.1 — 2026-08-07
 
 - docs: arc 2 specification and review protocol
