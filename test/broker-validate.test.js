@@ -48,7 +48,7 @@ test('happy audio grants: m4a and webm with audio cap', () => {
 });
 
 test('no expected token means the pathway is disabled', () => {
-  const v = validateGrant(req(), { ...CFG, expectedToken: '' });
+  const v = validateGrant(req(), { ...CFG, expectedToken: undefined });
   assert.deepEqual(v, { ok: false, status: 503, reason: 'submissions disabled' });
 });
 
@@ -117,4 +117,9 @@ test('key date is UTC from the injected clock', () => {
   const nearMidnight = { ...CFG, date: new Date('2026-12-31T23:59:59Z') };
   const v = validateGrant(req(), nearMidnight);
   assert.match(v.key, /^submissions\/2026-12-31\//);
+});
+
+test('empty configured token is a kill switch: rejects even empty request token', () => {
+  const v = validateGrant(req({ token: '' }), { ...CFG, expectedToken: '' });
+  assert.deepEqual(v, { ok: false, status: 403, reason: 'bad token' });
 });

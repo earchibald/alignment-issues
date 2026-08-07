@@ -5,6 +5,8 @@
 // The server, never the client, constructs the object key
 // (spec: broker contract).
 
+import { createHash, timingSafeEqual } from 'node:crypto';
+
 export const JSONL_MAX_BYTES = 25 * 1024 * 1024;
 export const AUDIO_MAX_BYTES = 200 * 1024 * 1024;
 
@@ -16,11 +18,18 @@ function refuse(status, reason) {
   return { ok: false, status, reason };
 }
 
+function tokenMatches(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string' || b.length === 0) return false;
+  const ha = createHash('sha256').update(a).digest();
+  const hb = createHash('sha256').update(b).digest();
+  return timingSafeEqual(ha, hb);
+}
+
 export function validateGrant(body, { expectedToken, date = new Date() }) {
-  if (!expectedToken) return refuse(503, 'submissions disabled');
+  if (expectedToken === undefined || expectedToken === null) return refuse(503, 'submissions disabled');
   if (!body || typeof body !== 'object') return refuse(400, 'bad request');
   const { token, sessionId, filename, size, contentType } = body;
-  if (token !== expectedToken) return refuse(403, 'bad token');
+  if (!tokenMatches(token, expectedToken)) return refuse(403, 'bad token');
   if (typeof sessionId !== 'string' || !SESSION_ID_RE.test(sessionId)) {
     return refuse(400, 'bad session id');
   }
