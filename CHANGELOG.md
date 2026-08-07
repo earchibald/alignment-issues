@@ -3,6 +3,10 @@
 Versions are cut with `just release X.Y.Z`, which tags the commit and stamps
 the deployed build id into the settings panel.
 
+## v0.7.3 — 2026-08-07
+
+- fix: multi-file export uses one directory dialog, not sequential save dialogs
+
 ## v0.7.2 — 2026-08-07
 
 - fix: no back-to-back duplicate thinking lines; recorder docks into side panel
