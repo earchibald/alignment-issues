@@ -3,6 +3,10 @@
 Versions are cut with `just release X.Y.Z`, which tags the commit and stamps
 the deployed build id into the settings panel.
 
+## v0.8.3 — 2026-08-07
+
+- fix: drop the action tick to barely noticeable
+
 ## v0.8.2 — 2026-08-07
 
 - fix: halve the action tick level
