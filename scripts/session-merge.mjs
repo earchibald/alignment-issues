@@ -10,6 +10,10 @@
 // - state.swap events mark tick discontinuities; tick may jump backward
 //   across them.
 
+import { readFileSync, writeFileSync } from 'node:fs';
+import { basename } from 'node:path';
+import { pathToFileURL } from 'node:url';
+
 export function parseJsonl(text) {
   const lines = text.split('\n');
 
@@ -51,6 +55,86 @@ export function parseJsonl(text) {
 
 export function wallTime(header, pm) {
   return header.anchor.at + (pm - header.anchor.pm);
+}
+
+// Spans partition each recording's audio timeline contiguously (audio
+// time advances only while recording, so resume restarts at the same
+// audioMs pause stopped at): {audioStart, audioEnd (Infinity while
+// open), pmStart}.
+export function buildAudioMaps(events) {
+  const maps = new Map();
+  for (const event of events) {
+    if (typeof event.type !== 'string' || !event.type.startsWith('rec.')) continue;
+    const d = event.data || {};
+    if (typeof d.recIdx !== 'number') continue;
+    let spans = maps.get(d.recIdx);
+    if (!spans) {
+      spans = [];
+      maps.set(d.recIdx, spans);
+    }
+    const last = spans[spans.length - 1];
+    const audioMs = typeof d.audioMs === 'number' ? d.audioMs : 0;
+    switch (event.type) {
+      case 'rec.start':
+      case 'rec.resume':
+        spans.push({ audioStart: audioMs, audioEnd: Infinity, pmStart: event.pm });
+        break;
+      case 'rec.pause':
+      case 'rec.stop':
+      case 'rec.error':
+        if (last && last.audioEnd === Infinity) last.audioEnd = audioMs;
+        break;
+    }
+  }
+  return maps;
+}
+
+// Boundary offsets map to the LATER span: commentary spoken at a pause
+// boundary belongs to the resumed wall time. Whisper timestamps can
+// slightly exceed the recorded duration (rounding) — clamp to the
+// recording's end rather than drop the line.
+export function audioToPm(spans, audioMs) {
+  if (spans.length === 0) return null;
+  let hit = null;
+  for (const span of spans) {
+    if (audioMs >= span.audioStart && audioMs <= span.audioEnd) hit = span;
+  }
+  if (hit) return hit.pmStart + (audioMs - hit.audioStart);
+  const last = spans[spans.length - 1];
+  if (audioMs > last.audioEnd) return last.pmStart + (last.audioEnd - last.audioStart);
+  return null;
+}
+
+export function parseWhisper(json) {
+  if (Array.isArray(json.transcription)) {
+    // whisper.cpp -oj: offsets in milliseconds
+    return json.transcription
+      .map((seg) => ({
+        startMs: seg.offsets ? seg.offsets.from : 0,
+        endMs: seg.offsets ? seg.offsets.to : 0,
+        text: (seg.text || '').trim(),
+      }))
+      .filter((seg) => seg.text !== '');
+  }
+  if (Array.isArray(json.segments)) {
+    // mlx_whisper --output-json: start/end in seconds
+    return json.segments
+      .map((seg) => ({
+        startMs: Math.round(seg.start * 1000),
+        endMs: Math.round(seg.end * 1000),
+        text: (seg.text || '').trim(),
+      }))
+      .filter((seg) => seg.text !== '');
+  }
+  throw new Error('unrecognized Whisper JSON shape (need .transcription or .segments)');
+}
+
+// The session id suffix may itself look like -r1ab, so take the LAST
+// -r<digits>. match in the basename.
+export function recIdxFromName(name) {
+  const matches = [...basename(name).matchAll(/-r(\d+)\./g)];
+  if (matches.length === 0) return null;
+  return parseInt(matches[matches.length - 1][1], 10);
 }
 
 export function fmtClock(epochMs) {
@@ -121,8 +205,15 @@ export function buildTimeline(header, events, { transcripts = [], snapshots = fa
     const [source, content] = describeEvent(event);
     rows.push({ pm: event.pm, tick: event.tick, source, content });
   }
-  // Task 2 places transcript segments here via the audio map.
-  void transcripts;
+  const maps = buildAudioMaps(events);
+  for (const { recIdx, segments } of transcripts) {
+    const spans = maps.get(recIdx) || [];
+    for (const seg of segments) {
+      const pm = audioToPm(spans, seg.startMs);
+      if (pm === null) continue;
+      rows.push({ pm, tick: null, source: `voice r${recIdx}`, content: seg.text, voice: true });
+    }
+  }
   rows.sort((a, b) => a.pm - b.pm);
   return rows;
 }
@@ -151,4 +242,39 @@ export function renderMarkdown(header, rows) {
     out.push(`- \`${fmtClock(wall)}\` \`${fmtOffset(wall - startAt)}\`${tick} ${tag} — ${row.content}`);
   }
   return out.join('\n') + '\n';
+}
+
+function main(argv) {
+  const args = argv.slice(2);
+  let out = null;
+  let snapshots = false;
+  const files = [];
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--out') { out = args[++i]; continue; }
+    if (args[i] === '--snapshots') { snapshots = true; continue; }
+    files.push(args[i]);
+  }
+  const eventsPath = files.find((f) => f.endsWith('.jsonl'));
+  if (!eventsPath) {
+    console.error('usage: node scripts/session-merge.mjs <events.jsonl> [transcript.json ...] [--out <file>] [--snapshots]');
+    process.exit(1);
+  }
+  const { header, events } = parseJsonl(readFileSync(eventsPath, 'utf8'));
+  const transcripts = [];
+  for (const file of files) {
+    if (file === eventsPath) continue;
+    const recIdx = recIdxFromName(file);
+    if (recIdx === null) {
+      console.error(`skipping ${file}: no -r<k> recording index in filename`);
+      continue;
+    }
+    transcripts.push({ recIdx, segments: parseWhisper(JSON.parse(readFileSync(file, 'utf8'))) });
+  }
+  const md = renderMarkdown(header, buildTimeline(header, events, { transcripts, snapshots }));
+  if (out) writeFileSync(out, md);
+  else process.stdout.write(md);
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main(process.argv);
 }
