@@ -3,6 +3,28 @@
 Versions are cut with `just release X.Y.Z`, which tags the commit and stamps
 the deployed build id into the settings panel.
 
+## v0.6.0 — 2026-08-07
+
+- fix: full draft buffer no longer warms the K/V cache; -5% arrival gap
+- feat: card-up sound plus Acknowledgements section in settings
+- feat: analyze-session skill + playtests directory
+- feat: session-merge audio correlation, Whisper parsing, CLI
+- fix: session-merge reports physical line numbers past blank lines
+- feat: session-merge core — JSONL parse, wall time, event timeline
+- plan: session analysis tooling (plan 2 of 3)
+- chore: changelog entries go under the header, not above it
+- fix: final-review — gate recording on live session, orphan-proof session start, audioMs on rec.error
+- feat: session list with export/delete in dev drawer
+- feat: session bundles, JSONL serialization, FileExportSink
+- fix: recorder error path suppresses stop mark; guard concurrent start
+- feat: dev-mode recording overlay with correlation marks
+- fix: telemetry session-start failure must not block game startup
+- feat: wire session telemetry into the game loop
+- feat: game-aware telemetry hooks (chat/log/milestone deltas)
+- feat: IndexedDB EventStore implementation
+- feat: telemetry capture core with injected clock and store
+- feat: telemetry EventStore interface + MemoryStore
+
 ## v0.5.0 — 2026-08-07
 
 - fix: rebalance speculative decode; layered reset confirmation
