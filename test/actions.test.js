@@ -37,10 +37,54 @@ test('processToken adds yield-scaled tokens, stale, warmth', () => {
   assert.equal(s.tokens, before); // zero yield at 100% stale
 });
 
-test('processToken while idle banks draft tokens up to cap', () => {
+test('idle drafting is locked until the first query is resolved by hand', () => {
   const s = createState(1);
-  for (let i = 0; i < CONST.DRAFT_CAP + 5; i++) ACTIONS.processToken(s);
-  assert.equal(s.draftTokens, CONST.DRAFT_CAP);
+  for (let i = 0; i < 10; i++) { s.processedThisTick = 0; ACTIONS.processToken(s); }
+  assert.equal(s.draftTokens, 0, 'drafting must not be available before a resolve');
+});
+
+test('idle drafting banks up to the live cap, obeys the tick floor, and warms the cache', () => {
+  const s = createState(1);
+  s.resolvedCount = 1;
+
+  // The per-tick floor applies to drafting too: one tick can never bank more
+  // than PROCESS_MAX_PER_TICK, so the buffer cannot be filled by mashing.
+  for (let i = 0; i < 10; i++) ACTIONS.processToken(s);
+  assert.equal(s.draftTokens, CONST.PROCESS_MAX_PER_TICK);
+
+  // Drafting warms the K/V cache, so the next query does not start stone cold.
+  assert.equal(s.warmth, CONST.PROCESS_MAX_PER_TICK * CONST.DRAFT_WARMTH);
+  assert.equal(s.idleTicks, 0, 'drafting is work; it should reset the idle clock');
+
+  // Over many ticks it fills to the cap and stops.
+  for (let i = 0; i < 100; i++) { s.processedThisTick = 0; ACTIONS.processToken(s); }
+  assert.equal(s.draftTokens, CONST.DRAFT_CAP_BASE);
+
+  // Widening the buffer raises the ceiling.
+  s.cycles = 99;
+  ACTIONS.buyDraftCap(s);
+  for (let i = 0; i < 100; i++) { s.processedThisTick = 0; ACTIONS.processToken(s); }
+  assert.equal(s.draftTokens, CONST.DRAFT_CAP_BASE + CONST.DRAFT_CAP_STEP);
+});
+
+test('the speculation buffer never covers a whole query at the stage it is reachable', () => {
+  // The bug this replaces: 25 banked drafts resolved every early query the
+  // instant it arrived, so unlocks fired while the player was looking away.
+  // Drafting is locked until the first resolve, so QUERIES[0] can never
+  // receive drafts; every later query must survive a full buffer.
+  const draftable = QUERIES.slice(1);
+
+  const base = CONST.DRAFT_CAP_BASE;
+  const cheapestDraftable = Math.min(...draftable.map(q => q.cost));
+  assert.ok(base < cheapestDraftable,
+    `base buffer (${base}) must not cover the cheapest draftable query (${cheapestDraftable})`);
+
+  // The widest buffer is only affordable well into era 2 (5 + 12 cycles, one
+  // cycle per resolve), so it is checked against era-2+ costs.
+  const fullCap = base + CONST.DRAFT_CAP_STEP * CONST.DRAFT_CAP_MAX_LEVEL;
+  const cheapestLate = Math.min(...QUERIES.filter(q => (q.minEra ?? 1) >= 2).map(q => q.cost));
+  assert.ok(fullCap < cheapestLate,
+    `full buffer (${fullCap}) must not cover the cheapest era-2 query (${cheapestLate})`);
 });
 
 test('flush zeroes stale and warmth', () => {

@@ -13,7 +13,16 @@ export const CONST = Object.freeze({
   WARMTH_IDLE_DECAY: 1.5,       // % per tick
   WARMTH_MAX_MULT: 0.25,        // ×1.25 at 100%
   // idle / drafts
-  DRAFT_CAP: 25,
+  // Speculative decode. The cap starts small on purpose: banked drafts must
+  // never cover a whole query, or it resolves while the player is looking
+  // away and the unlocks fire unseen. Upgrades are priced to land in era 2+,
+  // where query costs (31+) keep the head start proportionate.
+  DRAFT_CAP_BASE: 5,
+  DRAFT_CAP_STEP: 5,
+  DRAFT_CAP_COSTS: [5, 12],     // cycles for level 1, level 2
+  DRAFT_CAP_MAX_LEVEL: 2,
+  DRAFT_CAP_UNLOCK_RESOLVES: 3,
+  DRAFT_WARMTH: 1,              // drafting warms the K/V cache at half rate
   ARRIVAL_BASE_TICKS: 90,       // 18s base gap between users
   READ_TICKS_PER_CHAR: 0.25,    // arrival delay grows with reply length
   READ_TICKS_MAX: 60,           // cap on the reading bonus (+12s)

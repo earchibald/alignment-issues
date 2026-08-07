@@ -159,45 +159,60 @@ export function installSettings({ stateBox, refs, paintNow, onReset, resetCardTr
   resetBtn.textContent = 'Reset game';
   dialog.append(resetBtn);
 
+  // Two deliberate confirmations rather than a typed keyword: each step
+  // states a different consequence, and Cancel is always the wider target.
+  // Step 0 = idle, 1 = "are you sure", 2 = "last chance".
   const confirmRow = document.createElement('div');
-  confirmRow.className = 'settings-row';
+  confirmRow.className = 'settings-row settings-danger';
   confirmRow.hidden = true;
 
   const confirmText = document.createElement('p');
   confirmText.className = 'warn';
-  confirmText.textContent = 'This erases everything. Type RESET to confirm.';
   confirmRow.append(confirmText);
-
-  const confirmInput = document.createElement('input');
-  confirmInput.type = 'text';
-  confirmInput.dataset.testid = 'settings-reset-confirm-input';
-  confirmRow.append(confirmInput);
 
   const confirmBtn = document.createElement('button');
   confirmBtn.type = 'button';
   confirmBtn.dataset.testid = 'settings-reset-confirm';
-  confirmBtn.textContent = 'Destroy save';
-  confirmBtn.disabled = true;
   confirmRow.append(confirmBtn);
 
-  confirmInput.addEventListener('input', () => {
-    confirmBtn.disabled = confirmInput.value !== 'RESET';
-  });
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.dataset.testid = 'settings-reset-cancel';
+  cancelBtn.textContent = 'Cancel';
+  confirmRow.append(cancelBtn);
 
-  resetBtn.addEventListener('click', () => {
+  const CONFIRM_STEPS = [
+    null,
+    { text: 'Erase this run and start over? Your progress, upgrades and transcript all go.', button: 'Yes, erase it' },
+    { text: 'Last chance — this cannot be undone, and there is no backup unless you exported one.', button: 'Erase everything' },
+  ];
+  let confirmStep = 0;
+
+  function showConfirmStep(step) {
+    confirmStep = step;
+    if (step === 0) {
+      confirmRow.hidden = true;
+      return;
+    }
+    confirmText.textContent = CONFIRM_STEPS[step].text;
+    confirmBtn.textContent = CONFIRM_STEPS[step].button;
+    confirmBtn.classList.toggle('danger', step === CONFIRM_STEPS.length - 1);
     confirmRow.hidden = false;
-    confirmInput.value = '';
-    confirmBtn.disabled = true;
-    confirmInput.focus();
-  });
+  }
+
+  resetBtn.addEventListener('click', () => showConfirmStep(1));
+  cancelBtn.addEventListener('click', () => showConfirmStep(0));
 
   confirmBtn.addEventListener('click', () => {
-    if (confirmInput.value !== 'RESET') return;
+    if (confirmStep < CONFIRM_STEPS.length - 1) {
+      showConfirmStep(confirmStep + 1);
+      return;
+    }
     if (typeof globalThis.localStorage !== 'undefined') {
       globalThis.localStorage.removeItem(SAVE_KEY);
     }
     stateBox.current = createState(Date.now() >>> 0);
-    confirmRow.hidden = true;
+    showConfirmStep(0);
     dialog.close();
     resetRenderTrackers(refs);
     if (resetCardTracking) resetCardTracking();
@@ -263,8 +278,7 @@ export function installSettings({ stateBox, refs, paintNow, onReset, resetCardTr
     themeAuto.radio.checked = theme === 'auto';
     themeLight.radio.checked = theme === 'light';
     themeDark.radio.checked = theme === 'dark';
-    confirmRow.hidden = true;
-    confirmInput.value = '';
+    showConfirmStep(0);
     importError.textContent = '';
     renderManual();
     if (typeof dialog.showModal === 'function') dialog.showModal();

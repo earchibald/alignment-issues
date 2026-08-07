@@ -65,6 +65,10 @@ export function installKeys(dispatch, isCoarse, openSettings) {
       case 'R':
         dispatch('reclaim');
         break;
+      case 's':
+      case 'S':
+        dispatch('buyDraftCap');
+        break;
       case 'o':
       case 'O':
         dispatch('buyOverclock');

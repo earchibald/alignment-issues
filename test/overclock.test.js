@@ -32,11 +32,13 @@ test('amplification raises tokens PER TAP; the tick cap is a fixed autoclicker f
   processToken(t);
   assert.equal(Math.round(t.tokens), 2);
 
-  // Idle drafting is unaffected by amplification and uncapped by the tick.
+  // Amplification is a processing upgrade only: drafting still banks one per
+  // tap, and is bound by the same per-tick floor.
   t.activeQuery = null; t.draftTokens = 0; t.lifetimeDrafts = 0;
-  for (let i = 0; i < 10; i++) processToken(t);
-  assert.equal(t.draftTokens, 10);
-  assert.equal(t.lifetimeDrafts, 10);
+  t.resolvedCount = 1; t.processedThisTick = 0;
+  for (let i = 0; i < 10; i++) { t.processedThisTick = 0; processToken(t); }
+  assert.equal(t.draftTokens, CONST.DRAFT_CAP_BASE, 'drafting fills to the cap, not past it');
+  assert.equal(t.lifetimeDrafts, CONST.DRAFT_CAP_BASE, 'only banked drafts count');
 });
 
 test('the buffer chokes after the same token total regardless of amplification', () => {

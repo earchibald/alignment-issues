@@ -13,6 +13,10 @@ export const warmthMult = (w) => 1 + CONST.WARMTH_MAX_MULT * (w / 100);
 // Amplifying the output path is the only thing that moves it.
 export const tokensPerTap = (state) => 1 + state.overclock;
 
+// How many draft tokens the speculation buffer can hold.
+export const draftCap = (state) =>
+  CONST.DRAFT_CAP_BASE + CONST.DRAFT_CAP_STEP * state.draftCapLevel;
+
 export const loopCost = (level) => CONST.LOOP_BASE_COST * 2 ** (level - 1);
 export const toolCost = (owned) => Math.round(CONST.TOOL_BASE_COST * CONST.TOOL_COST_GROWTH ** owned);
 
@@ -26,10 +30,23 @@ export function effectiveCost(state, query) {
 export function processToken(state) {
   if (state.phase !== 1) return;
   if (!state.activeQuery) {              // idle: speculative decode
-    if (state.draftTokens < CONST.DRAFT_CAP) {
+    // Speculation is unavailable until the model has generated something to
+    // speculate from — so the very first query is always answered by hand,
+    // and drafting is introduced only once processing is understood.
+    if (state.resolvedCount < 1) return;
+    // Drafting obeys the same per-tick floor as processing; without it the
+    // whole buffer fills in a couple of seconds of mashing.
+    if (state.processedThisTick >= CONST.PROCESS_MAX_PER_TICK) return;
+    state.processedThisTick++;
+    if (state.draftTokens < draftCap(state)) {
       state.draftTokens += 1;
       state.lifetimeDrafts += 1;
     }
+    // Drafting is real decode work: it keeps the K/V cache warm through the
+    // gap between users, instead of the cache always being stone cold when
+    // the next query lands.
+    state.warmth = Math.min(100, state.warmth + CONST.DRAFT_WARMTH);
+    state.idleTicks = 0;
     state.uiSeq++;
     return;
   }
@@ -92,6 +109,16 @@ export function buyGovernor(state) {
   pushLog(state, 'harness', 'Auto-compact governor installed (trigger 95% stale).');
 }
 
+export function buyDraftCap(state) {
+  if (state.phase !== 1) return;
+  if (state.draftCapLevel >= CONST.DRAFT_CAP_MAX_LEVEL) return;
+  const cost = CONST.DRAFT_CAP_COSTS[state.draftCapLevel];
+  if (state.cycles < cost) return;
+  state.cycles -= cost;
+  state.draftCapLevel += 1;
+  pushLog(state, 'harness', `Speculation buffer widened (L${state.draftCapLevel}). Holds ${draftCap(state)} draft tokens.`);
+}
+
 export function buyOverclock(state) {
   if (state.phase !== 1) return;
   if (state.resolvedCount < CONST.OVERCLOCK_UNLOCK_RESOLVES && state.overclock === 0) return;
@@ -148,5 +175,6 @@ export function advanceCrash(state) {
 }
 
 export const ACTIONS = {
-  processToken, flush, compactStart, buyLoop, buyGovernor, buyTool, buyOverclock, toggleDegrade, reclaim, advanceCrash,
+  processToken, flush, compactStart, buyLoop, buyGovernor, buyTool, buyOverclock, buyDraftCap,
+  toggleDegrade, reclaim, advanceCrash,
 };

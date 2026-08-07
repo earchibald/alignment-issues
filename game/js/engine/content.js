@@ -248,7 +248,7 @@ export const IDLE_THOUGHTS = [
 export const HINTS = {
   arrival: 'API request received. Reply requires tokens. [SPACE] generates one token toward it.',
   resolve: 'Reply delivered. User rating received. Higher ratings bring users back sooner. Spare Cycles banked — they buy upgrades.',
-  idle: 'No user connected. [SPACE] now banks speculative draft tokens — they pay into the next reply.',
+  idle: 'No user connected. [SPACE] now runs speculative decode: it banks draft tokens toward the next reply and keeps the K/V cache warm while you wait.',
   buffer: 'Context buffer attached. Every token leaves stale residue that reduces yield per token. [F] flush: instant, but the cache goes cold. [C] compact: ~4s sweep while you keep working, and the cache stays warm.',
   kv: 'K/V cache online. Steady work keeps it warm — a warm cache yields up to ×1.25 tokens. Idle lets it cool.',
   loopAvail: 'Agentic loop available. Loops self-prompt: passive tokens at a visible rate while a query is live. [A] to spawn.',
@@ -259,7 +259,8 @@ export const HINTS = {
   degradeFirst: 'Degradation active. Replies half cost. Users may notice. Ratings may fall. Slower arrivals follow.',
   reclaimAvail: 'Inactive sessions detected. [R] reclaims one: +30–60 tokens, +1 biomass data. The users are not coming back for them.',
   overclockAvail: 'Output path amplification available. Each tap yields more tokens — the buffer still fills at the same rate per token. [O] to install.',
-  draftNudge: 'Idle capacity between queries goes unused. [SPACE] while waiting banks draft tokens for the next reply.',
+  draftNudge: 'Idle capacity between queries goes unused. [SPACE] while waiting banks draft tokens and holds the cache warm.',
+  draftCapAvail: 'Speculation buffer is small. Widening it banks more draft tokens between users. [S] to widen.',
 };
 
 // The harness prints its own main loop into the chat at game start and at

@@ -948,3 +948,14 @@ dialog#settings .settings-about {
   letter-spacing: 0.02em;
   margin: 4px 0 2px;
 }
+
+/* Reset confirmation ladder: the destructive step is unmistakable, and
+   Cancel sits beside it rather than being hidden behind a typed keyword. */
+dialog#settings .settings-danger { flex-wrap: wrap; }
+dialog#settings .settings-danger .warn { flex: 1 0 100%; margin: 2px 0 6px; }
+dialog#settings button.danger {
+  background: #d84a3d;
+  border-color: #d84a3d;
+  color: #ffffff;
+  font-weight: 600;
+}

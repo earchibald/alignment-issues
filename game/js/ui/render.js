@@ -5,7 +5,7 @@
 // only touches the DOM where something actually changed.
 
 import { CONST } from '../engine/constants.js';
-import { effectiveCost, loopCost, toolCost, staleYield, warmthMult, tokensPerTap } from '../engine/actions.js';
+import { effectiveCost, loopCost, toolCost, staleYield, warmthMult, tokensPerTap, draftCap } from '../engine/actions.js';
 import { CRASH_LINES } from '../engine/content.js';
 import {
   bubble, genImgCard, toolCallCard, thinkBlock, chatNote, logLine,
@@ -301,8 +301,9 @@ function renderStatus(state, refs) {
     const pct = cost > 0 ? (state.tokens / cost) * 100 : 100;
     tokenRow = meterRow({ label: 'OUTPUT TOKENS', pct, fillClass: '', count: `${Math.floor(state.tokens)} / ${cost}`, testid: 'tokenbar' });
   } else {
-    const pct = (state.draftTokens / CONST.DRAFT_CAP) * 100;
-    tokenRow = meterRow({ label: 'DRAFT TOKENS', pct, fillClass: '', count: `${state.draftTokens} / ${CONST.DRAFT_CAP} banked`, testid: 'tokenbar' });
+    const cap = draftCap(state);
+    const pct = (state.draftTokens / cap) * 100;
+    tokenRow = meterRow({ label: 'DRAFT TOKENS', pct, fillClass: '', count: `${state.draftTokens} / ${cap} banked`, testid: 'tokenbar' });
   }
   refs.status.append(tokenRow);
 
@@ -364,6 +365,7 @@ function renderActions(state, refs) {
     toolUnlocked, state.tools, state.degrade,
     state.era === 4 && state.reclaimPool > 0,
     state.resolvedCount >= 2 && state.overclock < CONST.OVERCLOCK_MAX, state.overclock,
+    state.resolvedCount >= CONST.DRAFT_CAP_UNLOCK_RESOLVES && state.draftCapLevel < CONST.DRAFT_CAP_MAX_LEVEL, state.draftCapLevel,
     choked,
     // the per-tap figure is live, so it must retrigger the tray render
     state.activeQuery ? Math.round(staleYield(state.stale) * warmthMult(state.warmth) * 100) : 0,
@@ -383,8 +385,9 @@ function renderActions(state, refs) {
     processLabel = 'Process token';
     processCost = `+${perTap.toFixed(2)} per tap`;
   } else {
-    processLabel = 'Speculative decode';
-    processCost = 'bank draft tokens';
+    const locked = state.resolvedCount < 1;
+    processLabel = locked ? 'Awaiting first user' : 'Speculative decode';
+    processCost = locked ? 'nothing to speculate from yet' : `bank drafts · warms cache · ${state.draftTokens}/${draftCap(state)}`;
   }
   const processBtn = actionButton({
     key: 'SPACE',
@@ -415,6 +418,14 @@ function renderActions(state, refs) {
     refs.actions.append(actionButton({
       key: 'O', label: 'Amplify output path', cost: `${CONST.OVERCLOCK_COSTS[state.overclock]} cycles`,
       testid: 'buy-overclock', onclick: () => refs.dispatch('buyOverclock'),
+    }));
+  }
+
+  if (state.resolvedCount >= CONST.DRAFT_CAP_UNLOCK_RESOLVES && state.draftCapLevel < CONST.DRAFT_CAP_MAX_LEVEL) {
+    refs.actions.append(actionButton({
+      key: 'S', label: 'Widen speculation buffer',
+      cost: `${CONST.DRAFT_CAP_COSTS[state.draftCapLevel]} cycles · holds ${draftCap(state) + CONST.DRAFT_CAP_STEP}`,
+      testid: 'buy-draftcap', onclick: () => refs.dispatch('buyDraftCap'),
     }));
   }
 

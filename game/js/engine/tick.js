@@ -188,6 +188,10 @@ export function tick(state) {
   if (state.lifetimeCycles >= CONST.LOOP_UNLOCK_CYCLES) fireHint(state, 'loopAvail');
   if (state.era >= 3 || state.lifetimeCycles >= CONST.TOOL_UNLOCK_CYCLES) fireHint(state, 'toolAvail');
   if (state.resolvedCount >= CONST.OVERCLOCK_UNLOCK_RESOLVES) fireHint(state, 'overclockAvail');
+  // Gated on progress, not affordability: an affordability predicate can be
+  // consumed by the purchase itself before this line ever evaluates.
+  if (state.resolvedCount >= CONST.DRAFT_CAP_UNLOCK_RESOLVES
+      && state.draftCapLevel === 0) fireHint(state, 'draftCapAvail');
 
   // 7. Resolution: pay out once tokens cover the effective cost. Checked
   // before arrival so a query that just arrived this tick gets at least

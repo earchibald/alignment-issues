@@ -56,6 +56,7 @@ test('pushLog keeps logSeq monotonic past the LOG_MAX ring-buffer cap', () => {
 test('CONST has the spec tuning values', () => {
   assert.equal(CONST.TICK_MS, 200);
   assert.equal(CONST.CEILING_COST, 9999);
-  assert.equal(CONST.DRAFT_CAP, 25);
+  assert.equal(CONST.DRAFT_CAP_BASE, 5);
+  assert.deepEqual(CONST.DRAFT_CAP_COSTS, [5, 12]);
   assert.equal(CONST.COMPACT_TICKS, 20);
 });

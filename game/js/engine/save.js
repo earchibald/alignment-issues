@@ -19,6 +19,7 @@ export function deserialize(json) {
   if (typeof parsed.tick !== 'number') return null;
   if (!Array.isArray(parsed.hintsSeen)) parsed.hintsSeen = [];
   if (typeof parsed.lastReplyChars !== 'number') parsed.lastReplyChars = 0;
+  if (typeof parsed.draftCapLevel !== 'number') parsed.draftCapLevel = 0;
   if (typeof parsed.overclock !== 'number') parsed.overclock = 0;
   if (typeof parsed.processedThisTick !== 'number') parsed.processedThisTick = 0;
   if (typeof parsed.lifetimeDrafts !== 'number') parsed.lifetimeDrafts = 0;

@@ -28,11 +28,29 @@ test('processing to cost resolves, pays a cycle, schedules next arrival', () => 
 
 test('draft tokens bank while idle and apply on arrival', () => {
   const s = createState(1);
-  for (let i = 0; i < 10; i++) ACTIONS.processToken(s); // idle: banks drafts
-  assert.equal(s.draftTokens, 10);
+  // Drafting unlocks after the first resolve; one draft lands per tick.
+  s.resolvedCount = 1;
+  for (let i = 0; i < 4; i++) { s.processedThisTick = 0; ACTIONS.processToken(s); }
+  assert.equal(s.draftTokens, 4);
   runUntil(s, st => st.activeQuery, 1000);
-  assert.ok(s.tokens >= 10 - 1e-9);
+  assert.ok(s.tokens >= 4 - 1e-9, 'banked drafts pay into the new query');
   assert.equal(s.draftTokens, 0);
+});
+
+test('a banked buffer does not resolve the query it lands on', () => {
+  // The whole point of the small cap: the player must still act.
+  const s = createState(1);
+  // Stand where a real player stands after their first hand-tapped query:
+  // one resolve done, so the NEXT query in the pool is the one that arrives.
+  s.resolvedCount = 1;
+  s.queryIndex = 1;
+  for (let i = 0; i < 200; i++) { s.processedThisTick = 0; ACTIONS.processToken(s); }
+  const banked = s.draftTokens;
+  runUntil(s, st => st.activeQuery, 2000);
+  assert.ok(s.activeQuery, 'a query should have arrived');
+  assert.ok(s.tokens < s.activeQuery.cost,
+    `banked ${banked} must not cover cost ${s.activeQuery.cost}`);
+  assert.equal(s.resolvedCount, 1, 'the query must not have auto-resolved');
 });
 
 test('compaction completes after COMPACT_TICKS and cuts stale by 60%', () => {

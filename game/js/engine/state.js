@@ -35,6 +35,7 @@ export function createState(seed) {
     tools: 0,
     degrade: false,
     overclock: 0,
+    draftCapLevel: 0,
     processedThisTick: 0,
     lifetimeDrafts: 0,
     // reputation
