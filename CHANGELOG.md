@@ -3,6 +3,10 @@
 Versions are cut with `just release X.Y.Z`, which tags the commit and stamps
 the deployed build id into the settings panel.
 
+## v0.9.0 — 2026-08-07
+
+- feat: sweep sound when a compaction starts
+
 ## v0.8.3 — 2026-08-07
 
 - fix: drop the action tick to barely noticeable
