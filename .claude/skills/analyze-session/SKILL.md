@@ -27,8 +27,9 @@ Skip this section when the session has no audio files.
 
 Probe for a transcriber, in this order:
 
-1. `mlx_whisper --help` — install with `pip install mlx-whisper`; models
-   download automatically on first use.
+1. `mlx_whisper --help` — install with `pipx install mlx-whisper` (pipx keeps
+   it out of the active Python environment and still puts the binary on
+   PATH); models download automatically on first use.
 2. `whisper-cli --help` — install with `brew install whisper-cpp`; it needs a
    model file once:
    `curl -L --create-dirs -o ~/.cache/whisper/ggml-base.en.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin`
@@ -36,15 +37,28 @@ Probe for a transcriber, in this order:
 If neither is present, ask the user which to install. Suggest mlx-whisper on
 Apple Silicon.
 
-m4a decode support varies between transcribers. Convert each recording to
-16 kHz mono WAV first with the macOS built-in converter:
+Convert each recording to 16 kHz mono WAV first, with ffmpeg
+(`brew install ffmpeg`):
 
-    afconvert -f WAVE -d LEI16@16000 -c 1 hyt-session-<id>-r1.m4a /tmp/hyt-r1.wav
+    ffmpeg -v error -y -i hyt-session-<id>-r1.m4a -ac 1 -ar 16000 -c:a pcm_s16le /tmp/hyt-r1.wav
+
+Use ffmpeg, not `afconvert`. Despite the `.m4a` name, Chrome's MediaRecorder
+writes a FRAGMENTED MP4 (`moof`/`mdat`) carrying OPUS, not AAC. CoreAudio
+opens neither, so `afconvert` fails outright with `AudioFileOpenURL failed`.
+ffmpeg reads both. `.webm` recordings (the Firefox/fallback branch) convert
+with the same command.
 
 Transcribe each WAV to JSON with segment timestamps. KEEP the `-r<k>` marker
 in the output filename — the merge script reads the recording index from it:
 
-    mlx_whisper /tmp/hyt-r1.wav --output-dir /tmp --output-format json --output-name hyt-session-<id>-r1
+    mlx_whisper /tmp/hyt-r1.wav --model mlx-community/whisper-base.en-mlx \
+      --output-dir /tmp --output-format json --output-name hyt-session-<id>-r1
+
+Pass `--model` explicitly. mlx_whisper defaults to `whisper-tiny`, which
+drops and mangles words in ordinary playtest commentary — on the same clip
+tiny gave "and just testing recording" where base.en gave "And I'm just
+testing the recording." Step up to `mlx-community/whisper-small.en-mlx` when
+the commentary is quiet or fast.
 
 or:
 
@@ -112,8 +126,21 @@ match, pull from the submissions bucket first:
     node scripts/sessions.mjs pull <sessionId> --dest /tmp/hyt-pull
     # or: node scripts/sessions.mjs pull --latest --dest /tmp/hyt-pull
 
-Then continue from step 2 with the pulled files. This path needs the
-`hyt-analyst` AWS profile and `infra/outputs.json` on this machine; both
-come from docs/operations/s3-submissions-setup.md. If `list` fails with a
-credentials or config error, point the user at that manual — do not
-improvise AWS access.
+A row ending in 🎙 has audio; the file count tells you how many recordings
+came with it.
+
+`list` reads the bucket name from `infra/outputs.json`, which only exists on
+a machine that has run terraform. Without it the command stops with
+`no bucket configured` — export the name instead, it is not a secret:
+
+    export HYT_BUCKET=earchibald-hyt-session-submissions
+
+Then continue from step 2 with the pulled files. This path also needs the
+`hyt-analyst` AWS profile, from docs/operations/s3-submissions-setup.md. If
+`list` fails with a credentials error, point the user at that manual — do
+not improvise AWS access.
+
+Delete a submission once it is pulled and reported, so the bucket does not
+accumulate personal recordings:
+
+    node scripts/sessions.mjs rm <sessionId>
