@@ -56,11 +56,11 @@ function playBuffer(state, url, { gain = 1, rate = 1 } = {}) {
 // Compaction runs 20 ticks (~4s); the sweep is 1.7s, so it reads as the
 // sound of the run starting rather than a bed under the whole of it. The
 // recording peaks at 0.017, so the gain is a multiplier rather than an
-// attenuation. Even at x3 it lands near 0.05, well under the card
+// attenuation. Even at x1.8 it lands near 0.03, well under the card
 // chime — a compaction is background housekeeping, not an event that
 // should pull attention off the transcript.
 const COMPACT_SOUND_URL = new URL('../../assets/sweeping.wav', import.meta.url);
-const COMPACT_GAIN = 3;
+const COMPACT_GAIN = 1.8;
 
 export function playCompactSound(state) {
   playBuffer(state, COMPACT_SOUND_URL, { gain: COMPACT_GAIN });
