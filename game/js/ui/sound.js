@@ -25,11 +25,14 @@ export function playCardSound(state) {
 // 10 kHz — near the top of adult hearing, and past what a laptop speaker
 // reproduces. Played as recorded it is effectively silent. Slowing it to
 // a quarter speed moves that burst to about 4 kHz over 9 ms, where the
-// ear is most sensitive, and it reads as a crisp tick. The clip also
-// peaks at 1.24, so it needs a gain stage to stay clear of clipping.
+// ear is most sensitive, and it reads as a crisp tick. The gain is set
+// far down from there. This sound fires on every tap, so it has to sit
+// just at the edge of noticeable — the audio equivalent of a haptic
+// tick, well under the card chime. The raw clip peaks at 1.24, so it
+// would clip at the destination without a gain stage in any case.
 const ACTION_SOUND_URL = new URL('../../assets/microtick.wav', import.meta.url);
 const ACTION_RATE = 0.25;
-const ACTION_GAIN = 0.35;
+const ACTION_GAIN = 0.04;
 
 let actionCtx = null;
 let actionBufPromise = null;
