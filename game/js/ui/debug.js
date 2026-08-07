@@ -22,10 +22,18 @@ function deepFreeze(obj) {
 export function installDebug({ stateBox, dispatch, getSpeed, setSpeed, paintNow, refs, resetCardTracking, cards }) {
   let speedButtons = null;
   let stateJsonPre = null;
+  let seedEl = null;
 
   function refreshStateJson() {
     if (stateJsonPre) {
       stateJsonPre.textContent = JSON.stringify(summarize(stateBox.current), null, 2);
+    }
+    // The seed belongs to the state object, not the build, so it has to
+    // follow a reset, an import, or a debug.load — every path that swaps
+    // stateBox.current also lands here.
+    if (seedEl) {
+      const seed = stateBox.current ? stateBox.current.seed : undefined;
+      seedEl.textContent = `seed ${seed === undefined ? '—' : seed}`;
     }
   }
 
@@ -90,7 +98,14 @@ export function installDebug({ stateBox, dispatch, getSpeed, setSpeed, paintNow,
   const verRow = document.createElement('div');
   verRow.className = 'drow dver';
   verRow.dataset.testid = 'dev-version';
-  verRow.textContent = `v${VERSION} · build ${BUILD}`;
+  const buildEl = document.createElement('span');
+  buildEl.textContent = `v${VERSION} · build ${BUILD}`;
+  // Run identity next to build identity: together they are everything you
+  // need to reproduce what you are looking at.
+  seedEl = document.createElement('span');
+  seedEl.className = 'dseed';
+  seedEl.dataset.testid = 'dev-seed';
+  verRow.append(buildEl, seedEl);
   drawer.appendChild(verRow);
 
   const headRow = document.createElement('div');

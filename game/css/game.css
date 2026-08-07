@@ -750,6 +750,7 @@ body:has(#app[data-theme="light"][data-decay="2"]) { background: #dfe3e8; }
    behind the state dump. Negative margins let the background span the
    drawer's padding, or the rows beneath show through at the edges. */
 .dev-drawer .dver {
+  justify-content: space-between;
   position: sticky;
   top: -12px;
   z-index: 1;
@@ -760,6 +761,11 @@ body:has(#app[data-theme="light"][data-decay="2"]) { background: #dfe3e8; }
   color: #d8a03d;
   font-size: 10.5px;
   letter-spacing: 0.04em;
+}
+.dev-drawer .dseed {
+  color: #a9b4c0;
+  font-variant-numeric: tabular-nums;
+  user-select: all;
 }
 
 /* Dev chip: sits in the header beside the gear, dev mode only */
