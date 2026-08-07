@@ -11,7 +11,7 @@ import { harnessCard, hintCard } from './ui/components.js';
 import { installKeys } from './ui/keys.js';
 import { installDebug } from './ui/debug.js';
 import { installSettings } from './ui/settings.js';
-import { playCardSound } from './ui/sound.js';
+import { playCardSound, playActionSound } from './ui/sound.js';
 import { IdbStore, MemoryStore, DEV_KEY, TELEMETRY_OPTOUT_KEY } from './telemetry/store.js';
 import { createTelemetry } from './telemetry/capture.js';
 import { installTelemetryHooks } from './telemetry/hooks.js';
@@ -293,6 +293,7 @@ async function main() {
   function dispatch(name, arg) {
     const action = ACTIONS[name];
     if (!action) return;
+    playActionSound(stateBox.current);
     hooks.onAction(name, arg);
     if (name === 'processToken') {
       const hadActiveQuery = !!stateBox.current.activeQuery;

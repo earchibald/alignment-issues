@@ -1,9 +1,9 @@
 // Sound effects for "hi. you there?" — Phase 1.
-// One clip so far: the card-up chime, played when a harness/hint card
-// interrupts. Attribution lives in the Settings → Acknowledgements section.
-// Playback respects settings.sound. Browsers reject play() before the
-// first user gesture (autoplay policy) — those rejections are swallowed,
-// the card just appears silently.
+// Two clips: the card-up chime (harness/hint card interrupts) and the
+// microtick on action presses. Attribution lives in the Settings →
+// Acknowledgements section. Playback respects settings.sound. Browsers
+// reject audio before the first user gesture (autoplay policy) — those
+// failures are swallowed, the UI just stays silent.
 
 const CARD_SOUND_URL = new URL('../../assets/ui-sound-8.wav', import.meta.url);
 
@@ -15,4 +15,34 @@ export function playCardSound(state) {
   cardAudio.currentTime = 0;
   const played = cardAudio.play();
   if (played && typeof played.catch === 'function') played.catch(() => {});
+}
+
+// Action presses fire up to 10/s, which an <audio> element cannot restart
+// cleanly — decode the tick once into a Web Audio buffer and spawn a
+// throwaway source per press. Everything is lazy so the module still
+// imports cleanly without a DOM/AudioContext (node tests).
+const ACTION_SOUND_URL = new URL('../../assets/microtick.wav', import.meta.url);
+
+let actionCtx = null;
+let actionBufPromise = null;
+
+export function playActionSound(state) {
+  if (!state.settings.sound) return;
+  const AC = globalThis.AudioContext || globalThis.webkitAudioContext;
+  if (!AC) return;
+  if (!actionCtx) actionCtx = new AC();
+  if (actionCtx.state === 'suspended') actionCtx.resume().catch(() => {});
+  if (!actionBufPromise) {
+    actionBufPromise = fetch(ACTION_SOUND_URL)
+      .then((r) => r.arrayBuffer())
+      .then((b) => actionCtx.decodeAudioData(b))
+      .catch(() => null);
+  }
+  actionBufPromise.then((buf) => {
+    if (!buf) return;
+    const src = actionCtx.createBufferSource();
+    src.buffer = buf;
+    src.connect(actionCtx.destination);
+    src.start();
+  });
 }

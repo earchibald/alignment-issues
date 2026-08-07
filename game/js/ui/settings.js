@@ -304,16 +304,21 @@ export function installSettings({ stateBox, refs, paintNow, onReset, resetCardTr
   ackBody.className = 'settings-about';
   ackBody.dataset.testid = 'settings-acknowledgements-body';
   ackBody.hidden = true;
-  const ackLine = document.createElement('p');
-  ackLine.append(document.createTextNode('ui sound 8.wav by nezuai -- '));
-  const ackLink = document.createElement('a');
-  ackLink.href = 'https://freesound.org/s/582609/';
-  ackLink.target = '_blank';
-  ackLink.rel = 'noopener';
-  ackLink.textContent = 'https://freesound.org/s/582609/';
-  ackLine.append(ackLink);
-  ackLine.append(document.createTextNode(' -- License: Attribution 4.0'));
-  ackBody.append(ackLine);
+  function ackEntry(before, url, after) {
+    const line = document.createElement('p');
+    line.append(document.createTextNode(before));
+    const link = document.createElement('a');
+    link.href = url;
+    link.target = '_blank';
+    link.rel = 'noopener';
+    link.textContent = url;
+    line.append(link, document.createTextNode(after));
+    return line;
+  }
+  ackBody.append(
+    ackEntry('ui sound 8.wav by nezuai -- ', 'https://freesound.org/s/582609/', ' -- License: Attribution 4.0'),
+    ackEntry('microtick.wav by Saltbearer -- ', 'https://freesound.org/s/481984/', ' -- License: Creative Commons 0'),
+  );
   dialog.append(ackBody);
 
   ackBtn.addEventListener('click', () => {
