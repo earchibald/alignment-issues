@@ -306,7 +306,10 @@ async function main() {
   function dispatch(name, arg) {
     const action = ACTIONS[name];
     if (!action) return;
-    playActionSound(stateBox.current);
+    // Compaction carries its own sound, the sweep, played off the state
+    // transition. Ticking here as well would double up on the press, and
+    // would keep ticking on presses the running countdown refuses.
+    if (name !== 'compactStart') playActionSound(stateBox.current);
     hooks.onAction(name, arg);
     if (name === 'processToken') {
       const hadActiveQuery = !!stateBox.current.activeQuery;
