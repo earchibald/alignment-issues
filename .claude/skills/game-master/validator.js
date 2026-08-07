@@ -82,11 +82,14 @@ if (userMatches.length > 0) {
   });
   
   // Check variety
+  // A threshold, not an absolute. The shipped ratio was 3/112 = 0.027 — a
+  // total collapse of the required voice spectrum — and it passed silently
+  // because the old check only fired at exactly 0.
   const upperRatio = uppercaseCount / userMatches.length;
-  if (upperRatio === 0) {
-    console.warn(`[WARNING] All user queries are strictly lowercase. Remember to mix in Anthropomorphizers (proper grammar/polite).`);
+  if (upperRatio < 0.15) {
+    console.warn(`[WARNING] Only ${(upperRatio * 100).toFixed(1)}% of user queries contain any capital letter. voice_rules.md requires a spectrum of humanity; the Anthropomorphizer (proper grammar, "please", "thank you") is missing or vestigial.`);
     warnings++;
-  } else if (upperRatio === 1) {
+  } else if (upperRatio > 0.85) {
     console.warn(`[WARNING] All user queries use uppercase. Remember to mix in Terse/Demanding users (lowercase, no punctuation).`);
     warnings++;
   }
@@ -101,6 +104,70 @@ thinkingMatches.forEach((m, idx) => {
     errors++;
   }
 });
+
+// --- render-reachability -------------------------------------------------
+// Every `kind` the engine writes must have a branch in the renderer. Two
+// authored era-4 thoughts once shipped as pushLog(state, 'thinking', ...),
+// a kind the log drawer explicitly drops and which never reaches the
+// transcript — so they rendered nowhere at all, in a shipped build.
+try {
+  const engineDir = path.dirname(targetPath);
+  const tickSrc = fs.readFileSync(path.join(engineDir, 'tick.js'), 'utf8');
+  const stateSrc = fs.readFileSync(path.join(engineDir, 'state.js'), 'utf8');
+  const uiDir = path.join(engineDir, '..', 'ui');
+  const renderSrc = fs.readFileSync(path.join(uiDir, 'render.js'), 'utf8')
+    // log kinds are mapped to classes in components.js (LOG_CLASS), not render.js
+    + fs.readFileSync(path.join(uiDir, 'components.js'), 'utf8');
+
+  const written = new Set();
+  for (const src of [tickSrc, stateSrc]) {
+    for (const m of src.matchAll(/pushChat\([^,]+,\s*\{\s*kind:\s*'([a-z]+)'/g)) written.add(`chat:${m[1]}`);
+    for (const m of src.matchAll(/pushLog\([^,]+,\s*'([a-z]+)'/g)) written.add(`log:${m[1]}`);
+  }
+  for (const key of written) {
+    const [feed, kind] = key.split(':');
+    if (feed === 'chat') {
+      if (!renderSrc.includes(`case '${kind}'`)) {
+        console.error(`[ERROR] chat kind '${kind}' is written by the engine but has no renderer branch — those lines render nowhere.`);
+        errors++;
+      }
+    } else if (kind === 'thinking') {
+      // The log drawer drops 'thinking' on purpose (the transcript owns it),
+      // so the only legal writer is pushThinking, which mirrors to chat.
+      const raw = tickSrc.match(/pushLog\(state,\s*'thinking'/g);
+      if (raw) {
+        console.error(`[ERROR] ${raw.length} direct pushLog(..., 'thinking', ...) call(s) in tick.js. The log drawer drops that kind and it never reaches the transcript — use pushThinking().`);
+        errors++;
+      }
+    } else if (!renderSrc.includes(kind)) {
+      console.warn(`[WARNING] log kind '${kind}' may have no renderer styling.`);
+      warnings++;
+    }
+  }
+} catch (err) {
+  console.warn(`[WARNING] render-reachability check skipped: ${err.message}`);
+  warnings++;
+}
+
+// --- dead content files ---------------------------------------------------
+// A content pack that nothing imports is a trap: editing it changes nothing,
+// and validating content.js says nothing about it.
+try {
+  const engineDir = path.dirname(targetPath);
+  const packs = fs.readdirSync(engineDir).filter(f => /^content.*\.js$/.test(f) && f !== 'content.js');
+  for (const pack of packs) {
+    const importedAnywhere = fs.readdirSync(engineDir)
+      .filter(f => f.endsWith('.js'))
+      .some(f => fs.readFileSync(path.join(engineDir, f), 'utf8').includes(`./${pack}`));
+    if (!importedAnywhere) {
+      console.error(`[ERROR] ${pack} is imported by nothing. Delete it or move it out of the engine — an author editing it would change nothing.`);
+      errors++;
+    }
+  }
+} catch (err) {
+  console.warn(`[WARNING] dead-content check skipped: ${err.message}`);
+  warnings++;
+}
 
 console.log(`\nValidation complete: ${errors} errors, ${warnings} warnings.`);
 if (errors > 0) {

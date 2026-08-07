@@ -562,8 +562,18 @@ body:has(#app[data-theme="light"][data-decay="2"]) { background: #dfe3e8; }
 .fold[open] > .fold-sum::before { transform: rotate(90deg); }
 .fold-sum:hover { opacity: 1; }
 .fold-sum:focus-visible { outline: 1px solid var(--g-inner); outline-offset: 2px; }
-.fs-label { text-transform: uppercase; font-weight: 600; }
-.fs-dur { opacity: 0.6; font-variant-numeric: tabular-nums; }
+.fs-label { text-transform: uppercase; font-weight: 600; flex: none; }
+.fs-peek {
+  flex: 1;
+  min-width: 0;
+  font-style: italic;
+  opacity: 0.75;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fold[open] > .fold-sum > .fs-peek { opacity: 0; }
+.fs-dur { opacity: 0.6; font-variant-numeric: tabular-nums; flex: none; }
 .fold-body {
   font-size: 11.5px;
   line-height: 1.6;

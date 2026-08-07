@@ -6,9 +6,14 @@ export const CONST = Object.freeze({
   STALE_SOFT_KNEE: 50,          // full yield below this %
   YIELD_HIGH: 1.2,              // per-tap multiplier that counts as optimal
   YIELD_LOW: 0.4,               // per-tap multiplier that counts as collapsing
-  COMPACT_TICKS: 20,            // ~4s
-  COMPACT_FACTOR: 0.4,          // stale *= this on completion (−60%)
-  GOVERNOR_TRIGGER: 95,         // auto-compact threshold %
+  // Flush strictly dominated compact at every stale above 56 (measured, up
+  // to +53% output over 30s), so Arc 1's central pay-a-cost decision did not
+  // exist. Compact stays free and always available, so a player at zero
+  // cycles always has a legal move (Law 1).
+  FLUSH_COST_CYCLES: 1,
+  COMPACT_TICKS: 12,            // ~2.4s
+  COMPACT_FACTOR: 0.3,          // stale *= this on completion (−70%)
+  GOVERNOR_TRIGGER: 70,         // auto-compact threshold %; inside compact's winning band
   // K/V warmth
   WARMTH_PER_TOKEN: 2,
   WARMTH_IDLE_DELAY: 15,        // ticks of idle before cooling
@@ -23,7 +28,7 @@ export const CONST = Object.freeze({
   DRAFT_CAP_STEP: 5,
   DRAFT_CAP_COSTS: [5, 12],     // cycles for level 1, level 2
   DRAFT_CAP_MAX_LEVEL: 2,
-  DRAFT_CAP_UNLOCK_RESOLVES: 3,
+  DRAFT_CAP_UNLOCK_RESOLVES: 5, // was 3: the hint preceded affordability by 2 resolves
   DRAFT_WARMTH: 1,              // drafting warms the K/V cache at half rate
   ARRIVAL_BASE_TICKS: 64,       // 12.8s base gap between users (was 85; -25% pacing trim)
   READ_TICKS_PER_CHAR: 0.1875,  // arrival delay grows with reply length (was 0.25)
@@ -53,8 +58,13 @@ export const CONST = Object.freeze({
   // Era 3 is bounded at ERA3_BEFORE_DEVOPS; a step of 5 divides that
   // budget into three even bands, so the climax climbs across its whole
   // length instead of reaching tier 3 in its first minute.
-  ERA_TIER_STEP: { 1: 5, 2: 7, 3: 5, 4: 5 },
-  ERA3_BEFORE_DEVOPS: 15,       // era-3 queries served before the DevOps beat
+  // Era 1 must reach tier 3 by its measured exit point (eraServed 6 for an
+  // eager run), or its nine tier-3 queries are unreachable in any run.
+  ERA_TIER_STEP: { 1: 3, 2: 7, 3: 6, 4: 5 },
+  // 19 x the measured 14.7s era-3 cadence = 4.66 min, restoring the era-3
+  // length that the -25% arrival retune silently reverted to 3.68 min.
+  // Also lifts era-3 coverage from 15/44 to 19/44.
+  ERA3_BEFORE_DEVOPS: 19,       // era-3 queries served before the DevOps beat
   DEVOPS_STEP_TICKS: 30,        // default; entries may override via .ticks
   CRASH_LINE_TICKS: 5,          // ticks between crash lines (31 lines ≈ 31s; [SPACE] advances)
   // unfold predicates

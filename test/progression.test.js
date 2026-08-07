@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createState } from '../game/js/engine/state.js';
 import { CONST } from '../game/js/engine/constants.js';
-import { ACTIONS, effectiveCost } from '../game/js/engine/actions.js';
+import { ACTIONS, atCeiling, yieldMult, effectiveCost } from '../game/js/engine/actions.js';
 import { tick, advanceTicks, runUntil } from '../game/js/engine/tick.js';
 import { CEILING_QUERY } from '../game/js/engine/content.js';
 
@@ -107,7 +107,7 @@ test('era-3 credential drip salvages credentials over time', () => {
   s.decay = 2;
   advanceTicks(s, 3000);
   assert.ok(s.credentials > 0, 'credentials should be gained via drip');
-  assert.ok(s.log.some(l => l.text.includes('SALVAGE')), 'drip should log SALVAGE events');
+  assert.ok(s.log.some(l => /salvage:/i.test(l.text)), 'drip should log salvage events');
 });
 
 // A soft-lock that made Arc 1 uncompletable: the era-4 ceiling query never
@@ -130,5 +130,40 @@ test('the era-4 ceiling always reaches the crash, even with a saturated buffer',
     }
     assert.equal(s.phase, 'crash', `loop L${loop}: the ceiling never crashed`);
     assert.ok(n < 5000, `loop L${loop}: the finale took ${n} ticks`);
+  }
+});
+
+// The Law 1 fix lived in the engine and never reached the screen: at the
+// ceiling the UI computed `choked` from raw staleYield, so the ending screen
+// advertised "no yield · x0.00/token" while every tap was worth full value.
+// Saturation is the DEFAULT in era 4, so nearly every player saw it.
+test('the ceiling is never reported as choked, however saturated the buffer', () => {
+  const s = createState(3);
+  s.era = 4;
+  s.bufferUnlocked = true;
+  s.activeQuery = { id: 'ceiling', cost: CONST.CEILING_COST, kind: 'text' };
+  for (const stale of [0, 50, 90, 99, 100]) {
+    s.stale = stale;
+    assert.ok(atCeiling(s), 'the ceiling query must be recognised');
+    assert.ok(yieldMult(s) > 0.02,
+      `stale ${stale}: yieldMult ${yieldMult(s)} would render the ending screen as a dead end`);
+  }
+});
+
+test('era-4 turn thoughts reach the transcript, not just the log', () => {
+  // Two authored era-4 thoughts were pushed straight to the log with
+  // kind 'thinking', which the log drawer drops and which never reaches
+  // state.chat — so they rendered nowhere at all.
+  const s = createState(11);
+  s.era = 4;
+  s.decay = 3;
+  s.devopsStep = -1;
+  s.era3Served = CONST.ERA3_BEFORE_DEVOPS;
+  advanceTicks(s, 4000);
+  const logThinking = s.log.filter((l) => l.kind === 'thinking').map((l) => l.text);
+  const chatThink = s.chat.filter((c) => c.kind === 'think').map((c) => c.text);
+  for (const text of logThinking) {
+    assert.ok(chatThink.includes(text),
+      `"${text.slice(0, 50)}" is in the log but not the transcript — it renders nowhere`);
   }
 });

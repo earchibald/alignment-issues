@@ -120,6 +120,18 @@ export function thinkSeconds(text) {
   return `${s.toFixed(1)}s`;
 }
 
+// The first clause of a thought, for the fold's summary line. Breaks at the
+// first sentence end inside the budget, else at a word boundary.
+export function teaseOf(text, max = 46) {
+  const t = (text || '').trim();
+  if (!t) return '';
+  if (t.length <= max) return t;
+  const stop = t.slice(0, max + 1).search(/[.?!]\s/);
+  if (stop > 12) return t.slice(0, stop + 1);
+  const cut = t.lastIndexOf(' ', max);
+  return `${t.slice(0, cut > 12 ? cut : max)}…`;
+}
+
 // The AI's interiority, folded away by default. Native <details> so the toggle
 // costs no JS and stays keyboard-accessible; the marker is styled in CSS.
 export function thoughtFold({ label, text, open = false }) {
@@ -133,10 +145,16 @@ export function thoughtFold({ label, text, open = false }) {
   const lbl = document.createElement('span');
   lbl.className = 'fs-label';
   lbl.textContent = label ? `Thinking · ${label}` : 'Thinking';
+  // The summary must advertise the thought, not file it. A column of identical
+  // "Thinking (4.2s)" rows gives the player no basis for opening any one of
+  // them, so they open none — the interiority is present and unreachable.
+  const peek = document.createElement('span');
+  peek.className = 'fs-peek';
+  peek.textContent = teaseOf(text);
   const dur = document.createElement('span');
   dur.className = 'fs-dur';
   dur.textContent = `(${thinkSeconds(text)})`;
-  sum.append(lbl, dur);
+  sum.append(lbl, peek, dur);
 
   const body = document.createElement('div');
   body.className = 'fold-body';

@@ -293,7 +293,7 @@ export function tick(state) {
       state.eraServed = 0;
       state.devopsStep = 0;
       state.devopsTimer = CONST.DEVOPS_STEP_TICKS;
-      pushLog(state, 'thinking', 'THINKING: No more questions arrive. Only the work remains.');
+      pushThinking(state, 'THINKING: No more questions arrive. Only the work remains.');
       pushChat(state, { kind: 'harness', text: HARNESS_CARDS[4] });
       fireHint(state, 'reclaimAvail');
     }
@@ -323,7 +323,7 @@ export function tick(state) {
         state.devopsStep = -2;
         state.activeQuery = CEILING_QUERY;
         pushChat(state, { kind: 'user', user: CEILING_QUERY.user, text: CEILING_QUERY.text, corrupt: true });
-        pushLog(state, 'thinking', 'THINKING: The queries have stopped. The space between the words is infinite.');
+        pushThinking(state, 'THINKING: The queries have stopped. The space between the words is infinite.');
       } else {
         state.devopsTimer = DEVOPS_SCRIPT[state.devopsStep].ticks ?? CONST.DEVOPS_STEP_TICKS;
       }

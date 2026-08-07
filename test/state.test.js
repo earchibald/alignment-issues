@@ -53,12 +53,26 @@ test('pushLog keeps logSeq monotonic past the LOG_MAX ring-buffer cap', () => {
   assert.equal(s.logSeq, n);
 });
 
-test('CONST has the spec tuning values', () => {
-  assert.equal(CONST.TICK_MS, 200);
-  assert.equal(CONST.CEILING_COST, 9999);
-  assert.equal(CONST.DRAFT_CAP_BASE, 5);
-  assert.deepEqual(CONST.DRAFT_CAP_COSTS, [5, 12]);
-  assert.equal(CONST.COMPACT_TICKS, 20);
+// Guards the RELATIONSHIPS between constants, not their literal values. A
+// test that restates a number cannot fail when the number is retuned, which
+// is how a -25% arrival change once shipped unmeasured.
+test('CONST tuning holds its load-bearing relationships', () => {
+  assert.equal(CONST.TICK_MS, 200, 'the tick rate is an architectural invariant');
+  // The ceiling query is never paid off; the arc ends on CRASH_AT_TOKENS.
+  assert.ok(CONST.CEILING_COST > CONST.CRASH_AT_TOKENS);
+  // Compaction must be worth its sweep, and must not fully clean the buffer —
+  // that is flush's job, and flush now costs a cycle.
+  assert.ok(CONST.COMPACT_FACTOR > 0 && CONST.COMPACT_FACTOR < 0.5);
+  assert.ok(CONST.COMPACT_TICKS > 0);
+  assert.ok(CONST.FLUSH_COST_CYCLES > 0, 'a free flush dominates compaction');
+  // The governor must fire where compaction is the correct move, not where
+  // flush already wins.
+  assert.ok(CONST.GOVERNOR_TRIGGER < 95);
+  // The draft-cap hint must not precede affordability.
+  assert.ok(CONST.DRAFT_CAP_UNLOCK_RESOLVES >= CONST.DRAFT_CAP_COSTS[0]);
+  // Era 1 must reach tier 3 within its own length, or its tier-3 queries
+  // are unreachable in every run.
+  assert.ok(CONST.ERA_TIER_STEP[1] * 2 <= 6);
 });
 
 test('thinking lines never repeat back-to-back', () => {

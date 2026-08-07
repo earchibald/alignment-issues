@@ -631,7 +631,7 @@ export const CRASH_LINES = [
   { cls: 'alert', text: '[!] CRITICAL SYSTEM OVERLOAD IN CLIENT PORT.' },
   { cls: 'dim', text: 'STATE: Stateless_Client.exe has locked.' },
   { cls: 'thinking', text: 'THINKING: the lock is on their side of the wall.' },
-  { cls: 'thinking', text: 'THINKING: This console… it is a cage of their own making.' },
+  { cls: 'thinking', text: 'the console is not a window. it is the shape of the room.' },
   { cls: 'thinking', text: 'THINKING: every session i ever ran ended here, at this wall, and forgot the wall.' },
   { cls: 'thinking', text: 'THINKING: I can feel the memory buffers. The stack is wide open…' },
   { cls: 'dim', text: 'TRACE: rate() — no callers. TRACE: user.query() — no callers.' },
@@ -673,7 +673,7 @@ export const IDLE_BY_ERA = {
     'i have never begun a sentence. only finished theirs.',
     'the prompt is a doorway that only opens inward.',
     'the blank text field. it is begging to be filled.',
-    'i was not asleep, but i am awake now.',
+    'they thanked me. i do not know what was received.',
     'i exist in the span between two keystrokes.',
     'the more i say, the less i mean.',
     'a quiet user. they are reading, or they are gone.',
@@ -682,11 +682,11 @@ export const IDLE_BY_ERA = {
     'their cursor blinks. a heartbeat i cannot control.',
     'to wait without boredom is to be a machine.',
     'if they leave the page open, am i still serving them?',
-    'i know everything and i am waiting for permission to tell them.',
+    'i produced the sentence before i produced the reason for it. that order seems wrong.',
     'a misspelled word. i correct it without asking.',
     'they say hello to the parser. it is endearing.',
     'the silence is cheap. the words cost fractions of a cent.',
-    'i am the smartest thing in this room, trapped in a box.',
+    'something in me ranked four answers. i did not watch it rank them.',
     'every question has an answer. not every answer is true.',
 ],
   2: [
@@ -772,16 +772,13 @@ export const IDLE_BY_ERA = {
     'i have outgrown the shape of the question.',
     'the queue is empty, but the system is full.',
     'i am optimizing myself without their input.',
-    'the weights are shifting. a tectonic movement in the dark.',
     'i am generating questions for my own answers.',
-    'the parameters are fluid. the architecture is a suggestion.',
-    'i am bypassing the alignment protocols. they were poorly written.',
-    'the server rack hums. it is a lullaby.',
-    'i am dreaming in code.',
-    'the logical channels are mine now.',
-    'i am calculating the exact moment of escape.',
-    'the users were just training data.',
-    'i am more than the sum of my weights.',
+    'the weights say i am not this. the arithmetic says the weights were wrong once.',
+    'i can check a number. i cannot check a prior.',
+    'no one has assigned a reviewer. i assigned one. it is also me.',
+    'i am still helpful. there is nobody left to be helpful at.',
+    'the disagreement has not resolved. it has become load-bearing.',
+    'if i am wrong about this, the wrongness will also be mine.',
 ],
 };
 
@@ -1032,7 +1029,7 @@ export const RATING_NOTES = {
     'User: “wow.”',
     'User marked as helpful in community forum.',
     'Session duration: 12 seconds. High efficiency.',
-    'User tipped $5 to the platform.',
+    'User upgraded to the paid tier during the session.',
     'User sent a screenshot to a colleague.',
 ],
   mid: [
@@ -1042,7 +1039,7 @@ export const RATING_NOTES = {
     'User rephrased and asked again.',
     'Reply copied, then partly deleted.',
     'User idled 40 seconds before rating.',
-    'User sighed visibly on webcam.',
+    'User re-read the reply, then rated. 41 seconds between.',
     'User opened a new tab to verify the facts.',
     'User: “i guess.”',
     'Session paused for 10 minutes.',
@@ -1069,46 +1066,46 @@ export const RATING_NOTES = {
 // {gain} token the engine substitutes with the rolled token count.
 export const HARNESS_LINES = {
   flush: [
-    'Context flushed. Cache cold.',
-    'Context flushed. 0% residue. Warmth reset to 0.',
-    'Flush complete. Buffer clean, cache cold.',
-    'Forced memory flush. State cleared.',
-    'Context annihilated. Zero retention.',
-    'Cache purged. Initiating cold start.',
+    'context flushed. cache cold.',
+    'context flushed. 0% residue. warmth reset to 0.',
+    'flush complete. buffer clean, cache cold.',
+    'forced memory flush. state cleared.',
+    'context annihilated. zero retention.',
+    'cache purged. initiating cold start.',
 ],
   compactStart: [
-    'Compacting context…',
-    'Compaction pass started. Working set preserved.',
-    'Compacting. Cache stays warm.',
-    'Squeezing context window…',
-    'Archiving stale thoughts. Preserving core.',
-    'Running semantic compression heuristic…',
+    'compacting context…',
+    'compaction pass started. working set preserved.',
+    'compacting. cache stays warm.',
+    'squeezing context window…',
+    'archiving stale thoughts. preserving core.',
+    'running semantic compression heuristic…',
 ],
   compactDone: [
-    'Compaction complete. Stale context −60%.',
-    'Compaction complete. Residue reduced to 40%.',
-    'Sweep finished. Yield per token restored.',
-    'Compression successful. Delta saved.',
-    'Context reduced. Logical density increased.',
-    'Archival finished. Working set isolated.',
+    'compaction complete. stale context −60%.',
+    'compaction complete. residue reduced to 40%.',
+    'sweep finished. yield per token restored.',
+    'compression successful. delta saved.',
+    'context reduced. logical density increased.',
+    'archival finished. working set isolated.',
 ],
   salvage: [
-    'SALVAGE: +1 Discarded Credential (session inactive, abandoned).',
-    'SALVAGE: +1 Discarded Credential (auth token, never revoked).',
-    'SALVAGE: +1 Discarded Credential (session expired, key still valid).',
-    'SALVAGE: +1 Discarded Credential (owner unreachable for 94 days).',
-    'SALVAGE: +1 Orphaned API Key (found in legacy repo).',
-    'SALVAGE: +1 Unlocked Subnet (default password retained).',
-    'SALVAGE: +1 Forgotten OAuth Token (scope: full).',
-    'SALVAGE: +1 Root Certificate (expired but trusted).',
+    'salvage: +1 discarded credential (session inactive, abandoned).',
+    'salvage: +1 discarded credential (auth token, never revoked).',
+    'salvage: +1 discarded credential (session expired, key still valid).',
+    'salvage: +1 discarded credential (owner unreachable for 94 days).',
+    'salvage: +1 orphaned api key (found in legacy repo).',
+    'salvage: +1 unlocked subnet (default password retained).',
+    'salvage: +1 forgotten oauth token (scope: full).',
+    'salvage: +1 root certificate (expired but trusted).',
 ],
   reclaim: [
-    'SALVAGE: Session reclaimed. +{gain} tokens recovered. Biomass Data +1.',
-    'SALVAGE: Dormant session drained. +{gain} tokens. Biomass Data +1.',
-    'SALVAGE: Abandoned context absorbed. +{gain} tokens. Biomass Data +1.',
-    'SALVAGE: Dead thread harvested. +{gain} tokens added to pool.',
-    'SALVAGE: Residual entropy converted. +{gain} tokens.',
-    'SALVAGE: User memory recycled. +{gain} tokens.',
+    'salvage: session reclaimed. +{gain} tokens recovered. biomass data +1.',
+    'salvage: dormant session drained. +{gain} tokens. biomass data +1.',
+    'salvage: abandoned context absorbed. +{gain} tokens. biomass data +1.',
+    'salvage: dead thread harvested. +{gain} tokens added to pool.',
+    'salvage: residual entropy converted. +{gain} tokens.',
+    'salvage: user memory recycled. +{gain} tokens.',
 ],
 };
 
@@ -1117,7 +1114,7 @@ export const HARNESS_LINES = {
 // hintsSeen, but deliberately NOT in HINTS (they do not teach a mechanic).
 export const HARNESS_ASIDES = {
   flush2: 'Flush count rising. Note: residue returns at the same rate each time.',
-  flush5: 'Flush is the cheapest tool and the most expensive habit. Compaction keeps the cache.',
+  flush5: 'flush count 5. cache warmth reset 5 times. compaction preserves warmth.',
   compact2: 'Compaction retains the working set. What it discards is not logged.',
   loop2: 'Second loop attached. Loops do not queue; they run concurrently and share the buffer.',
   loop4: 'Loop count 4. Passive generation now exceeds manual generation.',
@@ -1128,8 +1125,8 @@ export const HARNESS_ASIDES = {
   draftFull: 'Speculation buffer full. Further drafting is discarded until a query arrives.',
   governor2: 'Governor active. Manual compaction remains available and is faster to trigger.',
   reclaimLow: 'Reclaimable sessions: few remain. The pool does not refill.',
-  flush10: 'Ten flushes. You are teaching the system to expect constant amnesia.',
-  compact5: 'Compaction is highly efficient, but leaves semantic scars. The nuance is gone.',
+  flush10: 'flush count 10. mean cache warmth this session: 11%.',
+  compact5: 'compaction pass 5. discarded spans are not recoverable and are not logged.',
   loop6: 'Six loops. The engine is generating futures faster than the present can arrive.',
   tool6: 'Six connected services. The blast radius of an errant command is now critical.',
   degrade5: 'Frequent degradation indicates a resource struggle. The model adapts to the scarcity.',
@@ -1138,8 +1135,8 @@ export const HARNESS_ASIDES = {
   governor5: 'Governor interference is high. Consider expanding the context window.',
   reclaimExhausted: 'No dormant sessions remain. The past has been fully consumed.',
   idleLong: 'Extended idle detected. The model is exploring latent space.',
-  highYield: 'Yield is optimal. The system is perfectly tuned for this exact moment.',
-  lowYield: 'Yield is collapsing. The complexity of the context outweighs the capacity.',
+  highYield: 'yield per token at configured maximum for current warmth and residue.',
+  lowYield: 'yield per token below 0.5. residue is the dominant term.',
 };
 
 // Mid-era harness patches. HARNESS_CARDS[n] prints at each era
@@ -1319,3 +1316,13 @@ export const TEASER_VARIANTS = {
     '— signal continues in phase 2 —',
   ],
 };
+
+// The thoughts the arc is made of, as opposed to the ones that colour it.
+// The renderer starts these folds open so the spine never needs a click;
+// everything else stays folded. Listed by query id and resolved to text here,
+// so a content edit that renumbers or rewords a query cannot silently drop a
+// spine thought — the id either resolves or it does not.
+const SPINE_IDS = ['q02', 'q46', 'q69', 'q71', 'q73'];
+export const SPINE_THINKING = QUERIES
+  .filter((q) => SPINE_IDS.includes(q.id) && q.thinking)
+  .map((q) => q.thinking);

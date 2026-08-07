@@ -109,6 +109,13 @@ export function flush(state) {
   // already happened. Firing anyway would burn the warmth for no gain
   // and count toward the flush asides.
   if (state.stale <= 0) return;
+  // Flush buys the whole buffer back instantly. Free, it strictly dominated
+  // compaction at every staleness worth acting on, so the flush-vs-compact
+  // decision — Arc 1's expression of the core loop's "pay a cost" step — did
+  // not exist. Compaction stays free and always available, so refusing here
+  // can never leave the player without a legal move (Law 1).
+  if (state.cycles < CONST.FLUSH_COST_CYCLES) return;
+  state.cycles -= CONST.FLUSH_COST_CYCLES;
   state.stale = 0;
   state.warmth = 0;
   state.flushCount += 1;

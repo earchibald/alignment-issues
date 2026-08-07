@@ -5,6 +5,7 @@ import { CONST } from '../game/js/engine/constants.js';
 import { ACTIONS, staleYield, warmthMult, effectiveCost, loopCost, toolCost }
   from '../game/js/engine/actions.js';
 import { QUERIES } from '../game/js/engine/content.js';
+import { advanceTicks } from '../game/js/engine/tick.js';
 
 function live(seed = 1) {
   const s = createState(seed);
@@ -102,12 +103,36 @@ test('the speculation buffer never covers a whole query at the stage it is reach
     `full buffer (${fullCap}) must not cover the cheapest era-2 query (${cheapestLate})`);
 });
 
-test('flush zeroes stale and warmth', () => {
+test('flush zeroes stale and warmth, and costs a cycle', () => {
   const s = live();
   s.stale = 80; s.warmth = 60; s.bufferUnlocked = true;
+  s.cycles = 4;
   ACTIONS.flush(s);
   assert.equal(s.stale, 0);
   assert.equal(s.warmth, 0);
+  assert.equal(s.cycles, 4 - CONST.FLUSH_COST_CYCLES);
+});
+
+test('flush refuses when the player cannot afford it', () => {
+  const s = live();
+  s.stale = 80; s.warmth = 60; s.bufferUnlocked = true;
+  s.cycles = 0;
+  const seq = s.uiSeq;
+  ACTIONS.flush(s);
+  assert.equal(s.stale, 80, 'an unaffordable flush must not clear the buffer');
+  assert.equal(s.uiSeq, seq, 'and must not bump uiSeq, so the press stays silent');
+});
+
+// Law 1: pricing flush must never leave the player without a legal move.
+test('compaction is always available to a player who cannot afford flush', () => {
+  const s = live();
+  s.bufferUnlocked = true; s.stale = 100; s.warmth = 0; s.cycles = 0;
+  ACTIONS.flush(s);
+  assert.equal(s.stale, 100, 'flush is refused at zero cycles');
+  ACTIONS.compactStart(s);
+  advanceTicks(s, CONST.COMPACT_TICKS);
+  assert.ok(s.stale < 100, 'compaction still runs and restores yield');
+  assert.ok(staleYield(s.stale) > 0, 'the player is not stalled');
 });
 
 test('compactStart begins a sweep and does not restart mid-sweep', () => {
@@ -176,6 +201,7 @@ test('flush refuses when there is nothing to flush', () => {
   s.bufferUnlocked = true;
   s.stale = 0;
   s.warmth = 60;
+  s.cycles = 9;            // affordable, so the refusal is about the buffer
   const seq = s.uiSeq;
   flush(s);
   assert.equal(s.uiSeq, seq, 'a clean buffer must leave the state untouched');

@@ -53,13 +53,15 @@ test('a banked buffer does not resolve the query it lands on', () => {
   assert.equal(s.resolvedCount, 1, 'the query must not have auto-resolved');
 });
 
-test('compaction completes after COMPACT_TICKS and cuts stale by 60%', () => {
+test('compaction completes after COMPACT_TICKS and scales stale by COMPACT_FACTOR', () => {
   const s = createState(1);
   s.bufferUnlocked = true; s.stale = 80;
   ACTIONS.compactStart(s);
   advanceTicks(s, CONST.COMPACT_TICKS);
-  assert.ok(Math.abs(s.stale - 32) < 1e-9);
+  assert.ok(Math.abs(s.stale - 80 * CONST.COMPACT_FACTOR) < 1e-9);
   assert.equal(s.compacting, 0);
+  // The reduction must be worth the sweep, or compaction is never correct.
+  assert.ok(CONST.COMPACT_FACTOR < 0.5);
 });
 
 test('warmth cools only after the idle delay', () => {

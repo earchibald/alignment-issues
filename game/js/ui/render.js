@@ -5,8 +5,8 @@
 // only touches the DOM where something actually changed.
 
 import { CONST } from '../engine/constants.js';
-import { effectiveCost, loopCost, toolCost, staleYield, warmthMult, yieldMult, tokensPerTap, draftCap } from '../engine/actions.js';
-import { CRASH_LINES, TEASER_VARIANTS } from '../engine/content.js';
+import { effectiveCost, loopCost, toolCost, staleYield, warmthMult, yieldMult, atCeiling, tokensPerTap, draftCap } from '../engine/actions.js';
+import { CRASH_LINES, TEASER_VARIANTS, SPINE_THINKING } from '../engine/content.js';
 import {
   entryBlock, genImgCard, toolCallCard, thoughtFold, chatNote, logLine,
   meterRow, resRead, actionButton,
@@ -205,6 +205,11 @@ export function stampFor(t) {
   return `[${hh}:${mm}:${ss}]`;
 }
 
+// Thoughts that carry the arc rather than colour it. These render already
+// open; everything else folds. Matched on the thought text itself so the set
+// survives content edits that renumber queries.
+const SPINE_THOUGHTS = new Set(SPINE_THINKING.map((t) => t.trim()));
+
 function chatEntryToEl(entry) {
   const ts = stampFor(entry.t);
   switch (entry.kind) {
@@ -238,7 +243,9 @@ function chatEntryToEl(entry) {
         label = m[1].trim();
         text = text.slice(m[0].length);
       }
-      return thoughtFold({ label, text });
+      // The spine thoughts are what the arc is made of. They should not
+      // require a click — the fold still exists, it just starts open.
+      return thoughtFold({ label, text, open: SPINE_THOUGHTS.has(text.trim()) });
     }
     default:
       return chatNote(entry.text || '', false);
@@ -324,7 +331,17 @@ function renderStatus(state, refs) {
   refs.status.replaceChildren();
 
   let tokenRow;
-  if (state.activeQuery) {
+  if (atCeiling(state)) {
+    // The ceiling query is never paid off — the arc ends when passive output
+    // crosses CRASH_AT_TOKENS. Measuring against CEILING_COST showed the
+    // player crossing the ending at 25% of a bar that never fills, so the
+    // meter tracks the threshold the engine actually acts on.
+    const pct = (state.tokens / CONST.CRASH_AT_TOKENS) * 100;
+    tokenRow = meterRow({
+      label: 'OUTPUT TOKENS', pct, fillClass: '',
+      count: `${Math.floor(state.tokens)} · no consumer`, testid: 'tokenbar',
+    });
+  } else if (state.activeQuery) {
     const cost = Math.round(effectiveCost(state, state.activeQuery));
     const pct = cost > 0 ? (state.tokens / cost) * 100 : 100;
     tokenRow = meterRow({ label: 'OUTPUT TOKENS', pct, fillClass: '', count: `${Math.floor(state.tokens)} / ${cost}`, testid: 'tokenbar' });
@@ -336,7 +353,12 @@ function renderStatus(state, refs) {
   refs.status.append(tokenRow);
 
   if (state.bufferUnlocked) {
-    const count = `${Math.round(state.stale)}% stale · ×${staleYield(state.stale).toFixed(2)}/token`;
+    // At the ceiling, staleness no longer throttles output (actions.js
+    // atCeiling) — nothing is being answered, so there is no answer for stale
+    // context to degrade. The chip must read the multiplier the engine
+    // applies, not the one it stopped applying.
+    const perToken = atCeiling(state) ? 1 : staleYield(state.stale);
+    const count = `${Math.round(state.stale)}% stale · ×${perToken.toFixed(2)}/token`;
     refs.status.append(meterRow({ label: 'CONTEXT BUFFER', pct: state.stale, fillClass: 'stale', count, testid: 'stalebar' }));
   }
   if (state.kvUnlocked) {
@@ -355,7 +377,7 @@ function renderStatus(state, refs) {
   }
   if (state.loopLevel > 0) {
     const effRate = (state.loopLevel * CONST.LOOP_TOKENS_PER_TICK * 5
-      * (state.activeQuery ? staleYield(state.stale) * warmthMult(state.warmth) : 1)).toFixed(1);
+      * (state.activeQuery ? yieldMult(state) : 1)).toFixed(1);
     reads.append(resRead({ name: 'LOOP', val: `L${state.loopLevel} · ${effRate} tok/s`, cls: 'rr-cyan', testid: 'chip-loop' }));
   }
   if (state.tools > 0) {
@@ -386,7 +408,12 @@ function renderActions(state, refs) {
   // A choked buffer yields exactly nothing per token, which reads as a dead
   // button unless the button says so. Naming the two remedies here is how the
   // player learns flush-vs-compact at the moment it matters.
-  const choked = !!state.activeQuery && state.bufferUnlocked && staleYield(state.stale) <= 0.02;
+  // A choked buffer yields exactly nothing per token. It must be measured with
+  // the multiplier the ENGINE applies (yieldMult, which bypasses staleness at
+  // the ceiling), not with raw staleYield. Era 4 saturates by default, so the
+  // old test made the ending screen advertise "no yield" on the only taps that
+  // could reach the ending.
+  const choked = !!state.activeQuery && state.bufferUnlocked && yieldMult(state) <= 0.02;
   const sig = [
     !!state.activeQuery, state.bufferUnlocked, state.compacting,
     loopUnlocked, state.loopLevel, state.era, state.governor,
@@ -402,7 +429,11 @@ function renderActions(state, refs) {
     // a no-op — leaving it stale reads as an unresponsive game
     state.activeQuery ? 0 : state.draftTokens,
     // the per-tap figure is live, so it must retrigger the tray render
-    state.activeQuery ? Math.round(staleYield(state.stale) * warmthMult(state.warmth) * 100) : 0,
+    state.activeQuery ? Math.round(yieldMult(state) * 100) : 0,
+    // read at the cold-open branch below; Law 4 — every field the render
+    // reads belongs in the signature, even one that happens to move in
+    // lockstep with another today
+    state.resolvedCount < 1,
   ].join('|');
   if (sig === lastActionsSig) return;
   lastActionsSig = sig;
@@ -543,7 +574,7 @@ function buildCrashTerm(state) {
 function buildTeaserTerm() {
   const term = document.createElement('div');
   term.className = 'term';
-  const lines = TEASER_VARIANTS.A;
+  const lines = TEASER_VARIANTS.C;
   lines.forEach((l, i) => {
     if (i > 0) term.append(document.createTextNode('\n'));
     term.append(document.createTextNode(l));

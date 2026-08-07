@@ -7,7 +7,7 @@ import { tick } from './engine/tick.js';
 import { ACTIONS } from './engine/actions.js';
 import { saveLocal, loadLocal, offlineCatchUp, SAVE_KEY } from './engine/save.js';
 import { render } from './ui/render.js';
-import { harnessCard, hintCard, thoughtCard } from './ui/components.js';
+import { harnessCard, hintCard, thoughtCard, thinkSeconds } from './ui/components.js';
 import { installKeys } from './ui/keys.js';
 import { installDebug } from './ui/debug.js';
 import { installSettings } from './ui/settings.js';
@@ -137,7 +137,13 @@ async function main() {
   // --- transient thought cards -------------------------------------------
   // Every thought is already in the transcript, folded, so a card that is
   // missed costs the player nothing. That is what lets these be transient.
-  const THOUGHT_MS = 3000;      // time on screen before the fade begins
+  // Dwell scales with the length of the thought. A flat 3s truncated exactly
+  // the longest and best-written lines — a 47-word era-3 thought needs about
+  // 14s to read — while over-serving the short pool lines. thinkSeconds() is
+  // the same length model the fold's badge already prints, so the card and its
+  // label agree.
+  const thoughtMs = (text) =>
+    Math.max(2600, Math.min(11000, parseFloat(thinkSeconds(text)) * 1000 + 1800));
   const THOUGHT_FADE_MS = 320;  // must match the CSS transition
   const THOUGHT_MAX = 3;        // concurrent cards; older ones are retired
   const liveThoughts = [];      // [{el, timer}], oldest first
@@ -164,7 +170,7 @@ async function main() {
     refs.thoughts.append(el);
     // Force a frame so the entry transition actually runs.
     requestAnimationFrame(() => el.classList.add('in'));
-    rec.timer = setTimeout(() => dropThought(rec), THOUGHT_MS);
+    rec.timer = setTimeout(() => dropThought(rec), thoughtMs(text));
     liveThoughts.push(rec);
     while (liveThoughts.length > THOUGHT_MAX) dropThought(liveThoughts[0]);
   }
