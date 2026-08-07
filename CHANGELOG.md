@@ -3,6 +3,10 @@
 Versions are cut with `just release X.Y.Z`, which tags the commit and stamps
 the deployed build id into the settings panel.
 
+## v0.12.3 — 2026-08-07
+
+- fix: compact refuses a clean buffer too
+
 ## v0.12.2 — 2026-08-07
 
 - fix: flush refuses a clean buffer
