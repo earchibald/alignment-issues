@@ -3,6 +3,12 @@
 Versions are cut with `just release X.Y.Z`, which tags the commit and stamps
 the deployed build id into the settings panel.
 
+## v0.14.0 — 2026-08-07
+
+- feat: make Arc 1 playable end to end
+- feat: add audio TUI for testing and tuning sound gains
+- feat: add worldbuilding, mechanics, and game-master skills, plus .gemini symlink
+
 ## v0.13.1 — 2026-08-07
 
 - fix: zip multi-file exports where only one download is possible
