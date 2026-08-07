@@ -3,6 +3,10 @@
 Versions are cut with `just release X.Y.Z`, which tags the commit and stamps
 the deployed build id into the settings panel.
 
+## v0.10.0 — 2026-08-07
+
+- feat: merge the AGY arc-1 content pack
+
 ## v0.9.3 — 2026-08-07
 
 - feat: flush whoosh, and silence every refused press
