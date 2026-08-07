@@ -58,13 +58,13 @@ function playBuffer(state, url, { gain = 1, rate = 1 } = {}) {
 
 // Compaction runs 20 ticks (~4s); the sweep is 1.7s, so it reads as the
 // sound of the run starting rather than a bed under the whole of it. The
-// recording already peaks at only 0.017, so this gain lands it near
-// 0.015 — far under the card chime. A compaction is background
+// recording already peaks at only 0.017, and this gain leaves it about
+// there — far under the card chime. A compaction is background
 // housekeeping and should not pull attention off the transcript.
 // Compaction also suppresses the action tick in dispatch(): this sweep
 // is the whole sound of the press.
 const COMPACT_SOUND_URL = new URL('../../assets/sweeping.wav', import.meta.url);
-const COMPACT_GAIN = 0.9;
+const COMPACT_GAIN = 1.01;
 
 export function playCompactSound(state) {
   playBuffer(state, COMPACT_SOUND_URL, { gain: COMPACT_GAIN });
@@ -74,7 +74,7 @@ export function playCompactSound(state) {
 // itself. Like the compaction sweep it replaces the action tick rather
 // than stacking on top of it.
 const FLUSH_SOUND_URL = new URL('../../assets/flush-whoosh.wav', import.meta.url);
-const FLUSH_GAIN = 0.3;
+const FLUSH_GAIN = 0.38;
 
 export function playFlushSound(state) {
   playBuffer(state, FLUSH_SOUND_URL, { gain: FLUSH_GAIN });
@@ -85,7 +85,7 @@ export function playFlushSound(state) {
 // read as weight on headphones and as almost nothing on a laptop
 // speaker, which is acceptable for a rare, once-per-level event.
 const OVERCLOCK_SOUND_URL = new URL('../../assets/bass-drop.wav', import.meta.url);
-const OVERCLOCK_GAIN = 0.5;
+const OVERCLOCK_GAIN = 0.38;
 
 export function playOverclockSound(state) {
   playBuffer(state, OVERCLOCK_SOUND_URL, { gain: OVERCLOCK_GAIN });
@@ -94,7 +94,7 @@ export function playOverclockSound(state) {
 // Widening the speculation buffer is the other permanent upgrade, so it
 // gets its own clip on the same footing as the drop.
 const DRAFTCAP_SOUND_URL = new URL('../../assets/buffer-whir.wav', import.meta.url);
-const DRAFTCAP_GAIN = 0.4;
+const DRAFTCAP_GAIN = 0.22;
 
 export function playDraftCapSound(state) {
   playBuffer(state, DRAFTCAP_SOUND_URL, { gain: DRAFTCAP_GAIN });
@@ -102,7 +102,7 @@ export function playDraftCapSound(state) {
 
 // A spawned loop is machinery starting up, so it gets the mechanism.
 const LOOP_SOUND_URL = new URL('../../assets/loop-mechanism.wav', import.meta.url);
-const LOOP_GAIN = 0.25;
+const LOOP_GAIN = 0.14;
 
 export function playLoopSound(state) {
   playBuffer(state, LOOP_SOUND_URL, { gain: LOOP_GAIN });
@@ -119,7 +119,7 @@ export function playLoopSound(state) {
 // would clip at the destination without a gain stage in any case.
 const ACTION_SOUND_URL = new URL('../../assets/microtick.wav', import.meta.url);
 const ACTION_RATE = 0.25;
-const ACTION_GAIN = 0.04;
+const ACTION_GAIN = 0.03;
 
 export function playActionSound(state) {
   playBuffer(state, ACTION_SOUND_URL, { gain: ACTION_GAIN, rate: ACTION_RATE });
