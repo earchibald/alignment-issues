@@ -67,6 +67,21 @@ test('idle drafting banks up to the live cap, obeys the tick floor, and warms th
   assert.equal(s.draftTokens, CONST.DRAFT_CAP_BASE + CONST.DRAFT_CAP_STEP);
 });
 
+test('taps against a full draft buffer do no work: no warmth, no idle reset', () => {
+  const s = createState(1);
+  s.resolvedCount = 1;
+  for (let i = 0; i < 100; i++) { s.processedThisTick = 0; ACTIONS.processToken(s); }
+  assert.equal(s.draftTokens, CONST.DRAFT_CAP_BASE, 'precondition: buffer is full');
+
+  // Warmth comes from decode work. A full buffer means nothing is drafted,
+  // so mashing the key must not keep the K/V cache warm.
+  const warmthAtFull = s.warmth;
+  s.idleTicks = 7;
+  for (let i = 0; i < 20; i++) { s.processedThisTick = 0; ACTIONS.processToken(s); }
+  assert.equal(s.warmth, warmthAtFull, 'no decode work, so no K/V warming');
+  assert.equal(s.idleTicks, 7, 'a no-op tap is not work; the idle clock keeps running');
+});
+
 test('the speculation buffer never covers a whole query at the stage it is reachable', () => {
   // The bug this replaces: 25 banked drafts resolved every early query the
   // instant it arrived, so unlocks fired while the player was looking away.

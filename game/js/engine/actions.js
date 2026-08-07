@@ -37,11 +37,12 @@ export function processToken(state) {
     // Drafting obeys the same per-tick floor as processing; without it the
     // whole buffer fills in a couple of seconds of mashing.
     if (state.processedThisTick >= CONST.PROCESS_MAX_PER_TICK) return;
+    // A full buffer means no decode happens: the tap is a no-op. Warmth is
+    // earned by drafting work, never by the keypress itself.
+    if (state.draftTokens >= draftCap(state)) return;
     state.processedThisTick++;
-    if (state.draftTokens < draftCap(state)) {
-      state.draftTokens += 1;
-      state.lifetimeDrafts += 1;
-    }
+    state.draftTokens += 1;
+    state.lifetimeDrafts += 1;
     // Drafting is real decode work: it keeps the K/V cache warm through the
     // gap between users, instead of the cache always being stone cold when
     // the next query lands.

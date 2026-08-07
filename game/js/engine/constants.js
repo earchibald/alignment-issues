@@ -23,7 +23,7 @@ export const CONST = Object.freeze({
   DRAFT_CAP_MAX_LEVEL: 2,
   DRAFT_CAP_UNLOCK_RESOLVES: 3,
   DRAFT_WARMTH: 1,              // drafting warms the K/V cache at half rate
-  ARRIVAL_BASE_TICKS: 90,       // 18s base gap between users
+  ARRIVAL_BASE_TICKS: 85,       // 17s base gap between users (was 90; −5% pacing trim)
   READ_TICKS_PER_CHAR: 0.25,    // arrival delay grows with reply length
   READ_TICKS_MAX: 60,           // cap on the reading bonus (+12s)
   IDLE_THOUGHT_EVERY: 60,       // idle THINKING cadence (was inline 25)
