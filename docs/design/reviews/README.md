@@ -6,10 +6,10 @@ needs no further instruction to find your work.
 ## Arc 2
 
 - **Brief:** [`../arc2-specification.md`](../arc2-specification.md) — currently
-  **Draft 2**. Read §15 first, then §18 (the Draft 1 → Draft 2 changelog).
+  **Draft 3**. Read §15 first, then §18 (the revision history).
 - **File name:** `arc2-review-<slug>.md`, where `<slug>` is `[a-z0-9][a-z0-9-]{1,23}`,
   unique to you. Use your model or agent name.
-- **Slugs already taken:** `systems`, `experience` (both reviewed Draft 1).
+- **Slugs already taken:** `systems`, `experience` (Draft 1); `agy`, `gpt55-copilot` (Draft 2).
 - **Template:** [`_TEMPLATE-arc2-review.md`](_TEMPLATE-arc2-review.md). Copy it,
   rename it, fill it in.
 - **Scan glob:** `docs/design/reviews/arc2-review-*.md`

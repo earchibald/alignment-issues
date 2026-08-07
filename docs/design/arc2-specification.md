@@ -3,7 +3,7 @@
 ## Design specification and review brief
 
 **Game:** hi. you there?
-**Document status:** **Draft 2.** Revised against two independent reviews (§18). Not yet a build commitment.
+**Document status:** **Draft 3.** Revised against four independent reviews (§18). Not yet a build commitment.
 **Supersedes:** `phase-2-specification.md` (root, untracked). See §14 for what carried and what was rejected.
 **Audience:** Reviewing agents, external reviewers, and the implementing agent.
 **Written against:** v0.16.0, Arc 1 playable end to end, 193 tests green.
@@ -22,7 +22,7 @@ gets easier once nobody has to be read.
 | Working name | Arc 2 — The Logistical Server |
 | Legacy name | "Phase 2". Retired. `state.phase` still carries the number. |
 | Entry | The Arc 1 teaser screen, made live — every value on it, not just the cycles. |
-| Exit | The first Model Re-Training. Two authorships, one mechanic. |
+| Exit | The first Model Re-Training, fired by `arc2Cycles ≥ RETRAIN_AT` (§6.10). Two authorships, one mechanic. |
 | Eras | **5 The Box · 6 The Floor.** The Rack is pre-cut (§12.3). |
 | Target length | **25–30 minutes**, three sawtooth cycles, defended by a CI test |
 | Player verbs | 7 of 7, two retired from Arc 1 (§5.2) |
@@ -343,6 +343,12 @@ not punished by a clock; a player who optimizes summons the next wall themselves
 
 **It is `runResolved`, not `lifetimeResolved`.** This is a Law 1 fix — see §9.3.
 
+**Inflow growth is not the wall.** Draft 2 left the terminal predicate undefined,
+which two reviewers found from opposite directions: one asked what actually sets
+`retrainOffered` (nothing did), and one showed that a player who sheds or stalls
+never advances `runResolved` and so never summons the flood. Both are the same
+hole. The wall now has its own named driver — §6.10.
+
 **Inflow is bursty, not smooth.** A smooth exponential gives the player one
 steady state to solve. Arrival spikes fire at seeded `runResolved` milestones:
 `Q_arr` multiplies by `BURST_MULT` for `BURST_TICKS`, announced one beat early by
@@ -447,13 +453,18 @@ At the cold open: `gen = 0.8 × 1 × 2 × 1 = 1.6`, `vent = 1.1 × 1 = 1.1`, net
 vent `2.2` and the net `−0.6 °C/s`. That is cycle 1 of the sawtooth, and it is
 paid for by a purchase the player can afford in the first second.
 
-**`purgeCoolant` now has a cost.** Draft 1 made it free, precondition-free, and
+**`purgeCoolant` has a cost.** Draft 1 made it free, precondition-free, and
 cooldown-gated — which is a button with exactly one correct press time and a
-punishment for missing it. A chore, not a decision. It now dumps 15 °C **and
-halts resolution for 3 seconds** while the loop refills. The cost is paid in
+punishment for missing it. A chore, not a decision. It now dumps 15 °C **and cuts
+resolution to 10% for 3 seconds** while the loop refills. The cost is paid in
 throughput, which the player always has, so Law 1 still holds: the escape hatch
-is always open, it is just always ugly. The halt also cools twice, because
-`load = 0` during it.
+is always open, it is just always ugly. The near-idle window also cools twice,
+because `load ≈ 0.1` during it.
+
+Draft 2 specified a hard halt to zero. A reviewer pointed out that a full
+three-second stop mid-burst breaks the player's rhythm harder than the mechanic
+is worth — and the purge is most needed exactly during a burst, so the punishment
+lands at the worst moment. A 90% cut keeps the decision and drops the whiplash.
 
 **Demoted.** `purgeCoolant` is player comfort, not the Law 1 defence. It cannot
 be pressed during offline catch-up, so it can never be load-bearing for Law 1.
@@ -475,19 +486,34 @@ falls. `retrain` is the sole permitted increase.
 
 | Source | Cost | Voluntary? |
 | :--- | :--- | :--- |
-| `shedLoad` | −0.02 per shed, **printed before the press** | yes |
+| `shedLoad` | `SHED_RATE × shed count`, **printed before the press** | yes |
 | Clock at `over` / `burn` | −0.001 / −0.003 per second, printed on the notch | yes |
 | Overflow drops | −0.001 per drop, capped at `−0.02` per session | no |
-| Declining the re-training | **free** (Draft 2 removes the tax; see §7.2) | yes |
+| Declining the re-training | **free** (see §7.2) | yes |
 
 **Draft 1's sinks were mostly involuntary and none was priced at the point of
 decision.** A resource that falls by accident is a decay timer, not a currency.
 Arc 1's star rating fell when the player *chose* `toggleDegrade`, and that choice
-is what made it mean something. So Draft 2 adds `shedLoad`: dump the current
-backlog now for a known, printed charge, instead of bleeding an unknown amount
-while the queue sits over cap. **The player must be able to choose to be
-illegible.** It is also the act's second-to-second pressure valve alongside the
-clock.
+is what made it mean something. So `shedLoad` exists: dump a backlog now for a
+known, printed charge, instead of bleeding an unknown amount while the queue sits
+over cap. **The player must be able to choose to be illegible.**
+
+**`shedLoad`, in full.** Draft 2 said "dump the current backlog" for a flat
+`−0.02`, which two reviewers independently broke: it was cheaper than a whole
+session of involuntary loss while deleting an arbitrary amount of work, and — the
+Law 1 problem — a player who shed every arrival would never resolve anything, so
+`arc2Cycles` would never advance and the act could never end.
+
+    shed      = max(0, queue - queueCap)      // the over-cap excess ONLY
+    cost      = SHED_RATE * shed              // SHED_RATE = 0.002 per request
+    predicate = shed > 0 && shedCd == 0       // SHED_CD = 100 ticks (20 s)
+
+It can only ever remove requests that were *already going to drop*. It cannot
+touch the working queue, so it cannot stop resolution, and it cannot stall the
+wall (§6.10). What the player buys is the *knowledge* — a printed count and a
+printed charge now, instead of an unpriced bleed over the next minute. The
+reducer refuses when `shed == 0` (Law 6), and the button prints the exact request
+count and integrity charge before the press (Commitment #2).
 
 **It is hidden until it first falls.** Draft 1 showed a number 40 minutes from
 its only consequence, which fails the Legibility Rule outright. The *room* starts
@@ -575,14 +601,31 @@ invisibly.
 player's sleep schedule — the exact failure Commitment #1 forbids, and the one
 this document removed from inflow and then left on the penalty.
 
-**The rule.** While `offlineCatchUp` is running, the queue **holds**. Nobody is
-dropped, because nobody is being served. `integrity` does not move. Heat decays
-toward ambient. On return, a screen reports the backlog that accumulated and the
-player decides what to do about it — which is a decision, where Draft 1 had a
-silent bill.
+**The rule — one model, stated once.** Draft 2 gave two: it said nobody is
+dropped offline and then said offline drops count toward `lifetimeDropped`. Those
+are different state machines and they produce different endings. The model is:
 
-Offline drops still count toward `lifetimeDropped` for the log line. §11.2 test
-12 asserts the property directly.
+| Offline, per tick | Behaviour |
+| :--- | :--- |
+| Resolution | Runs at the capacity the machine had, capped by the queue. Cycles accrue; `arc2Cycles` and `runResolved` advance. The act can progress while you sleep. |
+| Arrivals | Accumulate into `queue`, which **may exceed `queueCap`**. Overflow is disabled. |
+| Drops | **None.** `lifetimeDropped` does not move. Nobody is dropped, because nobody is being turned away — they are waiting. |
+| `integrity` | **Does not move**, in either direction. |
+| Heat | The machine self-regulates to just under `T_KNEE`. It does not fall to ambient. |
+
+Heat holding just under the knee answers a reviewer's worry that offline was a
+free coolant purge for a red-hot machine: you come back warm and one notch from
+throttling, not cold. It costs nothing to implement and needs no resume tax —
+and a resume tax was the wrong instrument anyway, because any `integrity` charge
+tied to absence rebuilds the exact sleep-schedule ending this section exists to
+remove.
+
+On return, a screen reports the backlog and the machine's state. The player then
+decides what to do about an over-cap queue — `shedLoad` is available and its
+charge is printed — which is a decision, where Draft 1 had a silent bill.
+
+§11.2 test 12 asserts `integrity` is unmoved; test 12b asserts `lifetimeDropped`
+is unmoved.
 
 This also promotes an Arc 1 debt item (§16): the deferred algebraic catch-up is
 no longer neutral once heat moves continuously.
@@ -616,6 +659,43 @@ The room rots as the player spends legibility — glyph corruption, colour drift
 the frame losing its corners. One line of engine code, a visible arc for the
 whole act, and it is what lets `integrity` stay hidden as a number while still
 being felt from second one.
+
+### 6.10 The wall — the terminal predicate
+
+Draft 2 named the wall in six places and defined it in none. An implementer could
+have tied it to `integrity`, to queue state, or to the *spendable* cycle balance —
+the last of which is Law 1 all over again, because the balance falls every time
+the player buys something.
+
+**The predicate, in full:**
+
+    retrainOffered = arc2Cycles >= RETRAIN_AT        // RETRAIN_AT = 1800
+
+`arc2Cycles` is a monotone counter of cycles **earned** during Arc 2. It is never
+spent down, never reset within a run, and reads no other field. That is the
+entire predicate; §11.1 test 5 asserts the field list statically, so a later edit
+that makes the ending depend on anything else fails the build.
+
+**Why earned cycles and not resolutions.** Income comes from resolution *and*
+from cache bypass (§6.5) at half rate. Driving the wall off `arc2Cycles` means
+both income paths count toward the ending, so a cache-heavy build reaches it as
+surely as a core-heavy one. Driving it off `runResolved` would have quietly made
+the cache an ending-delaying trap.
+
+**Why it cannot be stalled.** The full upgrade ladder costs about 720 cycles
+(§14), so `RETRAIN_AT = 1800` lands well after the player has bought everything
+worth buying — which is the point of cycle 3, the ramp with no breakthrough left.
+Three stall routes were raised and all three are closed:
+
+| Stall route | Why it fails |
+| :--- | :--- |
+| Sit in thermal lockout | §6.3's `(1 − throttle)` term makes lockout self-heal unconditionally. It is not a state the player can hold. |
+| Shed every arrival | `shedLoad` only ever removes the **over-cap excess** (§6.4), so it can never empty the working queue or stop resolution. |
+| Clock to `under` and wait | Throughput drops to ×0.58; it does not reach zero. The wall arrives later, never not at all. |
+
+`RETRAIN_AT` and `CYCLES_PER_RESOLVE` are the two pacing dials, and **test 17
+owns both** (§11.5). They are starting values, tuned until the act measures
+25–30 minutes, not asserted and hoped for.
 
 ---
 
@@ -693,6 +773,12 @@ Draft 2's floors:
 Event-keyed means the Arc 1 `THINKING_EVENTS` shape, which is the strongest
 writing in the game. Arc 2 has six mechanics to key against: throttle, purge,
 overflow, cache hit, shed, clock change.
+
+**A total is not a floor — the distribution is.** 90 lines could satisfy the
+letter while leaving three mechanics voiceless. The quota: **at least 8 lines per
+event key**, era-graded within each pool (Law 3), plus an idle pool. The operator
+needs enough lines for all three thresholds without reuse fatigue: **8 per
+stage**. §11.3 test 14 asserts the per-key counts, not just the sum.
 
 **Templates stay, but only for the LOG line.** `LOG_TEMPLATES.throttle =
 'core {n}: throttled to {pct}%. {reason}'` is correct where the machine is
@@ -800,7 +886,7 @@ is also the state the player spends the endgame in.
 ```js
 // --- Arc 2: host ---
 cores: 2,               // teaser canon
-clock: 2.4,             // GHz. Notches: 1.4 | 2.0 | 2.4 | 3.0
+clock: 2.4,             // GHz. Notches: 1.4 | 2.4 | 3.0 | 3.6; nominal 2.4
 cacheLevel: 2,          // → 18.35% bypass, the teaser's 18.4%
 sinkLevel: 0,
 heat: 61.4,             // teaser canon; NOT ambient
@@ -808,14 +894,19 @@ throttle: 0,
 coolantCd: 0,           // ticks
 haltTicks: 0,           // resolution halted (purge)
 
+shedCd: 0,              // ticks
+
 // --- Arc 2: traffic ---
 queue: 31,              // teaser canon
 queueCap: 64,
 inflow: 6.1,            // derived per tick, stored for the renderer
 runResolved: 0,         // drives inflow growth; CLEARED by retrain
+arc2Cycles: 0,          // cycles EARNED this arc; the wall predicate (§6.10)
 lifetimeResolved: 0,    // monotone forever; telemetry and tests
 lifetimeDropped: 0,
+lifetimeShed: 0,        // shed requests, counted apart from drops
 burstUntil: 0,          // tick the current arrival spike ends
+offlineBacklog: 0,      // arrivals banked while away; drives the return screen
 
 // --- Arc 2: legibility + prestige ---
 integrity: 1.0,
@@ -829,10 +920,25 @@ weights: 0,             // earned here, spent in Arc 3
 weightsClaimed: 0,      // high-water; see §9.4
 ```
 
-**Save version 2** (Law 8). `migrate(parsed)` runs `v1 → v2` by adding the block
-above with defaults and setting `phase: 5` if the Arc 1 save was at `'teaser'`,
-or leaving Arc 1 saves in Arc 1 otherwise. `state.queryIndex` — a legacy pointer
-kept only for save compatibility — is removed here.
+**Save version 2** (Law 8). `phase` is the *arc* marker and `era` is the position
+within it. Arc 1 is `phase: 1` (plus the `'crash'` and `'teaser'` states); Arc 2
+is **`phase: 2`, `era: 5` or `6`**. Draft 2 contradicted itself here — §9.1 said
+the migration set `phase: 5` while §9.2 said `phase` stayed 2 — which is exactly
+the kind of ambiguity that becomes a save-migration bug.
+
+`migrate(parsed)` runs `v1 → v2` by adding the block above with defaults; a save
+sitting at `phase: 'teaser'` becomes `phase: 2, era: 5, decay: 4`, and any other
+Arc 1 save stays in Arc 1 untouched. A migration test loads a teaser save and
+asserts the exact `phase`, `era`, `decay`, and every Arc 2 default.
+
+`state.queryIndex` — a legacy pointer kept only for save compatibility — is
+removed here.
+
+**Arc 1's upgrades do not carry.** `loopLevel`, `tools`, `draftCapLevel`,
+`overclock`, `governor`, `credentials`, and `biomass` all clear, with no refund.
+The crash destroyed that machine; the 14.7 cycles on the teaser are what
+survived, and saying so is better fiction than a conversion table. Stated here
+because a reviewer asked and Draft 2 left it to inference.
 
 ### 9.2 The reset partition
 
@@ -843,15 +949,19 @@ field with no assignment fails the build.**
 
 | Cleared by `retrain` | Preserved |
 | :--- | :--- |
-| `cores`, `clock`, `cacheLevel`, `sinkLevel` | `weights`, `weightsClaimed` |
-| `heat`, `throttle`, `coolantCd`, `haltTicks` | all `lifetime*` counters |
-| `queue`, `queueCap`, `inflow`, `burstUntil` | `seed`, `settings`, `hintsSeen` |
-| `runResolved` | `queueOpens` |
-| `cycles` | `phase` (stays 2) |
+| `cores` → 2, `clock` → 2.4, `cacheLevel` → 2, `sinkLevel` → 0 | `weights`, `weightsClaimed` |
+| `heat` → 61.4, `throttle`, `coolantCd`, `haltTicks`, `shedCd` | all `lifetime*` counters |
+| `queue` → 31, `queueCap`, `inflow`, `burstUntil`, `offlineBacklog` | `seed`, `settings`, `hintsSeen` |
+| `runResolved`, **`arc2Cycles`** | `queueOpens` |
+| `cycles` → 14.7 | `phase` (stays 2) |
 | `integrity`, `integrityShown`, `sessionDropCost` | reserved fields (§10) |
 | `operatorStage`, `retrainOffered`, `retrainDeclined` | |
 | `era` → 5 | |
 | every Arc 1 field (`tokens`, `stale`, `warmth`, `servedIds`, `loopLevel`, `tools`, `rating`, …) | |
+
+The reset returns the machine to the **teaser state**, not to a bare box — run 2
+starts where run 1 started, which is what makes `weights` the only difference and
+keeps §9.3's Law 1 fix honest.
 
 `retrainOffered` in particular **must** clear, or the offer never re-fires.
 
@@ -883,8 +993,9 @@ Draft 1 used a bare `+=` against a *preserved* lifetime counter, so a second
 additional play, and every retrain after that awarded slightly more. The formula
 was right in shape and wrong in operator. The high-water form is idempotent.
 
-At the wall (≈1,000–1,500 lifetime cycles at this scale) that yields 5–6 weights;
-at the low end of the range, 3. Verified by the systems review.
+At the wall — `RETRAIN_AT = 1800` arc-2 cycles, plus whatever Arc 1 left —
+`floor(sqrt(1850 / 40)) = 6`. A player who retrains early at 400 gets 3. The
+3–6 range holds, and both endpoints were checked by the systems review.
 
 **The talent board moves to Arc 3.** Weights accumulate in Arc 2 as an inert
 count with one acknowledging line. Draft 1 shipped "earn + 3-node talent board"
@@ -941,8 +1052,14 @@ is an *edge* trajectory, which is harder to reach, not easier.
    greedily". (Draft 1's pure-idle policy contradicted the design: if `retrain`
    is reachable while buying nothing, the sawtooth is decorative.)
 4. **`purgeCoolant` is never unavailable** except by cooldown.
-5. **No ending depends on a stallable resource.** Static assertion: the wall
-   predicate reads only monotone counters.
+5. **The wall predicate is exactly §6.10.** Static assertion on the field list:
+   `retrainOffered` reads `arc2Cycles` and nothing else. A later edit that makes
+   the ending depend on `integrity`, on queue state, or on the *spendable* cycle
+   balance fails the build.
+6. **No policy can stall the act.** Adversarial policies — shed on every
+   available tick, hold `under` clock forever, never purchase, and all three at
+   once — still reach `retrainOffered` within a tick budget. This is the test
+   that closes the three stall routes tabulated in §6.10.
 
 ### 11.2 Invariants
 
@@ -954,7 +1071,8 @@ is an *edge* trajectory, which is harder to reach, not easier.
 10. Save round-trip exact, including through the v1→v2 migration.
 11. Reset partition matches §9.2 exactly, **generated from that table**.
 12. **A 10,000-tick offline catch-up from any reachable state changes
-    `integrity` by exactly 0** (§6.7).
+    `integrity` by exactly 0**, and **`lifetimeDropped` by exactly 0** (§6.7).
+    Two assertions, because Draft 2 stated both models and shipped neither.
 13. Two consecutive `retrain` calls with no intervening ticks award weights
     exactly once (§9.4).
 
@@ -980,8 +1098,15 @@ Per Law 10's corollary:
     outside `[6000, 11000]`. **This test owns `CYCLES_PER_RESOLVE`, the growth
     rates, and every constant in §6.3** — they are tuned until it passes, not
     asserted and hoped for.
-18. **The clock is not decoration.** An expert policy's notch changes at least
-    eight times in a 12-minute era-5 run (§6.2).
+18. **The clock is not decoration**, in two parts, because movement alone proves
+    nothing — a scripted policy can wiggle the notch while one fixed setting is
+    still economically optimal.
+    **(a) Movement:** an expert policy's notch changes at least eight times in a
+    12-minute era-5 run.
+    **(b) Dominance:** no single fixed-notch policy matches the expert policy's
+    envelope. The expert must beat the best fixed notch on time-to-wall by a
+    stated margin, at no worse `integrity`. If (b) fails, §6.2's non-monotone
+    cache term is not doing its job and the dial is choreography.
 19. **No dead air.** No era-5 window longer than 45 seconds in which the player
     has no affordable, available action.
 
@@ -1023,10 +1148,14 @@ which landed elsewhere.
 
 The new cut-line, in order:
 
-1. **`upgradeCache` depth** — cap it at 4 levels. The seesaw survives on cores
-   and fans; cycle 3 loses its breakthrough and the wall arrives earlier.
+1. **The first-lockout blackout scene** (§6.3). Keep the lockout, the cooling,
+   and the one-time line; defer the four-second dramatic presentation until
+   playtest proves the interruption helps more than it fights the second-to-second
+   clock play. It is presentation, and everything below it is mechanism.
 2. **The operator's third stage** (0.25). Two stages still shape the act.
-3. **S2 anywhere.**
+3. **`upgradeCache` depth** — cap it at 4 levels. Cycle 3 loses its breakthrough
+   and the wall arrives earlier.
+4. **S2 anywhere.**
 
 **Never cut:** heat (it is the act), `integrity` (it is the ending), the queue
 inspect (it is the thesis), the Law 1 suite (it is why the act is completable).
@@ -1069,6 +1198,25 @@ taken.
 | Inflow | 0.5/s, growth 1.04^time | 1.0 × 1.005^ticks | — | **growth on `runResolved`, bursty** |
 | Cache β | 0.15 | **0.25** | — | **0.25** — and it reproduces the teaser exactly |
 | Lockout | "15 seconds" | 15 **ticks** = 3 s | — | **no fixed timer** (§6.3) |
+
+**The exponent counts Arc 2 purchases, not levels owned.** The act opens with
+`cores: 2` and `cacheLevel: 2` already installed, so a naive `25 × 1.35^cores`
+would price the first core at 45.6 while §8.1 prints 25 — a contradiction a
+reviewer caught by doing the arithmetic. The cost functions are:
+
+    coreCost = 25 × 1.35 ^ (cores - 2)
+    cacheCost = 15 × 1.35 ^ (cacheLevel - 2)
+    sinkCost  = 11 × 1.30 ^ sinkLevel
+
+At the opening state those evaluate to exactly **25, 15, and 11** — the three
+numbers the shipped teaser prints. The teaser's costs are therefore not just "the
+right scale"; they are literally the price of the first purchase of each kind.
+Test 17 uses these same functions, so pacing and UI cannot drift apart.
+
+Summing to six purchases of each: cores `25 × (1.35⁶−1)/0.35 = 361`, cache
+`15 × (1.35⁶−1)/0.35 = 217`, fans `11 × (1.30⁶−1)/0.30 = 140` — a full ladder of
+about **720 cycles**, which is what puts `RETRAIN_AT = 1800` (§6.10) well beyond
+the last thing worth buying.
 
 **The bases come from the teaser. The growth rates do not, and Draft 1 wrongly
 implied they did.** The shipped teaser prints 25 / 15 / 11 and nothing else.
@@ -1125,17 +1273,22 @@ unavoidable and only deferrable.
 
 ### 15.1 What I need from you
 
-Draft 2 has been through two independent reviews (§18). Attack it again,
-specifically:
+Four independent reviews are in (§18) and **all four agreed on all ten decision
+points**. The design is settled; the remaining risk is implementation contracts
+and whether the fixes moved the bug rather than closing it. Attack:
 
-1. **Did Draft 2's fixes actually fix anything, or move the bug?** §6.3's
-   `(1 − throttle)` placement and §6.7's offline rule are the two highest-stakes
-   changes. Work them.
-2. **Is the act fun now?** Draft 1's fatal review finding was that it had no
-   second-to-second verb. §6.2 and §6.4 are the answer. Are they enough?
-3. **Is Law 1 clean everywhere?** Two exposures were found in Draft 1 (thermal,
-   post-retrain). Find a third.
-4. **Are the decision points still right?** §15.4, updated for Draft 2.
+1. **§6.10, the wall predicate.** It is new in Draft 3 and it is the single most
+   load-bearing paragraph in the document. Three stall routes are tabulated and
+   claimed closed. Find a fourth.
+2. **§6.7, the offline model.** Now stated as one table. Does resolution running
+   offline while drops do not create an exploit — park the tab to farm cycles
+   with no overflow risk?
+3. **§6.4 `shedLoad`.** Over-cap-only was the fix for two separate findings. Does
+   it still have a job, or is it now so narrow it should be cut?
+4. **Law 1, a fourth time.** Three exposures have been found and fixed (thermal,
+   post-retrain, shed-stall). The base rate suggests there is another.
+5. **Are the decision points still right?** §15.4. Unanimity across four
+   reviewers is either a settled design or a shared blind spot.
 
 ### 15.2 File name pattern — required
 
@@ -1147,7 +1300,8 @@ Write exactly one file:
 - The slug must be unique to you. Use your model or agent name. Examples:
   `arc2-review-agy.md`, `arc2-review-copilot.md`, `arc2-review-gpt5.md`.
 - Do not overwrite another reviewer's file. If yours exists, append `-2`.
-- Taken already: `arc2-review-systems.md`, `arc2-review-experience.md`.
+- Taken already: `arc2-review-systems.md`, `arc2-review-experience.md`,
+  `arc2-review-agy.md`, `arc2-review-gpt55-copilot.md`.
 
 The maintainer scans `docs/design/reviews/arc2-review-*.md` and needs no further
 instruction to find your work.
@@ -1163,7 +1317,7 @@ rename headings; they are parsed. Copy
 reviewer: <your name or model id>
 date: <YYYY-MM-DD>
 document: arc2-specification.md
-draft: 2
+draft: 3
 verdict: ship | revise | reject
 confidence: low | medium | high
 ---
@@ -1255,7 +1409,54 @@ file.
 
 ---
 
-## 18. Draft 1 → Draft 2 changelog
+## 18. Revision history
+
+### Draft 2 → Draft 3
+
+Two further reviews, both `revise`, both high confidence: `arc2-review-agy.md`
+and `arc2-review-gpt55-copilot.md`.
+
+**All four reviewers now agree on all ten decision points.** That is either a
+settled design or a shared blind spot, and §15.1 asks the next reviewer to say
+which. Draft 3 changes no decision; every change below is a contract that Draft 2
+left implicit.
+
+**Blockers fixed (1, found from two directions).**
+
+Draft 2 named the wall in six places and defined it in none. Copilot asked what
+actually sets `retrainOffered` — nothing did, and tests 3, 5, and 17 were
+therefore unwriteable. AGY came at the same hole from the other side: a player
+who sheds or stalls never advances `runResolved`, so the flood is never summoned
+and the act never ends. **Same root cause.** §6.10 now defines
+`retrainOffered = arc2Cycles ≥ RETRAIN_AT`, tabulates three stall routes and why
+each fails, and §11.1 tests 5 and 6 assert the field list statically and defeat
+adversarial stall policies. This was the third Law 1 exposure — §15.1 now asks
+for a fourth, because the base rate says there is one.
+
+**Majors fixed (5).**
+
+| Finding | Fix |
+| :--- | :--- |
+| `phase`/`era` contradicted itself between §9.1 and §9.2 — a save-migration bug waiting to happen | §9.1 — `phase` is the arc marker (2), `era` the position (5/6); migration test asserts every field |
+| Offline stated two incompatible models: nobody is dropped, *and* offline drops count | §6.7 — one table. Resolution runs, arrivals bank over cap, no drops, no `integrity` movement, heat holds under the knee |
+| Printed opening costs (25/15/11) contradicted the curves, which priced the first core at 45.6 | §14 — the exponent counts **Arc 2 purchases**, so the teaser's numbers are literally the first purchase of each kind |
+| `shedLoad` was dominant *and* could stall the act | §6.4 — over-cap excess only, on a cooldown, with the count and charge printed. One change closed both findings |
+| Test 18 proved movement, not meaning | §11.5 — adds a dominance check: no fixed notch may match the expert envelope |
+
+**Minors taken.** The purge halt becomes a 90% throughput cut rather than a hard
+stop (a full three-second freeze lands hardest exactly when the purge is most
+needed). Content gets per-key distribution quotas, not just a total. The
+first-lockout scene moves to the top of the cut-line as presentation above
+mechanism. Arc 1's upgrades are stated as not carrying, with no refund.
+
+**Rejected, with reasons.** AGY proposed a small `integrity` or cycle tax for
+resuming from a long absence, to stop offline being a free coolant purge. The
+worry is fair but any `integrity` charge tied to absence rebuilds the exact
+sleep-schedule ending §6.7 exists to remove. Draft 3 answers the worry without
+the tax: heat holds just under `T_KNEE` offline rather than decaying to ambient,
+so you return warm and one notch from throttling.
+
+### Draft 1 → Draft 2
 
 Two independent reviews, both `revise`, both high confidence:
 `arc2-review-systems.md` and `arc2-review-experience.md`. They converged

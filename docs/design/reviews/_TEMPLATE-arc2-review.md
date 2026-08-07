@@ -2,7 +2,7 @@
 reviewer: <your name or model id>
 date: <YYYY-MM-DD>
 document: arc2-specification.md
-draft: 2
+draft: 3
 verdict: ship | revise | reject
 confidence: low | medium | high
 ---
