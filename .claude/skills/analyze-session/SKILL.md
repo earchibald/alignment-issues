@@ -103,4 +103,17 @@ session without audio, still run the merge (step 3, no transcript files) —
 the rendered timeline beats raw JSONL — and state in the Summary that the
 analysis is events-only.
 
-S3 retrieval is not wired yet (plan 3): sessions arrive as local files only.
+## S3 source (optional)
+
+When the user names a session id (or says "latest") and no local files
+match, pull from the submissions bucket first:
+
+    node scripts/sessions.mjs list
+    node scripts/sessions.mjs pull <sessionId> --dest /tmp/hyt-pull
+    # or: node scripts/sessions.mjs pull --latest --dest /tmp/hyt-pull
+
+Then continue from step 2 with the pulled files. This path needs the
+`hyt-analyst` AWS profile and `infra/outputs.json` on this machine; both
+come from docs/operations/s3-submissions-setup.md. If `list` fails with a
+credentials or config error, point the user at that manual — do not
+improvise AWS access.
