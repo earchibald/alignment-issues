@@ -1,11 +1,11 @@
-## v0.5.0 — 2026-08-07
-
-- fix: rebalance speculative decode; layered reset confirmation
-
 # Changelog
 
 Versions are cut with `just release X.Y.Z`, which tags the commit and stamps
 the deployed build id into the settings panel.
+
+## v0.5.0 — 2026-08-07
+
+- fix: rebalance speculative decode; layered reset confirmation
 
 ## v0.4.0 — 2026-08-06
 

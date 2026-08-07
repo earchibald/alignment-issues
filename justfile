@@ -91,7 +91,20 @@ release version: preflight
     # Changelog entry from the commit subjects since the last tag.
     range=${prev:+$prev..HEAD}
     { echo "## v$v — $(date -u +%Y-%m-%d)"; echo; git log --no-merges --pretty='- %s' ${range:-HEAD}; echo; } > .release-notes
-    if [ -f CHANGELOG.md ]; then cat .release-notes CHANGELOG.md > .changelog.tmp; else cp .release-notes .changelog.tmp; fi
+    if [ -f CHANGELOG.md ]; then
+      # Insert after the header block, i.e. before the first existing entry —
+      # not at byte 0, which would bury the title under the newest release.
+      first=$(grep -n '^## ' CHANGELOG.md | head -1 | cut -d: -f1)
+      if [ -n "$first" ]; then
+        head -n $((first - 1)) CHANGELOG.md > .changelog.tmp
+        cat .release-notes >> .changelog.tmp
+        tail -n +$first CHANGELOG.md >> .changelog.tmp
+      else
+        cat CHANGELOG.md .release-notes > .changelog.tmp
+      fi
+    else
+      cp .release-notes .changelog.tmp
+    fi
     mv .changelog.tmp CHANGELOG.md
     rm -f .release-notes
 
