@@ -82,9 +82,18 @@ export function installDebug({ stateBox, dispatch, getSpeed, setSpeed, paintNow,
   if (!drawer) return;
 
   // --- build drawer DOM (createElement only) ---
+  const headRow = document.createElement('div');
+  headRow.className = 'drow dhead';
   const heading = document.createElement('h4');
   heading.textContent = 'debug';
-  drawer.appendChild(heading);
+  const closeBtn = document.createElement('button');
+  closeBtn.className = 'dbtn';
+  closeBtn.type = 'button';
+  closeBtn.dataset.testid = 'dev-close';
+  closeBtn.textContent = 'close ✕';
+  closeBtn.addEventListener('click', () => { drawer.hidden = true; });
+  headRow.append(heading, closeBtn);
+  drawer.appendChild(headRow);
 
   // Speed row
   const speedRow = document.createElement('div');

@@ -643,6 +643,41 @@ body:has(#app[data-theme="light"][data-decay="2"]) { background: #dfe3e8; }
   background: #0b0e12; border: 1px solid #2a323c; border-radius: 4px;
   padding: 8px 10px; font-size: 10.5px; overflow-x: auto;
 }
+.dev-drawer .dhead { justify-content: space-between; }
+.dev-drawer .dhead h4 { margin: 0; }
+
+/* Dev chip: sits in the header beside the gear, dev mode only */
+#devchip {
+  flex: none;
+  background: none;
+  border: none;
+  color: #d8a03d;
+  font-family: var(--g-font-log);
+  font-size: 10.5px;
+  padding: 8px 4px;
+  min-height: 34px;
+  cursor: pointer;
+  opacity: 0.85;
+}
+#devchip:hover, #devchip:focus-visible { opacity: 1; }
+
+/* Wide viewports: dock the drawer beside the centered game column so it
+   never covers play. Below the breakpoint it stays a bottom-sheet overlay,
+   summoned/dismissed via the [dev] chip, backtick, or its close button. */
+@media (min-width: 1100px) {
+  .dev-drawer {
+    position: fixed;
+    left: calc(50% + 272px);
+    right: 12px;
+    top: 12px;
+    bottom: 12px;
+    max-width: 460px;
+    max-height: none;
+    border: 1px solid #2a323c;
+    border-top: 2px solid #d8a03d;
+    border-radius: 6px;
+  }
+}
 
 /* ============================================================
    Game-shell-specific additions (not in the mockup chrome)

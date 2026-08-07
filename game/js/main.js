@@ -441,7 +441,22 @@ async function main() {
 
   if (devMode) {
     const drawer = document.getElementById('devdrawer');
-    if (drawer) drawer.hidden = false;
+    if (drawer) {
+      // Wide viewports dock the drawer beside the game column (CSS), so it
+      // can open immediately without covering play. Anywhere narrower it is
+      // a bottom-sheet overlay — start closed and let the chip summon it.
+      drawer.hidden = !matchMedia('(min-width: 1100px)').matches;
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.id = 'devchip';
+      chip.dataset.testid = 'dev-chip';
+      chip.textContent = '[dev]';
+      chip.setAttribute('aria-label', 'Toggle debug drawer');
+      chip.addEventListener('click', () => { drawer.hidden = !drawer.hidden; });
+      const gearBtn = document.getElementById('gear');
+      if (gearBtn && gearBtn.parentElement) gearBtn.parentElement.insertBefore(chip, gearBtn);
+      else refs.app.append(chip);
+    }
     recorderHandle = installRecorder({ telemetry, store });
     installSessions({ store, telemetry });
   }
