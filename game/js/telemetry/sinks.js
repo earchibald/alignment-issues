@@ -3,6 +3,8 @@
 // FileExportSink is v1; the S3 submission sink (plan 3) implements the
 // same interface.
 
+import { SUBMIT_ENV } from './submit-env.js';
+
 export async function buildBundle(store, sessionId) {
   const header = await store.getSession(sessionId);
   if (!header) return null;
@@ -61,3 +63,59 @@ export const FileExportSink = {
     return 'downloaded';
   },
 };
+
+// --- S3 submission sink ----------------------------------------------
+// Same sink interface. The browser never holds AWS keys: per file it asks
+// the broker for a one-shot presigned POST, then uploads. Inactive until
+// the deploy workflow injects a real submit-env. No retry loop — a failed
+// submit leaves the session local (spec: error handling).
+
+function baseType(type) {
+  return (type || '').split(';')[0].trim();
+}
+
+export function createS3Sink(env) {
+  return {
+    async export(bundle) {
+      if (!env.enabled || !env.brokerUrl) throw new Error('submissions disabled');
+      const names = bundleFilenames(bundle);
+      const files = [new File([bundleToJsonl(bundle)], names.events, { type: 'text/plain' })];
+      bundle.audio.forEach((a, i) => {
+        files.push(new File([a.blob], names.audio[i], { type: a.blob.type }));
+      });
+      for (const file of files) {
+        const contentType = baseType(file.type);
+        const grantRes = await fetch(env.brokerUrl, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            token: env.token,
+            sessionId: bundle.header.id,
+            filename: file.name,
+            size: file.size,
+            contentType,
+          }),
+        });
+        if (!grantRes.ok) {
+          let reason = `grant failed (${grantRes.status})`;
+          try {
+            const body = await grantRes.json();
+            if (body && body.reason) reason = `grant refused: ${body.reason}`;
+          } catch {
+            // keep the status-based reason
+          }
+          throw new Error(reason);
+        }
+        const { url, fields } = await grantRes.json();
+        const form = new FormData();
+        for (const [key, value] of Object.entries(fields)) form.append(key, value);
+        form.append('file', file);
+        const upload = await fetch(url, { method: 'POST', body: form });
+        if (!upload.ok) throw new Error(`upload failed (${upload.status})`);
+      }
+      return 'submitted';
+    },
+  };
+}
+
+export const S3Sink = createS3Sink(SUBMIT_ENV);

@@ -899,3 +899,9 @@ dialog#settings .harness-card { margin: 8px 0; }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* --- session submit errors ------------------------------------------ */
+.session-row .session-error {
+  color: #d33;
+  font-size: 11px;
+}

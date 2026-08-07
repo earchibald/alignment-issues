@@ -3,7 +3,8 @@
 // export (FileExportSink) and delete. Refreshes when the drawer unhides,
 // mirroring debug.js's visibility-driven refresh.
 
-import { buildBundle, FileExportSink } from '../telemetry/sinks.js';
+import { buildBundle, FileExportSink, S3Sink } from '../telemetry/sinks.js';
+import { SUBMIT_ENV } from '../telemetry/submit-env.js';
 
 export function installSessions({ store, telemetry, drawer = document.getElementById('devdrawer') }) {
   if (!drawer) return;
@@ -57,6 +58,30 @@ export function installSessions({ store, telemetry, drawer = document.getElement
         }
       });
       rowEl.append(exportBtn);
+
+      if (SUBMIT_ENV.enabled) {
+        const submitBtn = document.createElement('button');
+        submitBtn.className = 'dbtn';
+        submitBtn.type = 'button';
+        submitBtn.textContent = 'submit';
+        submitBtn.dataset.testid = `session-submit-${h.id}`;
+        const errEl = document.createElement('span');
+        errEl.className = 'session-error';
+        submitBtn.addEventListener('click', async () => {
+          submitBtn.disabled = true;
+          errEl.textContent = '';
+          try {
+            await telemetry.flush();
+            const bundle = await buildBundle(store, h.id);
+            if (bundle) await S3Sink.export(bundle);
+            submitBtn.textContent = 'submitted'; // stays disabled on success
+          } catch (err) {
+            errEl.textContent = String(err && err.message ? err.message : err);
+            submitBtn.disabled = false; // session stays local; retry allowed
+          }
+        });
+        rowEl.append(submitBtn, errEl);
+      }
 
       const delBtn = document.createElement('button');
       delBtn.className = 'dbtn';

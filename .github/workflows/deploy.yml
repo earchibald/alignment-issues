@@ -32,6 +32,17 @@ jobs:
           mkdir -p _site/mockups
           cp -r game/* _site/
           cp -r mockups/phase1 _site/mockups/phase1
+      - name: Inject submission config
+        if: ${{ vars.HYT_SUBMIT_ENABLED == '1' }}
+        env:
+          HYT_SUBMIT_TOKEN: ${{ secrets.HYT_SUBMIT_TOKEN }}
+          HYT_BROKER_URL: ${{ vars.HYT_BROKER_URL }}
+        run: |
+          if [ -z "$HYT_SUBMIT_TOKEN" ] || [ -z "$HYT_BROKER_URL" ]; then
+            echo "HYT_SUBMIT_ENABLED=1 but HYT_SUBMIT_TOKEN or HYT_BROKER_URL is missing — shipping the inactive stub" >&2
+            exit 0
+          fi
+          printf "// Generated at deploy time — never committed.\nexport const SUBMIT_ENV = { enabled: true, brokerUrl: '%s', token: '%s' };\n" "$HYT_BROKER_URL" "$HYT_SUBMIT_TOKEN" > _site/js/telemetry/submit-env.js
       - uses: actions/upload-pages-artifact@v3
         with: { path: _site }
       - id: deployment
