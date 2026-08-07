@@ -122,6 +122,7 @@ async function main() {
   let cardPaused = false;
 
   function resetCardTracking() {
+    hooks.onContext('state.swap');
     hooks.resync();
     cardQueue = [];
     cardPaused = false;
@@ -360,6 +361,7 @@ async function main() {
   });
   globalThis.addEventListener('pagehide', doSave);
 
+  let recorderHandle = null;
   const openSettings = installSettings({
     stateBox,
     refs,
@@ -373,6 +375,7 @@ async function main() {
       coldOpenActive = true;
     },
     onTelemetryToggle: (on) => {
+      if (!on && recorderHandle) recorderHandle.stopRecording();
       telemetry.setEnabled(on);
       if (on && !telemetry.sessionId) {
         telemetry.startSession({ ua: navigator.userAgent, dev: devMode });
@@ -395,7 +398,7 @@ async function main() {
   if (devMode) {
     const drawer = document.getElementById('devdrawer');
     if (drawer) drawer.hidden = false;
-    installRecorder({ telemetry, store });
+    recorderHandle = installRecorder({ telemetry, store });
     installSessions({ store, telemetry });
   }
   hooks.attachDom();

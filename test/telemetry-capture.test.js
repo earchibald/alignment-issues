@@ -120,3 +120,23 @@ test('flush prunes and retries once on storage failure, then drops', async () =>
   await telemetry.flush();
   assert.equal(telemetry.pending, 0);
 });
+
+test('startSession header-write failure leaves telemetry off, no orphans', async () => {
+  const store = new MemoryStore();
+  const failing = {
+    putSession: () => Promise.reject(new Error('QuotaExceededError')),
+    appendEvents: (id, evs) => store.appendEvents(id, evs),
+    prune: (keep) => store.prune(keep),
+  };
+  const telemetry = createTelemetry({
+    clock: { now: () => 1754500000000, pm: () => 0 },
+    store: failing,
+    getTick: () => 0,
+  });
+  assert.equal(await telemetry.startSession({}), null);
+  assert.equal(telemetry.sessionId, null);
+  telemetry.event('x');
+  await telemetry.flush();
+  assert.equal(telemetry.pending, 0);
+  assert.deepEqual(await store.listSessions(), []);
+});

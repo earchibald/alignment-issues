@@ -1297,7 +1297,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
   - `pickMime() -> {mime, ext} | null` — `audio/mp4`/`m4a` when supported, else `audio/webm;codecs=opus`/`webm`, else null.
   - `createRecClock(pm) -> {start, pause, stop, audioMs}` — pure elapsed-audio accounting; `stop()` returns the total and resets.
   - `mmss(ms) -> 'MM:SS'`.
-  - Telemetry marks per the spec's correlation contract: `rec.start {recIdx, audioMs: 0, mime}`, `rec.pause`/`rec.resume` `{recIdx, audioMs}`, `rec.stop {recIdx, audioMs}`, `rec.error {recIdx, message}`.
+  - Telemetry marks per the spec's correlation contract: `rec.start {recIdx, audioMs: 0, mime}`, `rec.pause`/`rec.resume` `{recIdx, audioMs}`, `rec.stop {recIdx, audioMs}`, `rec.error {recIdx, audioMs, message}`.
 
 - [ ] **Step 1: Write the failing test**
 

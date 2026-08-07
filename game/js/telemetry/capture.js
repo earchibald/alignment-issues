@@ -53,7 +53,15 @@ export function createTelemetry({ clock, store, getTick, enabled = true }) {
     const pm = clock.pm();
     sessionId = `${at}-${randSuffix()}`;
     started = true;
-    await store.putSession({ id: sessionId, anchor: { at, pm }, ...meta });
+    try {
+      await store.putSession({ id: sessionId, anchor: { at, pm }, ...meta });
+    } catch (err) {
+      // Events without a header would be invisible to retention forever.
+      sessionId = null;
+      started = false;
+      console.warn('telemetry: session header write failed, capture off', err);
+      return null;
+    }
     event('session.start', meta);
     return sessionId;
   }

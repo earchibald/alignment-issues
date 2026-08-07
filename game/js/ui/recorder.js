@@ -113,7 +113,8 @@ export function installRecorder({ telemetry, store }) {
   }
 
   function fail(message) {
-    telemetry.event('rec.error', { recIdx, message });
+    const audioMs = recClock.audioMs();
+    telemetry.event('rec.error', { recIdx, audioMs, message });
     telemetry.flush();
     recClock.stop(); // discard any accumulated time so the next recording starts clean
     stopTimer();
@@ -125,6 +126,11 @@ export function installRecorder({ telemetry, store }) {
   async function startRecording() {
     if (starting) return;
     starting = true;
+    if (!telemetry.sessionId) {
+      starting = false;
+      fail('telemetry disabled — no session');
+      return;
+    }
     const picked = pickMime();
     if (!picked) {
       fail('MediaRecorder unsupported');
@@ -152,6 +158,7 @@ export function installRecorder({ telemetry, store }) {
       if (e.data && e.data.size > 0 && telemetry.sessionId) {
         store.appendAudioChunk(telemetry.sessionId, thisRec, chunkIdx++, e.data)
           .catch(() => {
+            if (thisRec !== recIdx) return; // stale write from a previous recording
             // Storage full: stop audio flushing, keep events (spec).
             const r = recorder;
             if (r) {
@@ -169,9 +176,7 @@ export function installRecorder({ telemetry, store }) {
       fail(`recorder error: ${e.error && e.error.name ? e.error.name : 'unknown'}`);
     };
     recorder.onstop = () => {
-      const audioMs = recClock.stop();
-      telemetry.event('rec.stop', { recIdx: thisRec, audioMs });
-      telemetry.flush();
+      recClock.stop();
       releaseStream();
       stopTimer();
       timeEl.textContent = '00:00';
@@ -211,15 +216,24 @@ export function installRecorder({ telemetry, store }) {
     }
   }
 
+  function stopRecording() {
+    if (!recorder || recorder.state === 'inactive') return;
+    recClock.pause();
+    telemetry.event('rec.stop', { recIdx, audioMs: recClock.audioMs() });
+    telemetry.flush();
+    recorder.stop();
+  }
+
   recordBtn.addEventListener('click', () => {
     const state = pill.dataset.state;
     if (state === 'idle' || state === 'error' || state === 'saved') startRecording();
   });
   pauseBtn.addEventListener('click', togglePause);
-  stopBtn.addEventListener('click', () => {
-    if (recorder && recorder.state !== 'inactive') recorder.stop();
-  });
+  stopBtn.addEventListener('click', stopRecording);
 
   document.body.append(pill);
-  return pill;
+  return {
+    element: pill,
+    stopRecording,
+  };
 }
