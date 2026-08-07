@@ -29,7 +29,7 @@ export function playCardSound(state) {
 // peaks at 1.24, so it needs a gain stage to stay clear of clipping.
 const ACTION_SOUND_URL = new URL('../../assets/microtick.wav', import.meta.url);
 const ACTION_RATE = 0.25;
-const ACTION_GAIN = 0.7;
+const ACTION_GAIN = 0.35;
 
 let actionCtx = null;
 let actionBufPromise = null;
