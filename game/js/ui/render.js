@@ -5,7 +5,10 @@
 // only touches the DOM where something actually changed.
 
 import { CONST } from '../engine/constants.js';
-import { effectiveCost, loopCost, toolCost, staleYield, warmthMult, yieldMult, atCeiling, tokensPerTap, draftCap } from '../engine/actions.js';
+import {
+  effectiveCost, loopCost, toolCost, staleYield, warmthMult, yieldMult, atCeiling,
+  tokensPerTap, draftCap, overclockRevealed, loopRevealed, draftCapRevealed, governorRevealed,
+} from '../engine/actions.js';
 import { CRASH_LINES, TEASER_VARIANTS, SPINE_THINKING } from '../engine/content.js';
 import {
   entryBlock, genImgCard, toolCallCard, thoughtFold, chatNote, logLine,
@@ -473,7 +476,7 @@ function renderStatus(state, refs) {
 }
 
 function renderActions(state, refs) {
-  const loopUnlocked = state.lifetimeCycles >= CONST.LOOP_UNLOCK_CYCLES || state.loopLevel > 0;
+  const loopUnlocked = loopRevealed(state);
   const toolUnlocked = state.era >= 3 || state.lifetimeCycles >= CONST.TOOL_UNLOCK_CYCLES;
   // A choked buffer yields exactly nothing per token, which reads as a dead
   // button unless the button says so. Naming the two remedies here is how the
@@ -486,11 +489,11 @@ function renderActions(state, refs) {
   const choked = !!state.activeQuery && state.bufferUnlocked && yieldMult(state) <= 0.02;
   const sig = [
     !!state.activeQuery, state.bufferUnlocked, state.compacting,
-    loopUnlocked, state.loopLevel, state.era, state.governor,
+    loopUnlocked, state.loopLevel, state.era, state.governor, state.compactCount,
     toolUnlocked, state.tools, state.degrade,
     state.era === 4 && state.reclaimPool > 0,
-    state.resolvedCount >= 2 && state.overclock < CONST.OVERCLOCK_MAX, state.overclock,
-    state.resolvedCount >= CONST.DRAFT_CAP_UNLOCK_RESOLVES && state.draftCapLevel < CONST.DRAFT_CAP_MAX_LEVEL, state.draftCapLevel,
+    overclockRevealed(state) && state.overclock < CONST.OVERCLOCK_MAX, state.overclock,
+    draftCapRevealed(state) && state.draftCapLevel < CONST.DRAFT_CAP_MAX_LEVEL, state.draftCapLevel,
     choked,
     // whether there is anything to flush — the per-tap figure below is
     // masked to 0 while idle, so it cannot stand in for this
@@ -566,14 +569,14 @@ function renderActions(state, refs) {
     refs.actions.append(compactBtn);
   }
 
-  if (state.resolvedCount >= 2 && state.overclock < CONST.OVERCLOCK_MAX) {
+  if (overclockRevealed(state) && state.overclock < CONST.OVERCLOCK_MAX) {
     refs.actions.append(actionButton({
       key: 'O', label: 'Amplify output path', cost: `${CONST.OVERCLOCK_COSTS[state.overclock]} cycles`,
       buy: true, testid: 'buy-overclock', onclick: () => refs.dispatch('buyOverclock'),
     }));
   }
 
-  if (state.resolvedCount >= CONST.DRAFT_CAP_UNLOCK_RESOLVES && state.draftCapLevel < CONST.DRAFT_CAP_MAX_LEVEL) {
+  if (draftCapRevealed(state) && state.draftCapLevel < CONST.DRAFT_CAP_MAX_LEVEL) {
     refs.actions.append(actionButton({
       key: 'S', label: 'Widen speculation buffer',
       cost: `${CONST.DRAFT_CAP_COSTS[state.draftCapLevel]} cycles · holds ${draftCap(state) + CONST.DRAFT_CAP_STEP}`,
@@ -588,7 +591,8 @@ function renderActions(state, refs) {
     }));
   }
 
-  if (state.era >= 2 && !state.governor) {
+  // Same predicate as the reveal, so the button and its hint agree.
+  if (!state.governor && governorRevealed(state)) {
     refs.actions.append(actionButton({
       key: 'G', label: 'Install auto-compact governor', cost: `${CONST.GOVERNOR_COST} cycles`,
       buy: true, testid: 'buy-governor', onclick: () => refs.dispatch('buyGovernor'),

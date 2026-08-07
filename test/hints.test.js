@@ -17,6 +17,8 @@ import { CONST } from '../game/js/engine/constants.js';
 import { ACTIONS, loopCost, toolCost } from '../game/js/engine/actions.js';
 import { tick } from '../game/js/engine/tick.js';
 import { HINTS } from '../game/js/engine/content.js';
+import { readFileSync } from 'node:fs';
+import { loopRevealed } from '../game/js/engine/actions.js';
 
 // term -> the hint id allowed to say it first. Terms are matched
 // case-insensitively against the hint text.
@@ -123,4 +125,28 @@ test('each gated term is really introduced by the hint that owns it', () => {
       `hint "${owner}" no longer says "${term}"`,
     );
   }
+});
+
+test('a mechanic is never buyable before it is revealed', () => {
+  // The reveal predicates were three separate expressions — one in the tick,
+  // one in the renderer, one in the buy guard. The moment the hints moved to
+  // difficulty gating, the button appeared before its hint and the feed read
+  // "Loop spawned" above "Agentic loop available". One predicate each now,
+  // exported from actions.js; this proves the tray cannot drift from it.
+  const src = readFileSync(new URL('../game/js/ui/render.js', import.meta.url), 'utf8');
+  for (const p of ['overclockRevealed', 'loopRevealed', 'draftCapRevealed', 'governorRevealed']) {
+    assert.ok(src.includes(`${p}(state)`), `render.js does not use ${p}() — the button can drift from the hint`);
+  }
+
+  // And behaviourally: buying refuses while the reveal predicate is false.
+  const s = createState(1);
+  s.lifetimeCycles = 99;
+  s.cycles = 999;
+  s.lastResolveTaps = 0;
+  assert.equal(loopRevealed(s), false, 'precondition: a trivial reply has not earned loops');
+  ACTIONS.buyLoop(s);
+  assert.equal(s.loopLevel, 0, 'a loop was bought before the game offered it');
+  s.lastResolveTaps = CONST.REVEAL_TAPS_LOOP;
+  ACTIONS.buyLoop(s);
+  assert.equal(s.loopLevel, 1, 'and is buyable the moment it is revealed');
 });

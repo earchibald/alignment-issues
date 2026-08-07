@@ -31,6 +31,7 @@ test('first arrival fires the arrival hint and the era-1 harness card', () => {
 test('era transitions print the matching harness card', () => {
   const s = createState(1);
   s.lifetimeCycles = 99; s.cycles = 999;
+  s.lastResolveTaps = CONST.REVEAL_TAPS_LOOP;   // loops are grind-gated now
   buyLoop(s);
   assert.ok(s.chat.some(e => e.kind === 'harness' && e.text === HARNESS_CARDS[2]));
   buyTool(s);

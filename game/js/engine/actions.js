@@ -44,6 +44,36 @@ export const draftCap = (state) =>
 export const loopCost = (level) => CONST.LOOP_BASE_COST * 2 ** (level - 1);
 export const toolCost = (owned) => Math.round(CONST.TOOL_BASE_COST * CONST.TOOL_COST_GROWTH ** owned);
 
+// --- reveal predicates -------------------------------------------------
+// One definition per mechanic, read by the tick (to fire the hint), by the
+// renderer (to draw the button) and by the buy action (to refuse early).
+// They used to be three separate expressions, and the moment the hints moved
+// the button appeared first — "Loop spawned" before "Agentic loop available".
+//
+// Each is `enough grind OR a backstop`. The grind clause is the design; the
+// backstop guarantees the mechanic is always reachable, which matters most
+// for the loop, since the arc cannot end without one running.
+export const overclockRevealed = (state) =>
+  state.resolvedCount >= CONST.OVERCLOCK_UNLOCK_RESOLVES
+  && (state.lastResolveTaps >= CONST.REVEAL_TAPS_OVERCLOCK
+    || state.resolvedCount >= CONST.REVEAL_BACKSTOP_OVERCLOCK);
+
+export const loopRevealed = (state) =>
+  state.loopLevel > 0
+  || (state.lifetimeCycles >= CONST.LOOP_UNLOCK_CYCLES
+    && (state.lastResolveTaps >= CONST.REVEAL_TAPS_LOOP
+      || state.resolvedCount >= CONST.REVEAL_BACKSTOP_LOOP));
+
+export const draftCapRevealed = (state) =>
+  state.resolvedCount >= CONST.DRAFT_CAP_UNLOCK_RESOLVES
+  && (state.draftCapHits >= CONST.REVEAL_DRAFTS_LOST
+    || state.resolvedCount >= CONST.REVEAL_BACKSTOP_DRAFTCAP);
+
+export const governorRevealed = (state) =>
+  state.era >= 2
+  && (state.compactCount >= CONST.REVEAL_COMPACTS_GOVERNOR
+    || state.resolvedCount >= CONST.REVEAL_BACKSTOP_GOVERNOR);
+
 export function effectiveCost(state, query) {
   let c = query.cost;
   if (state.degrade) c *= 0.5;
@@ -82,6 +112,7 @@ export function processToken(state) {
   }
   if (state.processedThisTick >= CONST.PROCESS_MAX_PER_TICK) return;
   state.processedThisTick++;
+  state.tapsThisQuery++;
   const mult = yieldMult(state);
   const gain = tokensPerTap(state) * mult;
   if (mult >= CONST.YIELD_HIGH) fireAside(state, 'highYield');
@@ -101,7 +132,13 @@ export function processToken(state) {
   state.stale = Math.min(100, state.stale + CONST.STALE_PER_TOKEN * gain);
   state.warmth = Math.min(100, state.warmth + CONST.WARMTH_PER_TOKEN);
   state.idleTicks = 0;
-  if (!state.bufferUnlocked && state.lifetimeTokens >= CONST.BUFFER_UNLOCK_TOKENS) {
+  // Residue accrues from the first tap, but its EFFECT is gated on this
+  // unlock (see yieldMult), so the reveal reads the counterfactual: attach
+  // the telemetry once the residue already sitting there would be costing
+  // real yield. Backstopped on resolves so a light-touch run still gets it.
+  if (!state.bufferUnlocked && state.lifetimeTokens >= CONST.BUFFER_UNLOCK_TOKENS
+      && (state.stale >= CONST.REVEAL_STALE_BUFFER
+        || state.resolvedCount >= CONST.REVEAL_BACKSTOP_BUFFER)) {
     state.bufferUnlocked = true;
     pushLog(state, 'harness', 'Context buffer telemetry attached.');
     fireHint(state, 'buffer');
@@ -147,6 +184,11 @@ export function compactStart(state, auto = false) {
   if (state.stale <= 0) return;
   state.compacting = CONST.COMPACT_TICKS;
   state.compactCount += 1;
+  // The governor automates a chore, so it is offered once the chore has
+  // actually become one. It used to fire on the era-1 transition, 0.2s after
+  // the loop reveal — two mechanics in the same breath, before the player had
+  // compacted anything at all.
+  if (!state.governor && governorRevealed(state)) fireHint(state, 'governorAvail');
   pushLog(state, 'harness', pick(state, HARNESS_LINES.compactStart));
   if (state.compactCount === 2) fireAside(state, 'compact2');
   if (state.compactCount === 5) fireAside(state, 'compact5');
@@ -157,7 +199,7 @@ export function compactStart(state, auto = false) {
 
 export function buyLoop(state) {
   if (state.phase !== 1) return;
-  if (state.lifetimeCycles < CONST.LOOP_UNLOCK_CYCLES && state.loopLevel === 0) return;
+  if (!loopRevealed(state)) return;
   const cost = loopCost(state.loopLevel + 1);
   if (state.cycles < cost) return;
   state.cycles -= cost;
@@ -168,7 +210,6 @@ export function buyLoop(state) {
     state.eraServed = 0;
     pushChat(state, { kind: 'harness', text: HARNESS_CARDS[2] });
     pushChat(state, { kind: 'note', text: ERA_STINGERS[2] });
-    fireHint(state, 'governorAvail');
   }
   pushLog(state, 'harness', `Agentic loop spawned (L${state.loopLevel}). Self-prompt continuation active.`);
   thinkEvent(state, 'loopSpawn');

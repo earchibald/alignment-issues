@@ -1,7 +1,10 @@
 import { CONST } from './constants.js';
 import { nextRand } from './rng.js';
 import { pushLog, pushChat, fireHint, fireAside, thinkEvent, pushThinking } from './state.js';
-import { staleYield, warmthMult, yieldMult, effectiveCost, compactStart } from './actions.js';
+import {
+  staleYield, warmthMult, yieldMult, effectiveCost, compactStart,
+  overclockRevealed, loopRevealed, draftCapRevealed,
+} from './actions.js';
 import {
   QUERIES, IDLE_BY_ERA, DEVOPS_SCRIPT, CEILING_QUERY, CRASH_LINES, HARNESS_CARDS,
   HARNESS_CARDS_MID, HARNESS_LINES, COMPLAINTS, RATING_NOTES,
@@ -70,6 +73,7 @@ function activateNextQuery(state) {
   if ((q.minEra ?? 1) === 3) state.era3Served++;
   state.activeQuery = q;
   state.bufferChokedThisQuery = false;
+  state.tapsThisQuery = 0;
 
   if (state.resolvedCount === 0 && !state.hintsSeen.includes('arrival')) {
     pushChat(state, { kind: 'harness', text: HARNESS_CARDS[1] });
@@ -143,6 +147,10 @@ export function resolveQuery(state) {
   state.cycles += 1;
   state.lifetimeCycles += 1;
   state.resolvedCount += 1;
+  // What this reply actually cost in manual presses. The reveal predicates
+  // below read it, so a mechanic can wait until the grind is real.
+  state.lastResolveTaps = state.tapsThisQuery;
+  state.tapsThisQuery = 0;
 
   if (q.thinking) pushThinking(state, `THINKING: ${q.thinking}`);
   else if (state.resolvedCount === 1) thinkEvent(state, 'firstResolve');
@@ -163,7 +171,11 @@ export function resolveQuery(state) {
   state.lastReplyChars = q.reply.length;
   state.arrivalTimer = arrivalDelay(state);
 
-  if (!state.kvUnlocked && state.resolvedCount >= CONST.KV_UNLOCK_RESOLVES) {
+  // The cache is worth naming once full warmth would save a couple of taps
+  // on a reply. Before that it is a ×1.25 on a number nobody is managing.
+  if (!state.kvUnlocked && state.resolvedCount >= CONST.KV_UNLOCK_RESOLVES
+      && (state.lastResolveTaps >= CONST.REVEAL_TAPS_KV
+        || state.resolvedCount >= CONST.REVEAL_BACKSTOP_KV)) {
     state.kvUnlocked = true;
     pushLog(state, 'harness', 'K/V cache meter online.');
     fireHint(state, 'kv');
@@ -272,13 +284,13 @@ export function tick(state) {
   // a fast player to buy the loop and read "Loop spawned" before "Agentic
   // loop available."
   if (!state.activeQuery && state.resolvedCount >= 1) fireHint(state, 'idle');
-  if (state.lifetimeCycles >= CONST.LOOP_UNLOCK_CYCLES) fireHint(state, 'loopAvail');
   if (state.era >= 3 || state.lifetimeCycles >= CONST.TOOL_UNLOCK_CYCLES) fireHint(state, 'toolAvail');
-  if (state.resolvedCount >= CONST.OVERCLOCK_UNLOCK_RESOLVES) fireHint(state, 'overclockAvail');
-  // Gated on progress, not affordability: an affordability predicate can be
-  // consumed by the purchase itself before this line ever evaluates.
-  if (state.resolvedCount >= CONST.DRAFT_CAP_UNLOCK_RESOLVES
-      && state.draftCapLevel === 0) fireHint(state, 'draftCapAvail');
+
+  // Difficulty-gated reveals; the predicates live in actions.js so the hint,
+  // the button and the buy guard cannot drift apart.
+  if (overclockRevealed(state)) fireHint(state, 'overclockAvail');
+  if (loopRevealed(state)) fireHint(state, 'loopAvail');
+  if (state.draftCapLevel === 0 && draftCapRevealed(state)) fireHint(state, 'draftCapAvail');
 
   // 6. Arrival: count down to the next query while idle. Once the pool is
   // truly exhausted (era >= 3), turn the era instead: the DevOps transcript

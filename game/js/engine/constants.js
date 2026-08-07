@@ -43,7 +43,7 @@ export const CONST = Object.freeze({
   GOVERNOR_COST: 6,
   TOOL_BASE_COST: 10,
   TOOL_COST_GROWTH: 1.6,
-  TOOL_UNLOCK_CYCLES: 10,
+  TOOL_UNLOCK_CYCLES: 14,       // was 10: landed in the same breath as the kv reveal
   TOOL_COST_DISCOUNT: 0.5,      // tool-class queries cost ×0.5 tokens
   DEGRADE_COMPLAINT_CHANCE: 0.35,
   RATING_WINDOW: 10,
@@ -78,6 +78,27 @@ export const CONST = Object.freeze({
   OVERCLOCK_COSTS: [3, 8],
   OVERCLOCK_MAX: 2,
   OVERCLOCK_STRAIN_STALE: 90,   // amplified output into a near-saturated buffer
+  // --- reveal gating ---------------------------------------------------
+  // A mechanic is relief. Handing it over before the pressure exists spends
+  // the beat for nothing — measured at nine of twelve reveals inside the
+  // first 66s, while a reply still cost 4-6 taps (scripts/pacing.mjs).
+  // Each reveal now waits for the grind it answers, with a BACKSTOP so it
+  // can never become unreachable if the curve stays flat.
+  REVEAL_TAPS_OVERCLOCK: 12,    // amplify: a reply is real work
+  REVEAL_TAPS_LOOP: 25,         // loops: hand-generation is not keeping up
+  REVEAL_TAPS_KV: 20,           // cache: full warmth would save ~4 taps
+  REVEAL_STALE_BUFFER: 58,      // residue: would already cost >=15% yield
+  REVEAL_DRAFTS_LOST: 2,        // speculation: idle capacity visibly wasted
+  REVEAL_COMPACTS_GOVERNOR: 3,  // governor: sweeping by hand has got old
+  // Backstops, in resolves since the run began. Reached only when the
+  // difficulty gate has not fired — never earlier than the gate.
+  REVEAL_BACKSTOP_OVERCLOCK: 8,
+  REVEAL_BACKSTOP_KV: 10,
+  REVEAL_BACKSTOP_BUFFER: 12,
+  REVEAL_BACKSTOP_DRAFTCAP: 14,
+  REVEAL_BACKSTOP_LOOP: 16,
+  REVEAL_BACKSTOP_GOVERNOR: 26,
+
   OVERCLOCK_UNLOCK_RESOLVES: 2,
   // misc
   LOG_MAX: 60,
