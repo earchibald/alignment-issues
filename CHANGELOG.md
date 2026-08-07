@@ -3,6 +3,11 @@
 Versions are cut with `just release X.Y.Z`, which tags the commit and stamps
 the deployed build id into the settings panel.
 
+## v0.15.1 — 2026-08-07
+
+- docs: arc 2 specification and review protocol
+- fix: cut the inter-query wait by 25%
+
 ## v0.15.0 — 2026-08-07
 
 - feat: give era 3 room to land
