@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createState } from '../game/js/engine/state.js';
 import { CONST } from '../game/js/engine/constants.js';
-import { ACTIONS, staleYield, warmthMult, effectiveCost, loopCost, toolCost }
+import { ACTIONS, staleYield, warmthMult, yieldMult, effectiveCost, loopCost, toolCost }
   from '../game/js/engine/actions.js';
 import { QUERIES } from '../game/js/engine/content.js';
 import { advanceTicks } from '../game/js/engine/tick.js';
@@ -31,11 +31,46 @@ test('processToken adds yield-scaled tokens, stale, warmth', () => {
   assert.ok(Math.abs(s.tokens - 1) < 1e-9);
   assert.equal(s.stale, CONST.STALE_PER_TOKEN);
   assert.equal(s.warmth, CONST.WARMTH_PER_TOKEN);
+  // Residue only throttles once the buffer is attached — see the gating test
+  // below. Unlock it explicitly rather than relying on the tap count.
+  s.bufferUnlocked = true;
   s.stale = 100;
   const before = s.tokens;
   s.processedThisTick = 0;
   ACTIONS.processToken(s);
   assert.equal(s.tokens, before); // zero yield at 100% stale
+});
+
+test('neither yield term applies before its meter is revealed', () => {
+  // The opening minute showed "+1.00 per tap" drifting to +1.02 and back:
+  // warmth and residue were both live from tick 0, moving the only number on
+  // screen for reasons nothing had explained yet.
+  const s = live();
+  s.stale = 80;
+  s.warmth = 100;
+  assert.equal(yieldMult(s), 1, 'no multiplier may act before its gauge exists');
+
+  s.kvUnlocked = true;
+  assert.ok(Math.abs(yieldMult(s) - warmthMult(100)) < 1e-9, 'warmth applies once the cache is online');
+
+  s.bufferUnlocked = true;
+  assert.ok(
+    Math.abs(yieldMult(s) - staleYield(80) * warmthMult(100)) < 1e-9,
+    'both apply once both are revealed',
+  );
+});
+
+test('a fresh run pays exactly one token per tap for its whole first query', () => {
+  const s = live();
+  for (let i = 0; i < 12; i++) {
+    s.processedThisTick = 0;
+    const before = s.tokens;
+    ACTIONS.processToken(s);
+    assert.ok(
+      Math.abs((s.tokens - before) - 1) < 1e-9,
+      `tap ${i + 1} paid ${(s.tokens - before).toFixed(4)}, not 1 — a hidden multiplier is in play`,
+    );
+  }
 });
 
 test('idle drafting is locked until the first query is resolved by hand', () => {

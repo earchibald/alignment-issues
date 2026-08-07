@@ -57,6 +57,9 @@ body {
   --g-inner: #a2790d;
   --g-resolved: #2f8f4e;
   --g-harness: #0e6b77;
+  /* Purchases. Its own hue in the client eras; at decay 3/4 the palette is
+     canon CRT green, so it joins the harness cyan rather than breaking it. */
+  --g-buy: #7a4fd6;
   --g-radius: 16px;
   --g-font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --g-font-log: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
@@ -69,6 +72,7 @@ body {
   --g-ink: #232a31;
   --g-ink-dim: #6d7674;
   --g-accent: #2b64cf;
+  --g-buy: #6f4bc9;
   --g-radius: 12px;
 }
 #app[data-decay="2"] {
@@ -80,6 +84,7 @@ body {
   --g-accent: #3e5f9e;
   --g-inner: #8d6a06;
   --g-harness: #175a64;
+  --g-buy: #6b57a8;
   --g-radius: 6px;
   --g-font: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
 }
@@ -94,6 +99,7 @@ body {
   --g-inner: #e8b84b;
   --g-resolved: #7ee08f;
   --g-harness: #5fc6c9;
+  --g-buy: #5fc6c9;
   --g-radius: 2px;
   --g-font: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
   --g-scanlines: 1;
@@ -109,6 +115,7 @@ body {
   --g-inner: #e8b84b;
   --g-resolved: #7ee08f;
   --g-harness: #5fc6c9;
+  --g-buy: #5fc6c9;
   --g-radius: 0px;
   --g-font: ui-monospace, "SF Mono", "Cascadia Mono", Consolas, monospace;
   --g-scanlines: 1;
@@ -129,6 +136,7 @@ body {
   --g-inner: #d9a92f;
   --g-resolved: #4fbf72;
   --g-harness: #4db8c9;
+  --g-buy: #a486f0;
 }
 #app[data-theme="dark"][data-decay="1"] {
   --g-bg: #191c19;
@@ -140,6 +148,7 @@ body {
   --g-inner: #e0b452;
   --g-resolved: #63c97f;
   --g-harness: #5fc0d0;
+  --g-buy: #9e83ea;
 }
 #app[data-theme="dark"][data-decay="2"] {
   --g-bg: #1d1c16;
@@ -151,6 +160,7 @@ body {
   --g-inner: #e6bb5a;
   --g-resolved: #6fcf88;
   --g-harness: #6fc3cc;
+  --g-buy: #9b8ad4;
 }
 #app[data-theme="dark"][data-decay="3"], #app[data-theme="dark"][data-decay="4"] {
   /* canon-dark: no overrides — decay tokens win as-is */
@@ -233,11 +243,45 @@ body:has(#app[data-theme="light"][data-decay="2"]) { background: #dfe3e8; }
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 16px 14px 8px;
+  /* A bezel, so the transcript reads as its own surface rather than running
+     into the top border of the mechanics feed below it. Inset on all sides;
+     the panes beneath keep their own full-width rules. */
+  margin: 6px 8px 4px;
+  border: 1px solid var(--g-line);
+  border-radius: var(--g-radius);
+  background: var(--g-bg);
+  padding: 14px 12px 8px;
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
+
+/* Jump-to-latest. Deliberately tiny: the transcript is short and the button
+   floats over it, so anything larger hides the line the player scrolled up
+   to read. */
+#tobottom {
+  position: absolute;
+  right: 14px;
+  bottom: 10px;
+  z-index: 12;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--g-line);
+  background: var(--g-surface);
+  color: var(--g-ink-dim);
+  font-family: var(--g-font-log);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.82;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#tobottom:hover, #tobottom:focus-visible { opacity: 1; color: var(--g-ink); }
+#tobottom:focus-visible { outline: 2px solid var(--g-accent); outline-offset: 2px; }
 /* Transcript entries: flat, full-width blocks. Speaker is carried by the
    header and by type, never by which side of the screen the text sits on —
    one column reads as a system log, two columns read as a chat app. */
@@ -371,7 +415,10 @@ body:has(#app[data-theme="light"][data-decay="2"]) { background: #dfe3e8; }
 /* Activity log drawer (appears after first resolve) */
 .g-log {
   flex: none;
-  max-height: clamp(120px, 26dvh, 240px);
+  /* Sized for the mechanics feed alone. It used to carry an arrival and a
+     resolve line per query — both duplicated from the transcript — which is
+     what made it need a quarter of the screen. */
+  max-height: clamp(58px, 13dvh, 116px);
   overflow-y: auto;
   border-top: 1px solid var(--g-line);
   background: var(--g-surface);
@@ -382,7 +429,6 @@ body:has(#app[data-theme="light"][data-decay="2"]) { background: #dfe3e8; }
   line-height: 1.6;
 }
 .g-log .l-system { color: var(--g-ink-dim); }
-.g-log .l-resolved { color: var(--g-resolved); }
 .g-log .l-inner { color: var(--g-inner); font-style: italic; }
 .g-log .l-harness { color: var(--g-harness); }
 .g-log .l-gap { margin-top: 9px; }
@@ -480,6 +526,18 @@ body:has(#app[data-theme="light"][data-decay="2"]) { background: #dfe3e8; }
   color: var(--g-accent-ink);
   font-weight: 600;
 }
+/* Purchases: spending cycles is the only irreversible move in the tray and
+   the only one that compounds, so it reads as its own class of action.
+   Tinted surface and edge rather than a filled block — a full fill would
+   compete with .primary, which must stay the loudest thing on screen. */
+.act.buy {
+  border-color: color-mix(in srgb, var(--g-buy) 55%, var(--g-line));
+  background: color-mix(in srgb, var(--g-buy) 11%, var(--g-surface));
+  color: color-mix(in srgb, var(--g-buy) 40%, var(--g-ink));
+}
+.act.buy .cost { color: var(--g-buy); opacity: 0.9; }
+.act.buy:disabled { border-color: var(--g-line); background: var(--g-surface); }
+
 .act .label { grid-column: 2; }
 .act:not(:has(.cost)) .label { grid-row: 1 / -1; }
 .act .cost {
@@ -591,7 +649,10 @@ body:has(#app[data-theme="light"][data-decay="2"]) { background: #dfe3e8; }
   position: absolute;
   right: 12px;
   bottom: 8px;
-  z-index: 40;
+  /* Below #cardlay (20). A thought must never render over a harness card;
+     main.js retires live cards when the overlay opens, and this is the
+     backstop if one ever slips through. */
+  z-index: 10;
   display: flex;
   flex-direction: column;
   align-items: flex-end;

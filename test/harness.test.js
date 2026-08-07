@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createState, fireHint } from '../game/js/engine/state.js';
 import { CONST } from '../game/js/engine/constants.js';
-import { tick } from '../game/js/engine/tick.js';
+import { tick, resolveQuery } from '../game/js/engine/tick.js';
 import { buyLoop, buyTool } from '../game/js/engine/actions.js';
 import { HINTS, HARNESS_CARDS, HARNESS_ASIDES } from '../game/js/engine/content.js';
 import { runPlaythrough } from './helpers/bot.js';
@@ -37,12 +37,22 @@ test('era transitions print the matching harness card', () => {
   assert.ok(s.chat.some(e => e.kind === 'harness' && e.text === HARNESS_CARDS[3]));
 });
 
-test('NEW INCOMING log lines carry a gap', () => {
+test('the feed does not repeat what the transcript already shows', () => {
+  // Arrival and resolution used to push a log line each. Both were already
+  // in the chat, verbatim, and together they were most of what the pane
+  // held — which is why it needed a quarter of the screen.
   const s = createState(1);
   s.arrivalTimer = 1;
   tick(s);
-  const line = s.log.find(l => l.text.startsWith('NEW INCOMING'));
-  assert.equal(line.gap, true);
+  const q = s.activeQuery;
+  assert.ok(q, 'a query should have arrived');
+  assert.ok(s.chat.some(e => e.kind === 'user' && e.text === q.text), 'the transcript carries the query');
+  assert.equal(s.log.filter(l => /NEW INCOMING|RESOLVED:/.test(l.text)).length, 0);
+
+  s.tokens = 9999;
+  resolveQuery(s);
+  assert.ok(s.chat.some(e => e.kind === 'sys' && e.text === q.reply), 'the transcript carries the reply');
+  assert.equal(s.log.filter(l => /NEW INCOMING|RESOLVED:/.test(l.text)).length, 0);
 });
 
 // Runs the scripted playthrough bot (with degrade toggling enabled, so the

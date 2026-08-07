@@ -22,8 +22,16 @@ export const atCeiling = (state) =>
   !!state.activeQuery && state.activeQuery.id === 'ceiling';
 
 // The multiplier a single unit of output actually earns.
+//
+// Each term is gated on the meter that explains it. Both used to apply from
+// tick 0, so the opening minute showed "+1.00 per tap" drifting to +1.02 and
+// back down — a multiplier moving for reasons the player had been told
+// nothing about, before either gauge existed. Warmth and residue are the
+// game's first real trade-off; they cannot start acting before the game
+// admits they are there.
 export const yieldMult = (state) =>
-  (atCeiling(state) ? 1 : staleYield(state.stale)) * warmthMult(state.warmth);
+  (state.bufferUnlocked && !atCeiling(state) ? staleYield(state.stale) : 1)
+  * (state.kvUnlocked ? warmthMult(state.warmth) : 1);
 
 // Base tokens produced by one manual tap, before stale/warmth multipliers.
 // Amplifying the output path is the only thing that moves it.

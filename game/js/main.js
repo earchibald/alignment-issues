@@ -6,7 +6,7 @@ import { createState } from './engine/state.js';
 import { tick } from './engine/tick.js';
 import { ACTIONS } from './engine/actions.js';
 import { saveLocal, loadLocal, offlineCatchUp, SAVE_KEY } from './engine/save.js';
-import { render } from './ui/render.js';
+import { render, onChatScroll, scrollChatToEnd } from './ui/render.js';
 import { harnessCard, hintCard, thoughtCard, thinkSeconds } from './ui/components.js';
 import { installKeys } from './ui/keys.js';
 import { installDebug } from './ui/debug.js';
@@ -112,9 +112,20 @@ async function main() {
     teaser: document.getElementById('teaser'),
     cardlay: document.getElementById('cardlay'),
     thoughts: document.getElementById('thoughts'),
+    tobottom: document.getElementById('tobottom'),
     fx: document.getElementById('fx'),
     dispatch,
   };
+
+  // --- transcript follow ------------------------------------------------
+  // The chat follows the tail unless the player has scrolled up to read.
+  // While it is scrolled up, a small button offers the way back.
+  if (refs.chat) {
+    refs.chat.addEventListener('scroll', () => onChatScroll(refs), { passive: true });
+  }
+  if (refs.tobottom) {
+    refs.tobottom.addEventListener('click', () => scrollChatToEnd(refs));
+  }
 
   // --- interrupting harness-card overlay --------------------------------
   // cardSeqHW is the chatSeq high-water mark: chat 'harness' entries at or
@@ -164,7 +175,7 @@ async function main() {
   function showThought(text) {
     if (!refs.thoughts) return;
     const el = thoughtCard(text);
-    const rec = { el, timer: 0 };
+    const rec = { el, text, timer: 0 };
     // Tapping a card dismisses it now instead of waiting out the timeout.
     el.addEventListener('click', () => dropThought(rec, true));
     refs.thoughts.append(el);
@@ -247,6 +258,15 @@ async function main() {
     }
     hooks.onContext('card.pause', { seq: next.seq });
     cardPaused = true;
+    // A harness card is the game's teaching channel and it holds the loop
+    // still. Nothing may sit on top of it — least of all a thought, which is
+    // the machine's inner voice talking over its own instructions. Cards
+    // already on screen go back on the queue and replay at full dwell once
+    // play resumes; pauseForCard drains that queue.
+    for (const rec of liveThoughts.slice().reverse()) {
+      thoughtQueue.unshift(rec.text);
+      dropThought(rec, true);
+    }
     cardShownAt = performance.now();
     refs.cardlay.replaceChildren();
     refs.cardlay.append(next.kind === 'hint' ? hintCard(next.text) : harnessCard(next.text));
@@ -366,20 +386,38 @@ async function main() {
   // Cooldown "sweep" flash on the process button: only when a landed press
   // (tokens actually increased) processed against an active query, not on
   // idle drafting or presses that were dropped by the per-tick cap.
-  let sweepTimeout = null;
-  function flashSweep() {
-    const btn = refs.actions.querySelector('[data-testid="process"]');
+  // Every action button flashes, not just the process button. Keyed off the
+  // action name rather than the click target so a keyboard shortcut lights
+  // the same button a tap would.
+  const SWEEP_TESTID = {
+    processToken: 'process', flush: 'flush', compactStart: 'compact',
+    buyLoop: 'buy-loop', buyGovernor: 'buy-governor', buyTool: 'buy-tool',
+    buyOverclock: 'buy-overclock', buyDraftCap: 'buy-draftcap',
+    toggleDegrade: 'degrade', reclaim: 'reclaim',
+  };
+  // Timers are per-button: a single shared handle let a second button's flash
+  // cancel the first button's cleanup and latch the class on it.
+  const sweepTimers = new WeakMap();
+  function flashSweep(btn) {
     if (!btn) return;
     btn.classList.add('sweep');
     btn.addEventListener('animationend', () => btn.classList.remove('sweep'), { once: true });
     // Under prefers-reduced-motion the animation is disabled (animation:
     // none), so 'animationend' never fires and the class would latch
     // forever — fall back to a timed removal that outlasts the animation.
-    if (sweepTimeout !== null) clearTimeout(sweepTimeout);
-    sweepTimeout = setTimeout(() => {
+    const pending = sweepTimers.get(btn);
+    if (pending !== undefined) clearTimeout(pending);
+    sweepTimers.set(btn, setTimeout(() => {
       btn.classList.remove('sweep');
-      sweepTimeout = null;
-    }, 250);
+      sweepTimers.delete(btn);
+    }, 250));
+  }
+  function flashAction(name) {
+    const testid = SWEEP_TESTID[name];
+    if (!testid) return;
+    // After paintNow: a signature change rebuilds the tray, so the element
+    // that was clicked may already be gone.
+    flashSweep(refs.actions.querySelector(`[data-testid="${testid}"]`));
   }
 
   function dispatch(name, arg) {
@@ -395,10 +433,17 @@ async function main() {
     // action, not before it.
     const seqBefore = stateBox.current.uiSeq;
     action(stateBox.current, arg);
-    if (stateBox.current.uiSeq !== seqBefore) playSoundFor(name);
+    const landed = stateBox.current.uiSeq !== seqBefore;
+    if (landed) playSoundFor(name);
     paintNow();
-    if (name === 'processToken' && hadActiveQuery && stateBox.current.tokens > tokensBefore) {
-      flashSweep();
+    // The process button keeps its stricter rule: it flashes for output that
+    // actually reached the reply, never for idle drafting or a press the
+    // per-tick cap dropped. Every other action flashes when it landed — the
+    // same signal the sound already uses.
+    if (name === 'processToken') {
+      if (hadActiveQuery && stateBox.current.tokens > tokensBefore) flashAction(name);
+    } else if (landed) {
+      flashAction(name);
     }
   }
 

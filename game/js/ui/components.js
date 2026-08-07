@@ -188,7 +188,9 @@ export function chatNote(text, rate) {
   return el;
 }
 
-const LOG_CLASS = { system: 'l-system', resolved: 'l-resolved', thinking: 'l-inner', harness: 'l-harness' };
+// 'resolved' and the arrival line left the feed: the transcript already
+// shows both, and repeating them was most of what the pane held.
+const LOG_CLASS = { system: 'l-system', thinking: 'l-inner', harness: 'l-harness' };
 
 export function logLine({ kind, text, gap }) {
   const el = document.createElement('div');
@@ -255,10 +257,14 @@ export function resRead({ name, val, cls, testid }) {
   return el;
 }
 
-export function actionButton({ key, label, cost, state, primary, testid, onclick }) {
+export function actionButton({ key, label, cost, state, primary, buy, testid, onclick }) {
   const btn = document.createElement('button');
   btn.type = 'button';
-  btn.className = primary ? 'act primary' : 'act';
+  // `buy` marks the spend-cycles actions. They are a different KIND of move
+  // from processing and buffer hygiene — irreversible, and the only way the
+  // run compounds — so they get their own colour rather than sharing the
+  // neutral chrome with everything else.
+  btn.className = `act${primary ? ' primary' : ''}${buy ? ' buy' : ''}`;
   if (testid) btn.dataset.testid = testid;
   if (key) {
     btn.setAttribute('aria-keyshortcuts', key === 'SPACE' ? 'Space' : key);

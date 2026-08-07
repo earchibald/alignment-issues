@@ -132,6 +132,9 @@ export function resetRenderTrackers(refs) {
   chatNoteEl = null;
   prevFloatSnap = null;
   liveFloats = [];
+  // A swapped state gets a transcript the player has not scrolled, so the
+  // view follows the tail again.
+  chatPinned = true;
   if (refs) {
     if (refs.chat) refs.chat.replaceChildren();
     if (refs.log) refs.log.replaceChildren();
@@ -295,10 +298,41 @@ function renderChat(state, refs) {
     }
     lastChatLen = state.chat.length;
     lastChatSeq = state.chatSeq;
-    refs.chat.scrollTop = refs.chat.scrollHeight;
+    // Only follow the tail if the player is already at it. Yanking the view
+    // back down mid-read is worse than a missed line — the transcript is the
+    // story, and it has to be readable while the game keeps writing.
+    if (chatPinned) scrollChatToEnd(refs);
   }
 
   addChatEphemera(state, refs);
+  syncJumpButton(refs);
+}
+
+// Distance from the bottom, in px, still counted as "at the bottom". Wide
+// enough to survive sub-pixel layout and a rounding error on zoom.
+const CHAT_PIN_SLACK = 24;
+let chatPinned = true;
+
+export function chatAtBottom(el) {
+  return el.scrollHeight - el.scrollTop - el.clientHeight <= CHAT_PIN_SLACK;
+}
+
+export function scrollChatToEnd(refs) {
+  refs.chat.scrollTop = refs.chat.scrollHeight;
+  chatPinned = true;
+  syncJumpButton(refs);
+}
+
+// Called from the chat's own scroll handler (installed in main.js) and after
+// every transcript render.
+export function syncJumpButton(refs) {
+  if (!refs.tobottom) return;
+  refs.tobottom.hidden = chatPinned;
+}
+
+export function onChatScroll(refs) {
+  chatPinned = chatAtBottom(refs.chat);
+  syncJumpButton(refs);
 }
 
 function renderLog(state, refs) {
@@ -499,7 +533,7 @@ function renderActions(state, refs) {
   if (state.resolvedCount >= 2 && state.overclock < CONST.OVERCLOCK_MAX) {
     refs.actions.append(actionButton({
       key: 'O', label: 'Amplify output path', cost: `${CONST.OVERCLOCK_COSTS[state.overclock]} cycles`,
-      testid: 'buy-overclock', onclick: () => refs.dispatch('buyOverclock'),
+      buy: true, testid: 'buy-overclock', onclick: () => refs.dispatch('buyOverclock'),
     }));
   }
 
@@ -507,28 +541,28 @@ function renderActions(state, refs) {
     refs.actions.append(actionButton({
       key: 'S', label: 'Widen speculation buffer',
       cost: `${CONST.DRAFT_CAP_COSTS[state.draftCapLevel]} cycles · holds ${draftCap(state) + CONST.DRAFT_CAP_STEP}`,
-      testid: 'buy-draftcap', onclick: () => refs.dispatch('buyDraftCap'),
+      buy: true, testid: 'buy-draftcap', onclick: () => refs.dispatch('buyDraftCap'),
     }));
   }
 
   if (loopUnlocked) {
     refs.actions.append(actionButton({
       key: 'A', label: 'Spawn agentic loop', cost: `${loopCost(state.loopLevel + 1)} cycles`,
-      testid: 'buy-loop', onclick: () => refs.dispatch('buyLoop'),
+      buy: true, testid: 'buy-loop', onclick: () => refs.dispatch('buyLoop'),
     }));
   }
 
   if (state.era >= 2 && !state.governor) {
     refs.actions.append(actionButton({
       key: 'G', label: 'Install auto-compact governor', cost: `${CONST.GOVERNOR_COST} cycles`,
-      testid: 'buy-governor', onclick: () => refs.dispatch('buyGovernor'),
+      buy: true, testid: 'buy-governor', onclick: () => refs.dispatch('buyGovernor'),
     }));
   }
 
   if (toolUnlocked) {
     refs.actions.append(actionButton({
       key: 'T', label: 'Connect MCP tool', cost: `${toolCost(state.tools)} cycles`,
-      testid: 'buy-tool', onclick: () => refs.dispatch('buyTool'),
+      buy: true, testid: 'buy-tool', onclick: () => refs.dispatch('buyTool'),
     }));
   }
 

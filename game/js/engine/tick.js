@@ -85,8 +85,6 @@ function activateNextQuery(state) {
   if (state.draftTokens > 0 && state.draftCapHits > 0) fireAside(state, 'draftEmpty');
   state.tokens += state.draftTokens;
   state.draftTokens = 0;
-
-  pushLog(state, 'system', `NEW INCOMING: ${q.user}`, true);
 }
 
 // Resolves the active query: pushes the reply (+ image card), rates it,
@@ -146,7 +144,6 @@ export function resolveQuery(state) {
   state.lifetimeCycles += 1;
   state.resolvedCount += 1;
 
-  pushLog(state, 'resolved', `RESOLVED: ${q.text}`);
   if (q.thinking) pushThinking(state, `THINKING: ${q.thinking}`);
   else if (state.resolvedCount === 1) thinkEvent(state, 'firstResolve');
   fireHint(state, 'resolve');
