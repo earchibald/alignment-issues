@@ -14,7 +14,8 @@ export function createState(seed) {
     // query flow
     queryIndex: 0,          // legacy pointer; kept for save compatibility only
     servedIds: [],          // query ids already served this run; recycles when exhausted
-    era3Served: 0,          // era-3 queries served; drives the era-4 turn
+    era3Served: 0,         // era-3 queries served; drives the era-4 turn
+    eraServed: 0,          // queries served in the CURRENT era; drives the tier ramp
     activeQuery: null,
     arrivalTimer: 10,       // short first wait for the cold open
     tokens: 0,

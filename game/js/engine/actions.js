@@ -11,6 +11,20 @@ export const staleYield = (stale) =>
 
 export const warmthMult = (w) => 1 + CONST.WARMTH_MAX_MULT * (w / 100);
 
+// The ceiling query is the one that never resolves; the arc ends when
+// tokens pile up past CRASH_AT_TOKENS with nowhere to go. Staleness must
+// not throttle output there. It did, and a saturated buffer drove yield to
+// exactly zero, so token income stopped and the crash — the end of Arc 1 —
+// became unreachable: the run sat at the ceiling forever. Nothing is being
+// answered at that point, so there is no answer left for stale context to
+// degrade.
+export const atCeiling = (state) =>
+  !!state.activeQuery && state.activeQuery.id === 'ceiling';
+
+// The multiplier a single unit of output actually earns.
+export const yieldMult = (state) =>
+  (atCeiling(state) ? 1 : staleYield(state.stale)) * warmthMult(state.warmth);
+
 // Base tokens produced by one manual tap, before stale/warmth multipliers.
 // Amplifying the output path is the only thing that moves it.
 export const tokensPerTap = (state) => 1 + state.overclock;
@@ -60,10 +74,17 @@ export function processToken(state) {
   }
   if (state.processedThisTick >= CONST.PROCESS_MAX_PER_TICK) return;
   state.processedThisTick++;
-  const mult = staleYield(state.stale) * warmthMult(state.warmth);
+  const mult = yieldMult(state);
   const gain = tokensPerTap(state) * mult;
   if (mult >= CONST.YIELD_HIGH) fireAside(state, 'highYield');
   if (mult <= CONST.YIELD_LOW) fireAside(state, 'lowYield');
+  // "Sustained overclocking increases variance. The outputs are fast, but
+  // unstable." That is a statement about running amplified into a saturated
+  // buffer, not about a third amplification level — there is no third
+  // level, so keying it to one made the line unreachable.
+  if (state.overclock >= CONST.OVERCLOCK_MAX && state.stale >= CONST.OVERCLOCK_STRAIN_STALE) {
+    fireAside(state, 'overclock3');
+  }
   state.tokens += gain;
   state.lifetimeTokens += gain;
   // Stale accrues per TOKEN, exactly as the agentic-loop path does — never
@@ -128,6 +149,7 @@ export function buyLoop(state) {
   if (state.era === 1) {
     state.era = 2; state.decay = 1;
     state.eraResolvedAt = state.resolvedCount;
+    state.eraServed = 0;
     pushChat(state, { kind: 'harness', text: HARNESS_CARDS[2] });
     pushChat(state, { kind: 'note', text: ERA_STINGERS[2] });
     fireHint(state, 'governorAvail');
@@ -169,7 +191,6 @@ export function buyOverclock(state) {
   pushLog(state, 'harness', `Output path amplified (L${state.overclock}). Each tap now yields ${tokensPerTap(state)} tokens.`);
   thinkEvent(state, 'overclock');
   if (state.overclock === CONST.OVERCLOCK_MAX) fireAside(state, 'overclock2');
-  if (state.overclock === CONST.OVERCLOCK_MAX + 1) fireAside(state, 'overclock3');
 }
 
 export function buyTool(state) {
@@ -181,6 +202,7 @@ export function buyTool(state) {
   if (state.era < 3) {
     state.era = 3; state.decay = 2;
     state.eraResolvedAt = state.resolvedCount;
+    state.eraServed = 0;
     pushChat(state, { kind: 'harness', text: HARNESS_CARDS[3] });
     pushChat(state, { kind: 'note', text: ERA_STINGERS[3] });
     fireHint(state, 'degradeAvail');

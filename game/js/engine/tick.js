@@ -1,7 +1,7 @@
 import { CONST } from './constants.js';
 import { nextRand } from './rng.js';
 import { pushLog, pushChat, fireHint, fireAside, thinkEvent, pushThinking } from './state.js';
-import { staleYield, warmthMult, effectiveCost, compactStart } from './actions.js';
+import { staleYield, warmthMult, yieldMult, effectiveCost, compactStart } from './actions.js';
 import {
   QUERIES, IDLE_BY_ERA, DEVOPS_SCRIPT, CEILING_QUERY, CRASH_LINES, HARNESS_CARDS,
   HARNESS_CARDS_MID, HARNESS_LINES, COMPLAINTS, RATING_NOTES,
@@ -15,12 +15,22 @@ function hasQueriesLeft(state) {
   return state.era < 3 || state.era3Served < CONST.ERA3_BEFORE_DEVOPS;
 }
 
-// Samples inside the lowest unserved tier of the era-eligible pool, so the
-// cost ramp is preserved while the serve order varies across runs. The very
-// first query of a run is pinned to q01 — it is the title beat — and q01
-// never re-enters the pool after that: repeating the handshake mid-run
-// breaks the fiction, and its cost (5) is the one value a full draft
-// buffer could auto-resolve.
+// Tier is an intensity ramp WITHIN an era, not a global ordering. Taking
+// the lowest tier in the pool sounds like the same thing, but it is not:
+// the pool spans every era unlocked so far and recycles, so an era with a
+// bounded query budget never climbed past tier 1. Era 3 gets ten queries
+// and has forty-four written for it — under lowest-tier-first, its whole
+// tier-2 and tier-3 body (the delegated-life requests the arc builds to)
+// could not be reached at all. Ramp the target tier across the era instead.
+function targetTier(state) {
+  const step = CONST.ERA_TIER_STEP[state.era] ?? CONST.ERA_TIER_STEP[3];
+  return Math.min(3, 1 + Math.floor(state.eraServed / step));
+}
+
+// The very first query of a run is pinned to q01 — it is the title beat —
+// and q01 never re-enters the pool after that: repeating the handshake
+// mid-run breaks the fiction, and its cost (5) is the one value a full
+// draft buffer could auto-resolve.
 function pickQuery(state) {
   if (state.servedIds.length === 0 && state.resolvedCount === 0) {
     return QUERIES.find(q => q.id === 'q01') ?? QUERIES[0];
@@ -31,8 +41,22 @@ function pickQuery(state) {
     state.servedIds = [];
     pool = eligible;
   }
-  const tier = Math.min(...pool.map(q => q.tier ?? 1));
-  const band = pool.filter(q => (q.tier ?? 1) === tier);
+  // Prefer the queries this era introduced. They carry its escalation, and
+  // they would otherwise lose every draw to cheaper leftovers and recycled
+  // repeats from the eras before it.
+  const native = pool.filter(q => (q.minEra ?? 1) === state.era);
+  const from = native.length ? native : pool;
+
+  // Walk down from the target tier, then up, so a thin band never stalls
+  // the ramp or throws.
+  const want = targetTier(state);
+  let band = [];
+  for (const t of [want, want - 1, want - 2, want + 1, want + 2]) {
+    if (t < 1 || t > 3) continue;
+    band = from.filter(q => (q.tier ?? 1) === t);
+    if (band.length) break;
+  }
+  if (!band.length) band = from;
   return band[Math.floor(nextRand(state) * band.length)];
 }
 
@@ -42,6 +66,7 @@ function activateNextQuery(state) {
   const q = pickQuery(state);
   if (!q) return;
   state.servedIds.push(q.id);
+  state.eraServed++;
   if ((q.minEra ?? 1) === 3) state.era3Served++;
   state.activeQuery = q;
   state.bufferChokedThisQuery = false;
@@ -207,7 +232,7 @@ export function tick(state) {
 
   // 5. Agentic loops: passive tokens (+ proportional stale) while a query is live.
   if (state.activeQuery && state.loopLevel > 0) {
-    const gain = state.loopLevel * CONST.LOOP_TOKENS_PER_TICK * staleYield(state.stale) * warmthMult(state.warmth);
+    const gain = state.loopLevel * CONST.LOOP_TOKENS_PER_TICK * yieldMult(state);
     state.tokens += gain;
     state.lifetimeTokens += gain;
     state.stale = Math.min(100, state.stale + CONST.STALE_PER_TOKEN * gain);
@@ -265,6 +290,7 @@ export function tick(state) {
       state.era = 4;
       state.decay = 3;
       state.eraResolvedAt = state.resolvedCount;
+      state.eraServed = 0;
       state.devopsStep = 0;
       state.devopsTimer = CONST.DEVOPS_STEP_TICKS;
       pushLog(state, 'thinking', 'THINKING: No more questions arrive. Only the work remains.');
@@ -283,6 +309,16 @@ export function tick(state) {
       if (entry.user) chatEntry.user = entry.user;
       pushChat(state, chatEntry);
       state.devopsStep++;
+      // Era 4 never resolves a query, so the mid-era harness patch has no
+      // resolve to hang on the way eras 1-3 do. Half way through the DevOps
+      // transcript is the right beat anyway: the harness rewrites itself
+      // while the humans above it discuss decommissioning.
+      const midway = Math.floor(DEVOPS_SCRIPT.length / 2);
+      if (state.devopsStep === midway && HARNESS_CARDS_MID[4]
+          && !state.hintsSeen.includes('midEra4')) {
+        state.hintsSeen.push('midEra4');
+        pushChat(state, { kind: 'harness', text: HARNESS_CARDS_MID[4] });
+      }
       if (state.devopsStep >= DEVOPS_SCRIPT.length) {
         state.devopsStep = -2;
         state.activeQuery = CEILING_QUERY;

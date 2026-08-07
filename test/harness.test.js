@@ -117,3 +117,18 @@ test('every HARNESS_ASIDES id is referenced by the engine', () => {
     assert.ok(src.includes(`'${id}'`), `HARNESS_ASIDES.${id} is never fired`);
   }
 });
+
+// Being referenced by the engine is not the same as being reachable. These
+// two were wired to conditions the arc could never satisfy: era 4 resolves
+// no queries, and there is no third overclock level.
+test('a full playthrough reaches the era-4 patch and the overclock strain aside', () => {
+  for (const seed of [2, 5]) {
+    const s = createState(seed);
+    runPlaythrough(s, { degrade: true });
+    assert.equal(s.phase, 'teaser', `seed ${seed} did not finish the arc`);
+    assert.ok(s.hintsSeen.includes('midEra4'),
+      `seed ${seed}: the era-4 harness patch never printed`);
+    assert.ok(s.hintsSeen.includes('overclock3'),
+      `seed ${seed}: the overclock strain aside never fired`);
+  }
+});

@@ -6,6 +6,8 @@ import {
 } from '../game/js/engine/content.js';
 import { createState } from '../game/js/engine/state.js';
 import { tick } from '../game/js/engine/tick.js';
+import { CONST } from '../game/js/engine/constants.js';
+import { botStep } from './helpers/bot.js';
 
 test('pool: 112 unique ids, minEra ascending, costs positive', () => {
   assert.equal(QUERIES.length, 112);
@@ -75,19 +77,48 @@ test('served queries never repeat until the pool recycles', () => {
   assert.equal(new Set(seen).size, seen.length, 'no id repeats before recycle');
 });
 
-test('selection serves the lowest unserved tier first, preserving the cost ramp', () => {
+test('tier ramps upward across an era rather than exhausting tier 1', () => {
   const s = createState(11);
+  const step = CONST.ERA_TIER_STEP[1];
   const tiers = [];
-  const era1Count = QUERIES.filter(q => (q.minEra ?? 1) === 1).length;
-  for (let i = 0; i < era1Count; i++) {
+  for (let i = 0; i < step * 3; i++) {
     s.activeQuery = null; s.arrivalTimer = 1;
     tick(s);
     tiers.push(s.activeQuery.tier);
     s.resolvedCount += 1;
   }
-  for (let i = 1; i < tiers.length; i++) {
-    assert.ok(tiers[i] >= tiers[i - 1], `tier fell from ${tiers[i - 1]} to ${tiers[i]} at serve ${i}`);
+  // The opening band is the gentle one, and the era has climbed to the top
+  // band by the time it has served two bands' worth.
+  assert.deepEqual(tiers.slice(0, step), new Array(step).fill(1), 'era must open on tier 1');
+  assert.ok(tiers.slice(step, step * 2).every(t => t >= 2), 'second band must leave tier 1');
+  assert.ok(tiers.slice(step * 2).some(t => t === 3), 'era must reach tier 3');
+});
+
+// The regression this guards: era 3 serves ERA3_BEFORE_DEVOPS queries but
+// has far more written for it. Picking the globally lowest tier meant its
+// tier-2 and tier-3 bodies — the queries the arc builds toward — could
+// never be served at all.
+test('era-3 tier 2 and 3 queries are reachable in a real run', () => {
+  const wanted = new Set(
+    QUERIES.filter(q => (q.minEra ?? 1) === 3 && (q.tier ?? 1) >= 2).map(q => q.id));
+  assert.ok(wanted.size > 20, 'fixture check: era 3 should have a large high-tier body');
+
+  const hit = new Set();
+  for (const seed of [3, 9, 21]) {
+    const s = createState(seed);
+    let last = null;
+    let guard = 0;
+    while (s.phase !== 'teaser' && guard++ < 400000) {
+      botStep(s);
+      tick(s);
+      if (s.activeQuery && s.activeQuery.id !== last) {
+        last = s.activeQuery.id;
+        if (wanted.has(last)) hit.add(last);
+      }
+    }
   }
+  assert.ok(hit.size >= 10,
+    `only ${hit.size} of ${wanted.size} high-tier era-3 queries were ever served`);
 });
 
 test('every query has a tier of 1, 2 or 3', () => {

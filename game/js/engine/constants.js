@@ -48,6 +48,10 @@ export const CONST = Object.freeze({
   RECLAIM_POOL: 12,
   RECLAIM_MIN: 30,
   RECLAIM_MAX: 60,
+  // Queries served per tier band within an era: the target tier steps up
+  // every N serves, so an era climbs 1 -> 2 -> 3 across its own length.
+  // Era 3 is bounded at ERA3_BEFORE_DEVOPS, so its bands are tighter.
+  ERA_TIER_STEP: { 1: 5, 2: 7, 3: 3, 4: 3 },
   ERA3_BEFORE_DEVOPS: 10,       // era-3 queries served before the DevOps beat
   DEVOPS_STEP_TICKS: 30,        // default; entries may override via .ticks
   CRASH_LINE_TICKS: 5,          // ticks between crash lines (31 lines ≈ 31s; [SPACE] advances)
@@ -61,6 +65,7 @@ export const CONST = Object.freeze({
   // Amplification: each level adds +1 token PER TAP (before stale/warmth).
   OVERCLOCK_COSTS: [3, 8],
   OVERCLOCK_MAX: 2,
+  OVERCLOCK_STRAIN_STALE: 90,   // amplified output into a near-saturated buffer
   OVERCLOCK_UNLOCK_RESOLVES: 2,
   // misc
   LOG_MAX: 60,

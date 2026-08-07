@@ -27,6 +27,7 @@ export function deserialize(json) {
   // re-serves early queries once. Acceptable; no save version bump.
   if (!Array.isArray(parsed.servedIds)) parsed.servedIds = [];
   if (typeof parsed.era3Served !== 'number') parsed.era3Served = 0;
+  if (typeof parsed.eraServed !== 'number') parsed.eraServed = 0;
   if (typeof parsed.lastIdleIdx !== 'number') parsed.lastIdleIdx = -1;
   if (typeof parsed.flushCount !== 'number') parsed.flushCount = 0;
   if (typeof parsed.compactCount !== 'number') parsed.compactCount = 0;

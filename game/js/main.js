@@ -209,6 +209,20 @@ async function main() {
   // show one at a time.
   function pauseForCard() {
     scanForCards();
+    // The crash and the teaser are the arc's closing set-pieces. A harness
+    // card popping over them covers the ending, and by then there is no
+    // mechanic left for it to teach — so drop whatever is still queued,
+    // and take down one already on screen.
+    const phase = stateBox.current.phase;
+    if (phase === 'crash' || phase === 'teaser') {
+      cardQueue = [];
+      if (cardPaused) {
+        cardPaused = false;
+        refs.cardlay.hidden = true;
+        refs.cardlay.replaceChildren();
+      }
+      return;
+    }
     // The settings <dialog> renders in the browser's top layer, hiding the
     // card overlay underneath it. Leave queued cards in place and defer
     // opening the overlay until the dialog closes, so a card is never shown

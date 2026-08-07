@@ -5,7 +5,7 @@
 // only touches the DOM where something actually changed.
 
 import { CONST } from '../engine/constants.js';
-import { effectiveCost, loopCost, toolCost, staleYield, warmthMult, tokensPerTap, draftCap } from '../engine/actions.js';
+import { effectiveCost, loopCost, toolCost, staleYield, warmthMult, yieldMult, tokensPerTap, draftCap } from '../engine/actions.js';
 import { CRASH_LINES, TEASER_VARIANTS } from '../engine/content.js';
 import {
   bubble, genImgCard, toolCallCard, thinkBlock, chatNote, logLine,
@@ -370,6 +370,9 @@ function renderActions(state, refs) {
     // whether there is anything to flush — the per-tap figure below is
     // masked to 0 while idle, so it cannot stand in for this
     state.stale > 0,
+    // the idle button counts banked drafts, and a full buffer makes the tap
+    // a no-op — leaving it stale reads as an unresponsive game
+    state.activeQuery ? 0 : state.draftTokens,
     // the per-tap figure is live, so it must retrigger the tray render
     state.activeQuery ? Math.round(staleYield(state.stale) * warmthMult(state.warmth) * 100) : 0,
   ].join('|');
@@ -384,13 +387,20 @@ function renderActions(state, refs) {
   } else if (state.activeQuery) {
     // The live per-tap yield is the number that actually moves: amplification
     // raises it, a warm cache lifts it, stale context drags it down.
-    const perTap = tokensPerTap(state) * staleYield(state.stale) * warmthMult(state.warmth);
+    const perTap = tokensPerTap(state) * yieldMult(state);
     processLabel = 'Process token';
     processCost = `+${perTap.toFixed(2)} per tap`;
   } else {
     const locked = state.resolvedCount < 1;
-    processLabel = locked ? 'Awaiting first user' : 'Speculative decode';
-    processCost = locked ? 'nothing to speculate from yet' : `bank drafts · warms cache · ${state.draftTokens}/${draftCap(state)}`;
+    const full = !locked && state.draftTokens >= draftCap(state);
+    processLabel = locked ? 'Awaiting first user'
+      : full ? 'Speculation buffer full' : 'Speculative decode';
+    // A full buffer makes the tap a no-op in the engine. Saying so, and
+    // greying the button, is the difference between "nothing left to do
+    // here" and "this game has stopped responding".
+    processCost = locked ? 'nothing to speculate from yet'
+      : full ? `${state.draftTokens}/${draftCap(state)} banked — waiting for the next user`
+      : `bank drafts · warms cache · ${state.draftTokens}/${draftCap(state)}`;
   }
   const processBtn = actionButton({
     key: 'SPACE',
@@ -401,6 +411,8 @@ function renderActions(state, refs) {
     onclick: () => refs.dispatch('processToken'),
   });
   if (choked) processBtn.classList.add('choked');
+  processBtn.disabled = !choked && !state.activeQuery
+    && state.resolvedCount >= 1 && state.draftTokens >= draftCap(state);
   refs.actions.append(processBtn);
 
   if (state.bufferUnlocked) {

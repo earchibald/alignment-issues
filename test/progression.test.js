@@ -4,6 +4,7 @@ import { createState } from '../game/js/engine/state.js';
 import { CONST } from '../game/js/engine/constants.js';
 import { ACTIONS, effectiveCost } from '../game/js/engine/actions.js';
 import { tick, advanceTicks, runUntil } from '../game/js/engine/tick.js';
+import { CEILING_QUERY } from '../game/js/engine/content.js';
 
 // Deterministic bot: always processes, buys loops/tools when possible, compacts at 70%
 function botStep(s) {
@@ -107,4 +108,27 @@ test('era-3 credential drip salvages credentials over time', () => {
   advanceTicks(s, 3000);
   assert.ok(s.credentials > 0, 'credentials should be gained via drip');
   assert.ok(s.log.some(l => l.text.includes('SALVAGE')), 'drip should log SALVAGE events');
+});
+
+// A soft-lock that made Arc 1 uncompletable: the era-4 ceiling query never
+// resolves, and the arc ends only when tokens pass CRASH_AT_TOKENS. Both
+// income paths were multiplied by staleYield, so a saturated buffer drove
+// them to exactly zero and the crash could never fire. No query arrives in
+// era 4, so nothing prompts the player to compact — saturation is the
+// DEFAULT there, not an edge case.
+test('the era-4 ceiling always reaches the crash, even with a saturated buffer', () => {
+  for (const loop of [1, 4]) {
+    const s = createState(7);
+    s.phase = 1; s.era = 4; s.decay = 3; s.loopLevel = loop; s.bufferUnlocked = true;
+    s.activeQuery = CEILING_QUERY; s.devopsStep = -2; s.tokens = 0;
+    s.stale = 100;                       // fully saturated, never managed
+
+    let n = 0;
+    while (s.phase === 1 && n++ < 20000) {
+      for (let i = 0; i < CONST.PROCESS_MAX_PER_TICK; i++) ACTIONS.processToken(s);
+      tick(s);
+    }
+    assert.equal(s.phase, 'crash', `loop L${loop}: the ceiling never crashed`);
+    assert.ok(n < 5000, `loop L${loop}: the finale took ${n} ticks`);
+  }
 });
