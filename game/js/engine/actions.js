@@ -103,6 +103,11 @@ export function flush(state) {
 export function compactStart(state, auto = false) {
   if (state.phase !== 1) return;
   if (!state.bufferUnlocked || state.compacting > 0) return;
+  // Same reasoning as flush: a clean buffer has nothing to compact, and
+  // running anyway would spend four seconds and a compact aside on a
+  // multiply by zero. The governor only ever fires above its trigger,
+  // so this never blocks it.
+  if (state.stale <= 0) return;
   state.compacting = CONST.COMPACT_TICKS;
   state.compactCount += 1;
   pushLog(state, 'harness', pick(state, HARNESS_LINES.compactStart));

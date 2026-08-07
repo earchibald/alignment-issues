@@ -413,12 +413,15 @@ function renderActions(state, refs) {
     // compaction does.
     flushBtn.disabled = state.stale <= 0;
     refs.actions.append(flushBtn);
+    const compactCost = state.compacting > 0 ? `sweeping… ${state.compacting}t`
+      : state.stale > 0 ? '~4s · cache stays warm'
+      : 'buffer already clean';
     const compactBtn = actionButton({
       key: 'C', label: 'Compact context',
-      cost: state.compacting > 0 ? `sweeping… ${state.compacting}t` : '~4s · cache stays warm',
+      cost: compactCost,
       testid: 'compact', onclick: () => refs.dispatch('compactStart'),
     });
-    compactBtn.disabled = state.compacting > 0;
+    compactBtn.disabled = state.compacting > 0 || state.stale <= 0;
     refs.actions.append(compactBtn);
   }
 

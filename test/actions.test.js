@@ -113,6 +113,7 @@ test('flush zeroes stale and warmth', () => {
 test('compactStart begins a sweep and does not restart mid-sweep', () => {
   const s = live();
   s.bufferUnlocked = true;
+  s.stale = 40; // a clean buffer is refused outright — see the test below
   ACTIONS.compactStart(s);
   assert.equal(s.compacting, CONST.COMPACT_TICKS);
   s.compacting = 5;
@@ -186,4 +187,22 @@ test('flush refuses when there is nothing to flush', () => {
   assert.equal(s.stale, 0);
   assert.equal(s.warmth, 0);
   assert.equal(s.flushCount, 1);
+});
+
+test('compactStart refuses when there is nothing to compact', () => {
+  const { compactStart } = ACTIONS;
+  const s = createState(1);
+  s.phase = 1;
+  s.bufferUnlocked = true;
+  s.stale = 0;
+  const seq = s.uiSeq;
+  compactStart(s);
+  assert.equal(s.compacting, 0, 'a clean buffer must not start a sweep');
+  assert.equal(s.uiSeq, seq);
+  assert.equal(s.compactCount, 0);
+
+  s.stale = 40;
+  compactStart(s);
+  assert.equal(s.compacting, CONST.COMPACT_TICKS);
+  assert.equal(s.compactCount, 1);
 });
