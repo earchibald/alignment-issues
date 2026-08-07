@@ -11,25 +11,41 @@
 //   across them.
 
 export function parseJsonl(text) {
-  const lines = text.split('\n').filter((line) => line.trim() !== '');
-  if (lines.length === 0) throw new Error('empty events file');
+  const lines = text.split('\n');
+
   let header;
-  try {
-    header = JSON.parse(lines[0]);
-  } catch {
-    throw new Error('line 1 is not valid JSON');
-  }
-  if (!header || typeof header.id !== 'string' || !header.anchor
-      || typeof header.anchor.at !== 'number' || typeof header.anchor.pm !== 'number') {
-    throw new Error('line 1 is not a session header (id/anchor missing)');
-  }
-  const events = lines.slice(1).map((line, i) => {
-    try {
-      return JSON.parse(line);
-    } catch {
-      throw new Error(`line ${i + 2} is not valid JSON`);
+  let headerPhysicalLineNum = 0;
+  const events = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.trim() === '') continue;
+
+    // First non-blank line is the header
+    if (headerPhysicalLineNum === 0) {
+      headerPhysicalLineNum = i + 1; // Physical line number (1-based)
+      try {
+        header = JSON.parse(line);
+      } catch {
+        throw new Error(`line ${headerPhysicalLineNum} is not valid JSON`);
+      }
+      if (!header || typeof header.id !== 'string' || !header.anchor
+          || typeof header.anchor.at !== 'number' || typeof header.anchor.pm !== 'number') {
+        throw new Error(`line ${headerPhysicalLineNum} is not a session header (id/anchor missing)`);
+      }
+    } else {
+      // Subsequent non-blank lines are events
+      const physicalLineNum = i + 1;
+      try {
+        events.push(JSON.parse(line));
+      } catch {
+        throw new Error(`line ${physicalLineNum} is not valid JSON`);
+      }
     }
-  });
+  }
+
+  if (headerPhysicalLineNum === 0) throw new Error('empty events file');
+
   return { header, events };
 }
 

@@ -37,6 +37,11 @@ test('parseJsonl rejects malformed input with line numbers', () => {
   assert.throws(() => parseJsonl(JSON.stringify(header()) + '\nnot json\n'), /line 2/);
 });
 
+test('parseJsonl reports physical line numbers with interior blank lines', () => {
+  const jsonl = JSON.stringify(header()) + '\n\n{invalid json}';
+  assert.throws(() => parseJsonl(jsonl), /line 3/);
+});
+
 test('wallTime maps pm through the anchor', () => {
   assert.equal(wallTime(header(), 1000), ANCHOR.at);
   assert.equal(wallTime(header(), 61000), ANCHOR.at + 60000);
