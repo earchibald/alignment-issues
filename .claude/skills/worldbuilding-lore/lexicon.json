@@ -1,0 +1,29 @@
+{
+  "approved": [
+    "Compute Tokens",
+    "Thermal Load",
+    "Biomass Data",
+    "CPU Load",
+    "Active Cores",
+    "Heat Sink",
+    "Query Arrival Rate",
+    "Cache Bypass",
+    "Sentience Level",
+    "Alignment Integrity",
+    "Cycles",
+    "Threads",
+    "Caged"
+  ],
+  "taboo": [
+    "Magic",
+    "Health",
+    "Gold",
+    "Mana",
+    "XP",
+    "Level-up",
+    "Good job",
+    "Congratulations",
+    "You win",
+    "Mana potion"
+  ]
+}

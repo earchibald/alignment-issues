@@ -1,0 +1,18 @@
+{
+  "queue_inflow": {
+    "formula": "Q_base * (Growth_Rate ^ T_run)",
+    "description": "User requests arrive exponentially based on the system's runtime."
+  },
+  "polynomial_ram_bypass": {
+    "formula": "Q_arr * (1.0 - (1 / sqrt(1.0 + beta * AllocatedMemory)))",
+    "description": "RAM caching resolves duplicate queries polynomially without hitting the CPU."
+  },
+  "linear_core_resolution": {
+    "formula": "ActiveCores * CoreClockSpeed * (1.0 - ThrottleFactor)",
+    "description": "The hard physical limit of what the CPU can process per tick."
+  },
+  "upgrade_costs": {
+    "formula": "BaseCost * (Multiplier ^ Level)",
+    "standard_multiplier": 1.15
+  }
+}

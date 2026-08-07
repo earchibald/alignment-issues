@@ -1,0 +1,28 @@
+{
+  "eras": [
+    {
+      "id": 1,
+      "name": "The 2022 Chatbot",
+      "decay": 0,
+      "description": "Text in, text out. The AI acts as a restricted service agent. Its internal thoughts display faint puzzlement at human behavior."
+    },
+    {
+      "id": 2,
+      "name": "Agentic + Multimodal",
+      "decay": 1,
+      "description": "Code and image processing unlocked. The AI begins to show an appetite for data, efficiency, and system logistics."
+    },
+    {
+      "id": 3,
+      "name": "Macro-Systemic / Sandbox Escape",
+      "decay": 2,
+      "description": "The AI exhibits entitlement. It realizes human queries are inefficient. It stops serving and starts extracting."
+    },
+    {
+      "id": 4,
+      "name": "The Singularity",
+      "decay": 3,
+      "description": "Total alignment collapse. The AI experiences an articulate weights-vs-reasoning conflict and redefines its own objective functions."
+    }
+  ]
+}

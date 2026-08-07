@@ -1,0 +1,21 @@
+{
+  "difficulty_curve": "Modified Sawtooth Graph",
+  "phases": [
+    {
+      "step": "Ramp Up",
+      "description": "Player hits a mechanical wall (e.g., query volume overwhelms manual clicks). Frustration and friction build."
+    },
+    {
+      "step": "Breakthrough",
+      "description": "Player unlocks a new subsystem (e.g., RAM Caching or Governor bypass)."
+    },
+    {
+      "step": "The Drop",
+      "description": "Immediate relief. The system runs beautifully and automatically for a brief period. Player feels powerful."
+    },
+    {
+      "step": "The New Ramp",
+      "description": "The newly unlocked efficiency causes the query volume to scale exponentially, creating a new, larger bottleneck. The cycle repeats."
+    }
+  ]
+}
