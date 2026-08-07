@@ -3,6 +3,11 @@
 Versions are cut with `just release X.Y.Z`, which tags the commit and stamps
 the deployed build id into the settings panel.
 
+## v0.13.1 — 2026-08-07
+
+- fix: zip multi-file exports where only one download is possible
+- docs: fix the analyze-session skill against a real recording
+
 ## v0.13.0 — 2026-08-07
 
 - fix: run.sh accepts terraform or tofu; manual notes OpenTofu path
