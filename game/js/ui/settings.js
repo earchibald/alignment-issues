@@ -271,6 +271,36 @@ export function installSettings({ stateBox, refs, paintNow, onReset, resetCardTr
   about.textContent = `hi. you there? — v${VERSION} · build ${BUILD}`;
   dialog.append(about);
 
+  // --- acknowledgements -----------------------------------------------
+  // Third-party asset credits, collapsed behind a button so the dialog
+  // stays short. The freesound license (CC Attribution 4.0) requires the
+  // credit line to be available to the player.
+  const ackBtn = document.createElement('button');
+  ackBtn.type = 'button';
+  ackBtn.dataset.testid = 'settings-acknowledgements';
+  ackBtn.textContent = 'Acknowledgements';
+  dialog.append(row(ackBtn));
+
+  const ackBody = document.createElement('div');
+  ackBody.className = 'settings-about';
+  ackBody.dataset.testid = 'settings-acknowledgements-body';
+  ackBody.hidden = true;
+  const ackLine = document.createElement('p');
+  ackLine.append(document.createTextNode('ui sound 8.wav by nezuai -- '));
+  const ackLink = document.createElement('a');
+  ackLink.href = 'https://freesound.org/s/582609/';
+  ackLink.target = '_blank';
+  ackLink.rel = 'noopener';
+  ackLink.textContent = 'https://freesound.org/s/582609/';
+  ackLine.append(ackLink);
+  ackLine.append(document.createTextNode(' -- License: Attribution 4.0'));
+  ackBody.append(ackLine);
+  dialog.append(ackBody);
+
+  ackBtn.addEventListener('click', () => {
+    ackBody.hidden = !ackBody.hidden;
+  });
+
   // --- openSettings function ----------------------------------------
   function openSettings() {
     soundCheckbox.checked = !!stateBox.current.settings.sound;
@@ -280,6 +310,7 @@ export function installSettings({ stateBox, refs, paintNow, onReset, resetCardTr
     themeDark.radio.checked = theme === 'dark';
     showConfirmStep(0);
     importError.textContent = '';
+    ackBody.hidden = true;
     renderManual();
     if (typeof dialog.showModal === 'function') dialog.showModal();
   }

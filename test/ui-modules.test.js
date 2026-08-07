@@ -15,6 +15,7 @@ const UI_MODULES = [
   '../game/js/ui/keys.js',
   '../game/js/ui/debug.js',
   '../game/js/ui/settings.js',
+  '../game/js/ui/sound.js',
 ];
 
 for (const path of UI_MODULES) {

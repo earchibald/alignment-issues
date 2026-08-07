@@ -11,6 +11,7 @@ import { harnessCard, hintCard } from './ui/components.js';
 import { installKeys } from './ui/keys.js';
 import { installDebug } from './ui/debug.js';
 import { installSettings } from './ui/settings.js';
+import { playCardSound } from './ui/sound.js';
 
 const TICK_MS = 200;
 const LOOP_MS = 50;
@@ -148,6 +149,7 @@ function main() {
     dismiss.textContent = 'tap / any key to continue';
     refs.cardlay.append(dismiss);
     refs.cardlay.hidden = false;
+    playCardSound(stateBox.current);
   }
 
   // Called every rAF frame: opens the overlay the moment a new harness
