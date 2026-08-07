@@ -37,8 +37,8 @@ secrets). Note the `function_url` output; step 4 needs it.
 
 ## 3. Configure the analyst profile
 
-1. Read the key id: `cd infra && terraform output -raw analyst_access_key_id`
-2. Read the secret: `terraform output -raw analyst_secret_access_key && cd ..`
+1. Read the key id: `terraform -chdir=infra output -raw analyst_access_key_id`
+2. Read the secret: `terraform -chdir=infra output -raw analyst_secret_access_key`
 3. Add to `~/.aws/credentials`:
 
        [hyt-analyst]
@@ -87,8 +87,14 @@ overlap window; rotate at a quiet moment.
 
 - Pause: set the GitHub variable `HYT_SUBMIT_ENABLED` to `0` and
   redeploy. Or disable the Lambda in the AWS console.
-- Full teardown: `./infra/run.sh destroy`. The bucket must be empty
-  first; pull anything you want to keep, then
+- Unset the token:
+  1. Set `submit_token = ""` in `infra/terraform.tfvars`.
+  2. Run `./infra/run.sh apply`. The Lambda now refuses every grant with
+     `503 submissions disabled`.
+  3. Optionally delete the GitHub secret `HYT_SUBMIT_TOKEN` so a later
+     deploy cannot re-inject it.
+- Full teardown: `./infra/run.sh destroy` (prompts for confirmation). The
+  bucket must be empty first; pull anything you want to keep, then
   `node scripts/sessions.mjs rm <sessionId>` per session.
 
 ## Notes
