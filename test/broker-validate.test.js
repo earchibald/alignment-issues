@@ -121,5 +121,5 @@ test('key date is UTC from the injected clock', () => {
 
 test('empty configured token is a kill switch: rejects even empty request token', () => {
   const v = validateGrant(req({ token: '' }), { ...CFG, expectedToken: '' });
-  assert.deepEqual(v, { ok: false, status: 403, reason: 'bad token' });
+  assert.deepEqual(v, { ok: false, status: 503, reason: 'submissions disabled' });
 });

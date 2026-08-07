@@ -26,7 +26,7 @@ function tokenMatches(a, b) {
 }
 
 export function validateGrant(body, { expectedToken, date = new Date() }) {
-  if (expectedToken === undefined || expectedToken === null) return refuse(503, 'submissions disabled');
+  if (typeof expectedToken !== 'string' || expectedToken.length === 0) return refuse(503, 'submissions disabled');
   if (!body || typeof body !== 'object') return refuse(400, 'bad request');
   const { token, sessionId, filename, size, contentType } = body;
   if (!tokenMatches(token, expectedToken)) return refuse(403, 'bad token');
