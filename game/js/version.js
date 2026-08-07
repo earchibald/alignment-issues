@@ -5,7 +5,7 @@
 // commit SHA and date of the build actually being published. Locally it
 // stays "dev", so the settings panel always tells you whether you are
 // looking at a real release or your working tree.
-export const VERSION = '0.12.1';
+export const VERSION = '0.12.2';
 export const BUILD = 'dev';
 
 // Versioning scheme (0.x while Phase 1 is still moving):
