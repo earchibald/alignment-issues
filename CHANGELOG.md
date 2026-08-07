@@ -3,6 +3,12 @@
 Versions are cut with `just release X.Y.Z`, which tags the commit and stamps
 the deployed build id into the settings panel.
 
+## v0.17.0 — 2026-08-07
+
+- fix: make the screen agree with the engine
+- docs: arc 2 spec draft 3, revised against agy and copilot
+- docs: arc 2 spec draft 2, revised against two reviews
+
 ## v0.16.0 — 2026-08-07
 
 - feat: flat transcript log with folded thoughts
