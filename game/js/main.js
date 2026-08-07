@@ -11,7 +11,7 @@ import { harnessCard, hintCard } from './ui/components.js';
 import { installKeys } from './ui/keys.js';
 import { installDebug } from './ui/debug.js';
 import { installSettings } from './ui/settings.js';
-import { playCardSound, playActionSound, playCompactSound } from './ui/sound.js';
+import { playCardSound, playActionSound, playCompactSound, playFlushSound } from './ui/sound.js';
 import { IdbStore, MemoryStore, DEV_KEY, TELEMETRY_OPTOUT_KEY } from './telemetry/store.js';
 import { createTelemetry } from './telemetry/capture.js';
 import { installTelemetryHooks } from './telemetry/hooks.js';
@@ -306,21 +306,31 @@ async function main() {
   function dispatch(name, arg) {
     const action = ACTIONS[name];
     if (!action) return;
-    // Compaction carries its own sound, the sweep, played off the state
-    // transition. Ticking here as well would double up on the press, and
-    // would keep ticking on presses the running countdown refuses.
-    if (name !== 'compactStart') playActionSound(stateBox.current);
     hooks.onAction(name, arg);
-    if (name === 'processToken') {
-      const hadActiveQuery = !!stateBox.current.activeQuery;
-      const tokensBefore = stateBox.current.tokens;
-      action(stateBox.current, arg);
-      paintNow();
-      if (hadActiveQuery && stateBox.current.tokens > tokensBefore) flashSweep();
-      return;
-    }
+    const hadActiveQuery = !!stateBox.current.activeQuery;
+    const tokensBefore = stateBox.current.tokens;
+    // A press makes a sound only if it landed. Every action bumps uiSeq
+    // when it does something and returns untouched when it refuses — an
+    // unaffordable upgrade, a full draft buffer, a compaction already
+    // running — so that is the signal. Sound therefore comes after the
+    // action, not before it.
+    const seqBefore = stateBox.current.uiSeq;
     action(stateBox.current, arg);
+    if (stateBox.current.uiSeq !== seqBefore) playSoundFor(name);
     paintNow();
+    if (name === 'processToken' && hadActiveQuery && stateBox.current.tokens > tokensBefore) {
+      flashSweep();
+    }
+  }
+
+  // Flush and compaction each carry their own sound, which stands in for
+  // the tick rather than stacking on top of it. The compaction sweep is
+  // played off the state transition instead, because the governor starts
+  // compactions with no press behind them.
+  function playSoundFor(name) {
+    if (name === 'compactStart') return;
+    if (name === 'flush') playFlushSound(stateBox.current);
+    else playActionSound(stateBox.current);
   }
 
   let speed = getSpeed();

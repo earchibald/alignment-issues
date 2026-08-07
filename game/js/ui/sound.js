@@ -67,6 +67,16 @@ export function playCompactSound(state) {
   playBuffer(state, COMPACT_SOUND_URL, { gain: COMPACT_GAIN });
 }
 
+// Flushing is instant, and the whoosh is short enough to read as the act
+// itself. Like the compaction sweep it replaces the action tick rather
+// than stacking on top of it.
+const FLUSH_SOUND_URL = new URL('../../assets/flush-whoosh.wav', import.meta.url);
+const FLUSH_GAIN = 0.3;
+
+export function playFlushSound(state) {
+  playBuffer(state, FLUSH_SOUND_URL, { gain: FLUSH_GAIN });
+}
+
 // The source clip is a 2.3 ms burst whose energy sits entirely above
 // 10 kHz — near the top of adult hearing, and past what a laptop speaker
 // reproduces. Played as recorded it is effectively silent. Slowing it to

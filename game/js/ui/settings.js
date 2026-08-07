@@ -319,6 +319,7 @@ export function installSettings({ stateBox, refs, paintNow, onReset, resetCardTr
     ackEntry('ui sound 8.wav by nezuai -- ', 'https://freesound.org/s/582609/', ' -- License: Attribution 4.0'),
     ackEntry('microtick.wav by Saltbearer -- ', 'https://freesound.org/s/481984/', ' -- License: Creative Commons 0'),
     ackEntry('Sweeping by georgesavic -- ', 'https://freesound.org/s/593466/', ' -- License: Creative Commons 0'),
+    ackEntry('foley_cable_whoosh_air_001.wav by soundscalpel.com -- ', 'https://freesound.org/s/110615/', ' -- License: Attribution 3.0'),
   );
   dialog.append(ackBody);
 
