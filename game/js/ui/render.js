@@ -330,9 +330,45 @@ export function syncJumpButton(refs) {
   refs.tobottom.hidden = chatPinned;
 }
 
+// A scroll event may only ever RE-pin.
+//
+// The first version of this recomputed `chatPinned` from every scroll event,
+// including the ones scrollChatToEnd itself causes — so the renderer's own
+// scroll could flip the flag to false, and the transcript then stopped
+// following the tail for the rest of the run. Reported as "I did not scroll
+// it up. It still didn't scroll down."
+//
+// Letting go of the tail is an intent, so it takes a gesture (onChatGesture).
+// This direction is safe: the worst a spurious event can do is follow the
+// tail when the player is already at it.
 export function onChatScroll(refs) {
-  chatPinned = chatAtBottom(refs.chat);
+  const atBottom = chatAtBottom(refs.chat);
+  if (!driving()) {
+    // No gesture behind this one. Pinned means pinned: put the view back
+    // rather than waiting for the next entry to drag it down. (Setting
+    // scrollTop re-fires this handler, which then finds itself at the bottom
+    // and stops — no loop.)
+    if (chatPinned && !atBottom) refs.chat.scrollTop = refs.chat.scrollHeight;
+    else if (!chatPinned && atBottom) { chatPinned = true; syncJumpButton(refs); }
+    return;
+  }
+  // Inside a gesture window the player is driving, so the position is
+  // authoritative in both directions.
+  if (chatPinned === atBottom) return;
+  chatPinned = atBottom;
   syncJumpButton(refs);
+}
+
+// Wheel, touch-drag, or a scrolling key inside the transcript. The gesture
+// fires BEFORE the scroll it causes, so it opens a window rather than
+// reading the position itself.
+const GESTURE_MS = 500;
+let gestureUntil = 0;
+const driving = () => now() < gestureUntil;
+const now = () => (typeof performance === 'object' ? performance.now() : 0);
+
+export function onChatGesture() {
+  gestureUntil = now() + GESTURE_MS;
 }
 
 function renderLog(state, refs) {

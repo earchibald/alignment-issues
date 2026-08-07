@@ -1283,8 +1283,11 @@ dialog#settings button.danger {
   white-space: nowrap;
 }
 
-/* --- session submit errors ------------------------------------------ */
-.session-row .session-error {
-  color: #d33;
+/* --- session submit status ------------------------------------------- */
+.session-row .session-status {
   font-size: 11px;
+  color: var(--g-ink-dim, #a9b4c0);
+  font-variant-numeric: tabular-nums;
 }
+.session-row .session-status.ok { color: #4fbf72; }
+.session-row .session-status.err { color: #d33; }

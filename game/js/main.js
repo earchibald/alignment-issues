@@ -6,7 +6,7 @@ import { createState } from './engine/state.js';
 import { tick } from './engine/tick.js';
 import { ACTIONS } from './engine/actions.js';
 import { saveLocal, loadLocal, offlineCatchUp, SAVE_KEY } from './engine/save.js';
-import { render, onChatScroll, scrollChatToEnd } from './ui/render.js';
+import { render, onChatScroll, onChatGesture, scrollChatToEnd } from './ui/render.js';
 import { harnessCard, hintCard, thoughtCard, thinkSeconds } from './ui/components.js';
 import { installKeys } from './ui/keys.js';
 import { installDebug } from './ui/debug.js';
@@ -122,6 +122,10 @@ async function main() {
   // While it is scrolled up, a small button offers the way back.
   if (refs.chat) {
     refs.chat.addEventListener('scroll', () => onChatScroll(refs), { passive: true });
+    // Letting go of the tail is an intent, not a side effect of a render.
+    for (const type of ['wheel', 'touchmove', 'keydown', 'pointerdown']) {
+      refs.chat.addEventListener(type, onChatGesture, { passive: true });
+    }
   }
   if (refs.tobottom) {
     refs.tobottom.addEventListener('click', () => scrollChatToEnd(refs));

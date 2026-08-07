@@ -138,14 +138,26 @@ function baseType(type) {
 
 export function createS3Sink(env) {
   return {
-    async export(bundle) {
+    // onProgress({done, total, name, bytes, phase}) is optional and purely
+    // for the UI: a submission is one small events file plus a recording
+    // that routinely runs to several megabytes, so a silent multi-second
+    // wait reads as a dead button.
+    async export(bundle, onProgress) {
       if (!env.enabled || !env.brokerUrl) throw new Error('submissions disabled');
       const names = bundleFilenames(bundle);
       const files = [new File([bundleToJsonl(bundle)], names.events, { type: 'text/plain' })];
       bundle.audio.forEach((a, i) => {
         files.push(new File([a.blob], names.audio[i], { type: a.blob.type }));
       });
+      const total = files.length;
+      const totalBytes = files.reduce((n, f) => n + f.size, 0);
+      let done = 0;
+      const report = (phase, file) => {
+        if (typeof onProgress !== 'function') return;
+        onProgress({ done, total, totalBytes, name: file.name, bytes: file.size, phase });
+      };
       for (const file of files) {
+        report('start', file);
         const contentType = baseType(file.type);
         const grantRes = await fetch(env.brokerUrl, {
           method: 'POST',
@@ -174,6 +186,8 @@ export function createS3Sink(env) {
         form.append('file', file);
         const upload = await fetch(url, { method: 'POST', body: form });
         if (!upload.ok) throw new Error(`upload failed (${upload.status})`);
+        done++;
+        report('done', file);
       }
       return 'submitted';
     },

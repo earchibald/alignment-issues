@@ -101,3 +101,37 @@ test('upload failure surfaces the status', async (t) => {
   const sink = createS3Sink(ENV);
   await assert.rejects(() => sink.export(bundle()), /upload failed \(403\)/);
 });
+
+test('progress is reported per file, and never claims a file that failed', async (t) => {
+  // "Clicking submit has no apparent effect" was reported against a
+  // submission that had in fact SUCCEEDED — the sink was silent for the whole
+  // multi-megabyte upload. These are the events the row now renders.
+  const audio = [{ recIdx: 1, blob: new Blob(['xxxxxxxxxx'], { type: 'audio/mp4' }), ext: 'm4a' }];
+  mockFetch(t, [
+    grantResponse(), new Response(null, { status: 204 }),
+    grantResponse(), new Response(null, { status: 204 }),
+  ]);
+  const seen = [];
+  const sink = createS3Sink(ENV);
+  await sink.export(bundle({ audio }), (p) => seen.push(`${p.phase} ${p.done}/${p.total} ${p.name}`));
+  assert.deepEqual(seen, [
+    `start 0/2 hyt-session-${ID}.jsonl`,
+    `done 1/2 hyt-session-${ID}.jsonl`,
+    `start 1/2 hyt-session-${ID}-r1.m4a`,
+    `done 2/2 hyt-session-${ID}-r1.m4a`,
+  ]);
+
+  // A failed upload must not report 'done' for that file.
+  mockFetch(t, [grantResponse(), new Response(null, { status: 403 })]);
+  const failed = [];
+  await assert.rejects(
+    () => createS3Sink(ENV).export(bundle(), (p) => failed.push(p.phase)),
+    /upload failed \(403\)/,
+  );
+  assert.deepEqual(failed, ['start']);
+});
+
+test('export still works with no progress callback', async (t) => {
+  mockFetch(t, [grantResponse(), new Response(null, { status: 204 })]);
+  assert.equal(await createS3Sink(ENV).export(bundle()), 'submitted');
+});
