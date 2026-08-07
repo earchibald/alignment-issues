@@ -11,7 +11,11 @@ Lambda, or ship the inactive stub.
 
 1. An AWS account, with admin credentials configured for the aws CLI
    (`aws sts get-caller-identity` must succeed).
-2. Terraform: `brew install terraform`.
+2. Terraform or OpenTofu: `brew install opentofu` (Homebrew core no longer
+   ships terraform; `brew install hashicorp/tap/terraform` also works).
+   `infra/run.sh` uses whichever is installed. Where this manual shows a
+   direct `terraform -chdir=infra ...` command, `tofu -chdir=infra ...` is
+   equivalent.
 3. The aws CLI and node (already required by this repo).
 
 ## 1. Configure variables
