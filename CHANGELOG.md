@@ -3,6 +3,10 @@
 Versions are cut with `just release X.Y.Z`, which tags the commit and stamps
 the deployed build id into the settings panel.
 
+## v0.12.1 — 2026-08-07
+
+- fix: retune every sound level
+
 ## v0.12.0 — 2026-08-07
 
 - feat: sounds for widen buffer and spawn loop
