@@ -94,6 +94,7 @@ touch the file's mtime.
 
 | Tab | Writes | Notes |
 |---|---|---|
+| Map & timetable | nothing — a drawing board | [tool README](web/tools/timeline/README.md) — Arc 1 on one axis, with costs, effects and gates |
 | Pacing | `game/js/config/pacing-settings.js` | [tool README](web/tools/pacing/README.md) — runs the real engine in a sandboxed frame |
 | Diffusion text | `game/js/config/diffusion-settings.js` | [answer-diffusion-design](../docs/superpowers/specs/2026-08-07-answer-diffusion-design.md) |
 | Text editor | the game's source, in place | [tool README](web/tools/text/README.md) — every string in the game, searchable |

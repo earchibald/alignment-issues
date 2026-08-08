@@ -1,0 +1,145 @@
+/* Map & timetable. The suite shell owns the palette and the tooltip layer. */
+
+.tl-tool { padding: 8px 20px 18px; }
+
+/* --- toolbar --- */
+
+.tl-bar { display: flex; align-items: center; gap: 10px; }
+.tl-spacer { flex: 1 1 auto; }
+.tl-zoom-label { display: flex; align-items: center; gap: 7px; color: var(--dim); font-size: 11px; cursor: help; }
+.tl-zoom-label input { width: 160px; accent-color: var(--accent); }
+.tl-btn {
+  background: #1b2130; color: var(--ink); border: 1px solid var(--line);
+  border-radius: 6px; padding: 5px 11px; font-size: 12px; cursor: pointer;
+}
+.tl-btn:hover { border-color: var(--accent); }
+.tl-msg { margin: 5px 0 0; min-height: 14px; font-family: var(--mono); font-size: 11px; color: var(--dim); }
+.tl-msg.ok { color: var(--hot); }
+.tl-msg.error { color: var(--danger); }
+
+/* --- map --- */
+
+.tl-scroll {
+  margin-top: 6px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.tl-map { display: block; user-select: none; }
+
+.band { fill: #0f131b; }
+.band.odd { fill: #121722; }
+.band-1 { fill: #101820; }
+.band-2 { fill: #121a26; }
+.band-3 { fill: #16192a; }
+.band-4 { fill: #1a1622; }
+.band-edge { stroke: #2b3242; stroke-width: 1; }
+.band-label {
+  fill: #7f8ba6; font-family: var(--mono); font-size: 10px;
+  text-transform: uppercase; letter-spacing: 0.08em;
+}
+
+.grid { stroke: #1a2030; stroke-width: 1; }
+.tick { fill: #55607a; font-family: var(--mono); font-size: 9px; }
+
+.lane-rule { stroke: #232838; stroke-width: 1; }
+.lane-label {
+  fill: var(--ink); font-size: 11px; font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* Markers. Colour carries the kind, so the eye can find all the purchases
+   without reading a single label. */
+.mk { cursor: grab; }
+.mk:active { cursor: grabbing; }
+.mk .dot { fill: var(--dim); stroke: #0b0d11; stroke-width: 1.5; }
+.mk .span { fill: #2a3346; opacity: 0.85; }
+.mk .mk-label { fill: #97a2ba; font-size: 10.5px; }
+
+.mk-beat .dot { fill: #d98cf0; }
+.mk-beat .mk-label { fill: #e2b6f5; }
+.mk-reveal .dot { fill: var(--accent); }
+.mk-verb .dot { fill: var(--hot); }
+.mk-buy .dot { fill: var(--warn); }
+.mk-buy .mk-label { fill: #e8c793; }
+.mk-pressure .dot { fill: #ff7b72; }
+.mk-pressure .span { fill: #3a2027; }
+.mk-pressure .mk-label { fill: #d99a95; }
+
+.mk:hover .mk-label { fill: var(--ink); }
+.mk:focus { outline: none; }
+.mk:focus .dot, .mk.sel .dot { stroke: var(--ink); stroke-width: 2; r: 6; }
+.mk.sel .mk-label { fill: var(--ink); font-weight: 600; }
+
+.link { fill: none; stroke: var(--accent); stroke-width: 1.2; stroke-dasharray: 3 3; opacity: 0.75; }
+
+/* --- detail --- */
+
+.tl-detail {
+  margin-top: 10px;
+  padding: 10px 14px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  min-height: 92px;
+}
+.tl-detail .hint { margin: 4px 0; color: var(--dim); font-size: 12px; }
+.d-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.d-head h3 { margin: 0; font-size: 14px; }
+.d-when, .d-cost { font-family: var(--mono); font-size: 11px; color: var(--dim); }
+.d-cost { color: var(--warn); }
+.d-what { margin: 6px 0 8px; font-size: 13px; line-height: 1.5; max-width: 84ch; }
+
+.d-rows { display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 3px 12px; margin: 0; }
+.d-rows dt { color: var(--dim); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; padding-top: 1px; }
+.d-rows dd { margin: 0; font-size: 12.5px; line-height: 1.45; max-width: 90ch; }
+
+.d-links { display: flex; align-items: center; gap: 6px; margin-top: 9px; flex-wrap: wrap; }
+.d-links-label { color: var(--dim); font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; }
+.d-moved { margin: 8px 0 0; color: var(--warn); font-size: 11.5px; }
+
+.chip {
+  background: #1b2130; color: var(--ink); border: 1px solid var(--line);
+  border-radius: 999px; padding: 2px 9px; font-size: 11px; cursor: pointer;
+}
+.chip:hover { border-color: var(--accent); }
+
+.pill {
+  font-family: var(--mono); font-size: 9px; text-transform: uppercase; letter-spacing: 0.06em;
+  border: 1px solid var(--line); border-radius: 3px; padding: 1px 5px; color: var(--dim);
+}
+.pill-beat { color: #e2b6f5; border-color: #4a2f56; }
+.pill-reveal { color: var(--accent); border-color: #24415f; }
+.pill-verb { color: var(--hot); border-color: #23503c; }
+.pill-buy { color: var(--warn); border-color: #4a3a20; }
+.pill-pressure { color: var(--danger); border-color: #532a29; }
+
+/* --- table --- */
+
+.tl-table-wrap {
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  overflow: auto;
+  max-height: 46vh;
+}
+.tl-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.tl-table th {
+  position: sticky; top: 0; z-index: 1;
+  background: #10141b; border-bottom: 1px solid var(--line);
+  color: var(--dim); font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.07em;
+  text-align: left; padding: 6px 10px;
+}
+.tl-table td { padding: 6px 10px; border-bottom: 1px solid #191e2a; vertical-align: top; }
+.tl-table tr { cursor: pointer; }
+.tl-table tr:hover td { background: #161b25; }
+.tl-table tr.on td { background: #172032; }
+.c-when { font-family: var(--mono); color: var(--dim); white-space: nowrap; }
+.c-cost { font-family: var(--mono); color: var(--warn); white-space: nowrap; }
+.c-name { font-weight: 600; white-space: nowrap; }
+.c-effect { color: #a8b3c9; max-width: 46ch; }
+.c-gate { color: var(--dim); max-width: 40ch; }

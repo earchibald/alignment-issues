@@ -4,6 +4,7 @@
 // twenty tools still costs one tool's worth of parsing at start-up.
 
 export const TOOLS = [
+  { id: 'timeline', label: 'Map & timetable', load: () => import('../tools/timeline/tool.js') },
   { id: 'pacing', label: 'Pacing', load: () => import('../tools/pacing/tool.js') },
   { id: 'diffusion', label: 'Diffusion text', load: () => import('../tools/diffusion/tool.js') },
   { id: 'text', label: 'Text editor', load: () => import('../tools/text/tool.js') },
