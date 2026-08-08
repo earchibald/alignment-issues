@@ -1,6 +1,9 @@
+let currentSettings = {};
+let messageListener = null;
+
 export const tool = {
   id: 'dimensional',
-  label: 'Token Button Tuner',
+  label: 'Token Button',
   blurb: 'Interactive tuning environment for the Dimensional Projection token generation button mechanics.',
   
   mount(host) {
@@ -19,6 +22,18 @@ export const tool = {
     
     this.root.appendChild(this.frame);
     host.appendChild(this.root);
+
+    messageListener = (event) => {
+      if (event.data && event.data.type === 'DIMENSIONAL_SETTINGS') {
+        currentSettings = event.data.settings;
+        // Trigger a fake change event to enable the apply button if the suite expects it
+        const applyBtn = document.getElementById('apply');
+        if (applyBtn) {
+          applyBtn.disabled = false;
+        }
+      }
+    };
+    window.addEventListener('message', messageListener);
   },
 
   unmount() {
@@ -30,8 +45,15 @@ export const tool = {
       this.root.remove();
       this.root = null;
     }
+    if (messageListener) {
+      window.removeEventListener('message', messageListener);
+      messageListener = null;
+    }
   },
 
-  // No getSettings function means this tool doesn't export a configuration file to the project,
-  // which is correct because the parameters are hardcoded props in the React integration.
+  getSettings() {
+    return currentSettings;
+  },
+  
+  settingsNote: 'Writes all current slider values from the tuner into dimensional-settings.js.'
 };

@@ -164,7 +164,7 @@ function processSpec(state) {
 }
 
 export function actionSpecs(state) {
-  const specs = [processSpec(state)];
+  const specs = [];
 
   if (state.bufferUnlocked) {
     specs.push({
@@ -289,6 +289,16 @@ export function actionSpecs(state) {
         + `${state.reclaimPool} remain, and the pool does not refill.`,
     });
   }
+
+  // Last, not first. The token button is now a hero surface with the
+  // dimensional projection on its face, and it anchors the bottom of the tray:
+  // it is the one control the player presses continuously, so it belongs under
+  // the thumb, with the situational buttons stacked above it rather than
+  // pushing it around as they appear and disappear.
+  //
+  // Order here is DOM order in the tray. Everything downstream matches on
+  // testid, never on index.
+  specs.push(processSpec(state));
 
   return specs;
 }

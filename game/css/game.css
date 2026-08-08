@@ -641,6 +641,67 @@ body:has(#app[data-theme="light"][data-decay="2"]) { background: #dfe3e8; }
   color: var(--g-accent-ink);
   font-weight: 600;
 }
+
+/* ============================================================
+   THE DIMENSIONAL PROJECTION — the face of the token button.
+   Canvas drawn by ui/projection.js; everything here is the frame
+   it lives in and the colours it reads out of the theme.
+
+   The projection is a readout, not decoration. Its hue is the K/V
+   cache, its boundary is the context buffer, and the tokens flying
+   in are the agentic loop. It therefore has to survive all five
+   decay palettes, so its three colours are theme variables rather
+   than the slate/violet/sky the sandbox was authored against.
+   ============================================================ */
+#app {
+  --proj-face: #131a24;      /* the button's own surface, under the trails */
+  --proj-wave: #7a4fd6;      /* hazy waves: the tap's energy leaving the ring */
+  --proj-token: #38bdf8;     /* incoming automated tokens */
+  --proj-radius: 16;         /* unitless: the canvas needs a number, not a length */
+}
+#app[data-decay="1"] { --proj-radius: 12; }
+#app[data-decay="2"] { --proj-face: #171d1b; --proj-wave: #6b57a8; --proj-radius: 6; }
+/* Decay 3/4 are canon CRT green. A violet wave would be the one thing on
+   screen that never belonged to the terminal, so the waves join the palette. */
+#app[data-decay="3"] {
+  --proj-face: #0b0f0c; --proj-wave: #5fc6c9; --proj-token: #7ee08f; --proj-radius: 2;
+}
+#app[data-decay="4"] {
+  --proj-face: #050706; --proj-wave: #5fc6c9; --proj-token: #7ee08f; --proj-radius: 0;
+}
+
+/* The projected button is a screen, not a chip: it needs height for the orb
+   and the ring to exist at all, and it is the one control pressed
+   continuously, so it anchors the bottom of the tray under the thumb. */
+.act.primary.proj-face {
+  min-height: 104px;
+  background: var(--proj-face);
+  border-color: color-mix(in srgb, var(--g-accent) 45%, var(--proj-face));
+  color: #f2f6fb;
+  align-content: end;
+}
+.act.primary.proj-face .key { border-color: rgba(242, 246, 251, 0.5); }
+.proj {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  pointer-events: none;
+}
+/* The label sits over the orb's glow, so it carries its own contrast rather
+   than depending on what the canvas happens to be doing behind it. */
+.act.primary.proj-face .label,
+.act.primary.proj-face .cost,
+.act.primary.proj-face .key {
+  position: relative;
+  z-index: 1;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85), 0 0 10px rgba(0, 0, 0, 0.6);
+}
+.act.primary.proj-face .cost { opacity: 0.85; }
+/* Disabled and choked states must still read THROUGH the animation — a full
+   speculation buffer and a live one look identical if only the text changes. */
+.act.primary.proj-face:disabled { filter: saturate(0.35) brightness(0.75); }
 /* Purchases: spending cycles is the only irreversible move in the tray and
    the only one that compounds, so it reads as its own class of action.
    Tinted surface and edge rather than a filled block — a full fill would

@@ -17,6 +17,9 @@ import {
   meterRow, resRead, actionButton,
 } from './components.js';
 import { actionSpecs, isChoked } from './actionspecs.js';
+import {
+  projectionNode, projectionSupported, setProjectionInput, resetProjection,
+} from './projection.js';
 import { retargetTip } from './tooltip.js';
 import { stampFor } from './render-stamp.js';
 import { updatePendingAnswer, resetPendingAnswer } from './diffusion/pending-answer.js';
@@ -161,6 +164,10 @@ export function resetRenderTrackers(refs) {
   chatNoteEl = null;
   prevFloatSnap = null;
   liveFloats = [];
+  // A reset, an import or a debug load starts a different run. The projection
+  // holds no game state, but a screenful of waves still in flight across the
+  // boundary reads as the old run bleeding into the new one.
+  resetProjection();
   // A swapped state gets a transcript the player has not scrolled, so the
   // view follows the tail again.
   chatPinned = true;
@@ -542,6 +549,14 @@ function renderActions(state, refs) {
   const ids = specs.map((sp) => sp.testid);
   for (const spec of specs) {
     const btn = actionButton({ ...spec, onclick: () => refs.dispatch(spec.action) });
+    // The projection is the face of the token button. It is one long-lived
+    // canvas owned by ui/projection.js, moved into whichever button this
+    // rebuild produced — building a new one here would restart its physics
+    // every time the tray's signature moved, which is several times a second.
+    if (spec.primary && projectionSupported()) {
+      btn.classList.add('proj-face');
+      btn.prepend(projectionNode());
+    }
     if (spec.choked) btn.classList.add('choked');
     if (spec.disabled) btn.disabled = true;
     // seenActionIds is null on the first paint of a state — a restored save
@@ -731,6 +746,11 @@ export function render(state, refs) {
     renderStatus(state, refs);
     updateFloats(state, refs);
     renderActions(state, refs);
+    // Outside renderActions' change detection on purpose. The tray rebuilds
+    // only when its signature moves; the projection's three meters move on
+    // almost every tick, and they drive an animation, not text. Feeding it
+    // here keeps the face live without forcing a DOM rebuild for a colour.
+    setProjectionInput(state);
   } else {
     // The crash, the teaser and Arc 2 all own the whole screen, and none of
     // them has a reply in flight.

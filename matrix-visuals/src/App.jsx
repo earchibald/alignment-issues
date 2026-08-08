@@ -57,6 +57,28 @@ function App() {
     return () => clearInterval(interval);
   }, [autoRate]);
 
+  // Send settings to dev suite parent window
+  useEffect(() => {
+    if (isStandalone && window.parent !== window) {
+      window.parent.postMessage({
+        type: 'DIMENSIONAL_SETTINGS',
+        settings: {
+          tokenColor, tokenSize, trailLength, ringBaseDistance, ringMaxDistance,
+          ringGlow, circleSparkle, ringSparkle, circleSparkleSize, ringSparkleSize,
+          alwaysSparkle, sparkleDuration, duotoneRing, waveColor, waveOpacity,
+          buttonColor, bezelColor, bezelThickness, tokenFlowDistance, 
+          waveOverflowDistance, visualScale, minPushDistance
+        }
+      }, '*');
+    }
+  }, [
+    isStandalone, tokenColor, tokenSize, trailLength, ringBaseDistance, ringMaxDistance,
+    ringGlow, circleSparkle, ringSparkle, circleSparkleSize, ringSparkleSize,
+    alwaysSparkle, sparkleDuration, duotoneRing, waveColor, waveOpacity,
+    buttonColor, bezelColor, bezelThickness, tokenFlowDistance, 
+    waveOverflowDistance, visualScale, minPushDistance
+  ]);
+
   // Spacebar Hotkey for Tap
   useEffect(() => {
     const handleKeyDown = (e) => {

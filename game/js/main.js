@@ -10,6 +10,7 @@ import { CONST } from './engine/constants.js';
 import { saveLocal, loadLocal, offlineCatchUp, SAVE_KEY } from './engine/save.js';
 import { render, onChatScroll, onChatGesture, scrollChatToEnd, takeArrivals } from './ui/render.js';
 import { harnessCard, hintCard, thoughtCard, thinkSeconds } from './ui/components.js';
+import { projectionTap } from './ui/projection.js';
 import { installKeys } from './ui/keys.js';
 import { installTooltips } from './ui/tooltip.js';
 import { installDebug } from './ui/debug.js';
@@ -531,6 +532,11 @@ async function main() {
     action(stateBox.current, arg);
     const landed = stateBox.current.uiSeq !== seqBefore;
     if (landed) playSoundFor(name);
+    // The projection fires on a press that DID something — generating toward a
+    // reply and banking a speculative draft both count, a press the buffer
+    // refused does not. Same signal the sound uses, and for the same reason:
+    // a wave leaving the ring when nothing happened is a lie about the machine.
+    if (landed && name === 'processToken') projectionTap();
     paintNow();
     // The process button keeps its stricter rule: it flashes for output that
     // actually reached the reply, never for idle drafting or a press the
