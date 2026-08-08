@@ -35,10 +35,14 @@ kbd {
 
 /* --- suite bar --- */
 
+/* The bar wraps rather than squeezing: the tab strip is how every tool is
+   reached, and a flex row with three groups collapses it to nothing well
+   before the window gets genuinely small. */
 .suitebar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 18px;
+  gap: 10px 18px;
   padding: 8px 20px;
   border-bottom: 1px solid var(--line);
   background: #0e1117;
@@ -47,7 +51,7 @@ kbd {
 .brand h1 { margin: 0; font-size: 15px; letter-spacing: 0.04em; text-transform: lowercase; }
 .brand .sub { color: var(--dim); font-size: 11px; }
 
-.tabs { display: flex; gap: 4px; flex: 1 1 auto; min-width: 0; overflow-x: auto; }
+.tabs { display: flex; gap: 4px; flex: 1 1 240px; min-width: 200px; overflow-x: auto; }
 .tabs button {
   background: transparent;
   border: 1px solid transparent;
@@ -76,7 +80,8 @@ kbd {
   font-size: 12px;
   cursor: pointer;
 }
-.apply:hover { background: #232c40; }
+.apply:hover:not(:disabled) { background: #232c40; }
+.apply:disabled { opacity: 0.45; cursor: default; }
 /* Publishing leaves the machine, so it does not get to look like the safe
    button beside it. */
 .apply.publish { border-color: var(--warn); color: #ffe6c2; }

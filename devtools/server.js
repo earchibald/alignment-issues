@@ -14,6 +14,8 @@ import { existsSync } from 'node:fs';
 import { extname, join, resolve, dirname, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { readIndex, applyOps, TEXT_FILES } from './text-store.js';
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, 'web');
 const PROJECT = resolve(HERE, '..');
@@ -178,6 +180,13 @@ function renderModule(tool, settings) {
 // paths that could disagree.
 
 const TOOL_PATHS = Object.values(TOOLS).map((t) => t.path);
+// The text editor writes the game's own source rather than a generated file.
+// It still counts as tool output for the release guard — otherwise editing a
+// line of dialogue would block publishing — but it is listed apart in the
+// confirmation, because "your copy changed" and "a slider moved" are different
+// things to be agreeing to.
+const TEXT_PATHS = TEXT_FILES.map((f) => f.path);
+const WRITABLE_PATHS = [...TOOL_PATHS, ...TEXT_PATHS];
 
 function run(cmd, args, opts = {}) {
   return new Promise((ok) => {
@@ -205,8 +214,9 @@ async function workingState() {
     ? (await git('log', '--no-merges', '--oneline', `${tag}..HEAD`)).stdout.split('\n').filter(Boolean)
     : [];
   const dirty = status.stdout.split('\n').filter(Boolean).map((line) => line.slice(3).trim());
-  const fromTools = dirty.filter((f) => TOOL_PATHS.includes(f));
-  const foreign = dirty.filter((f) => !TOOL_PATHS.includes(f));
+  const fromTools = dirty.filter((f) => WRITABLE_PATHS.includes(f));
+  const fromText = dirty.filter((f) => TEXT_PATHS.includes(f));
+  const foreign = dirty.filter((f) => !WRITABLE_PATHS.includes(f));
   const next = version && /^\d+\.\d+\.\d+$/.test(version)
     ? version.replace(/(\d+)$/, (n) => String(Number(n) + 1))
     : null;
@@ -216,8 +226,9 @@ async function workingState() {
     nextVersion: next,
     dirty,
     fromTools,
+    fromText,
     foreign,
-    toolPaths: TOOL_PATHS,
+    toolPaths: WRITABLE_PATHS,
     lastTag: tag,
     alsoShipping: since.map((l) => l.trim()),
   };
@@ -455,6 +466,34 @@ const server = createServer(async (req, res) => {
     const job = startRelease(state);
     console.log(`[release] ${job.id} started — v${state.nextVersion}`);
     return send(res, 202, { id: job.id });
+  }
+
+  if (path === '/api/text') {
+    if (req.method !== 'GET') return send(res, 405, { error: 'GET only' });
+    try {
+      return send(res, 200, await readIndex(PROJECT));
+    } catch (err) {
+      return send(res, 500, { error: `could not read the text index: ${err.message}` });
+    }
+  }
+
+  if (path === '/api/text/save') {
+    if (req.method !== 'POST') return send(res, 405, { error: 'POST only' });
+    let payload;
+    try {
+      payload = JSON.parse(await readBody(req, 2 * 1024 * 1024));
+    } catch (err) {
+      return send(res, 400, { error: `bad request body: ${err.message}` });
+    }
+    try {
+      const result = await applyOps(PROJECT, payload.ops);
+      for (const w of result.written) console.log(`[text] ${w.file} <- ${w.ops} edit(s)`);
+      const index = await readIndex(PROJECT);
+      return send(res, 200, { ...result, ...index });
+    } catch (err) {
+      // A verification failure is the client's problem to resolve, not a crash.
+      return send(res, err.expose ? 409 : 500, { error: err.message });
+    }
   }
 
   if (path === '/api/apply') {

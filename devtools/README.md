@@ -42,6 +42,9 @@ devtools/
    suite still costs one tool's parse at start-up.
 
 3. Add a `TOOLS` entry to `server.js` with the destination path and a schema.
+   (A tool that writes source rather than settings — the text editor — goes in
+   `text-store.js` instead, and needs no `getSettings`: the Apply button turns
+   itself off for tools that have none.)
    **The browser never names a path.** It names a tool; the server decides where
    that tool writes and what shape the payload may take. Keys outside the schema
    are rejected, and out-of-range values are rejected rather than clamped — a
@@ -56,11 +59,14 @@ Next to Apply. It bumps the patch version, commits, pushes, tags, deploys and
 verifies the live site — then reports the version and build actually being
 served, or the step that failed.
 
-**It refuses unless the only modified tracked files are the ones tools
-generate.** Anything else in the diff means a human was editing, and a human's
-half-finished work does not get swept into a release they did not ask for.
-The check runs again when the button is pressed, not only when the page loaded
-it, because the tree can change in between.
+**It refuses unless the only modified tracked files are ones a tool writes.**
+That is the generated settings files, plus the source files the text editor
+edits — otherwise fixing a typo in a reply would block publishing. Copy edits
+are listed apart from settings in the confirmation, because "your text changed"
+and "a slider moved" are different things to be agreeing to. Anything else in the diff means a human was editing by hand, and that work does
+not get swept into a release they did not ask for. The check runs again when the
+button is pressed, not only when the page loaded it, because the tree can change
+in between.
 
 Two things it deliberately does not hide:
 
@@ -90,6 +96,7 @@ touch the file's mtime.
 |---|---|---|
 | Pacing | `game/js/config/pacing-settings.js` | [tool README](web/tools/pacing/README.md) — runs the real engine in a sandboxed frame |
 | Diffusion text | `game/js/config/diffusion-settings.js` | [answer-diffusion-design](../docs/superpowers/specs/2026-08-07-answer-diffusion-design.md) |
+| Text editor | the game's source, in place | [tool README](web/tools/text/README.md) — every string in the game, searchable |
 
 ## Reading the game from a tool
 

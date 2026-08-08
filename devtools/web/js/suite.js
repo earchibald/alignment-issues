@@ -62,6 +62,16 @@ async function activate(id) {
   activeId = id;
   blurbEl.textContent = mod.blurb || '';
 
+  // Apply belongs to tools that generate a settings file. A tool that writes
+  // its own changes (the text editor) has nothing to apply, so the button says
+  // so rather than waiting to be pressed and then explaining itself.
+  const applyBtn = document.getElementById('apply');
+  const settingsTool = typeof mod.getSettings === 'function';
+  applyBtn.disabled = !settingsTool;
+  applyBtn.dataset.tip = settingsTool
+    ? 'Write this tool\u2019s settings into the project.'
+    : `${mod.label} writes its own changes \u2014 there is nothing to apply.`;
+
   for (const btn of tabsEl.querySelectorAll('button')) {
     const on = btn.dataset.tool === id;
     btn.classList.toggle('on', on);
