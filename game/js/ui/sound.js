@@ -71,6 +71,16 @@ function playBuffer(state, url, { gain = 1, rate = 1 } = {}) {
     gainNode.gain.value = gain;
     src.connect(gainNode);
     gainNode.connect(audioCtx.destination);
+    // Tear the pair down when the clip finishes. A node connected to
+    // destination stays in the graph until it is disconnected, and the action
+    // tick fires up to ten times a second: measured at 1360 nodes still
+    // connected after 680 presses, none released, with the per-press cost
+    // drifting upward as the graph grew. An act is tens of thousands of
+    // presses.
+    src.onended = () => {
+      src.disconnect();
+      gainNode.disconnect();
+    };
     src.start();
   });
 }
@@ -171,4 +181,50 @@ const ARRIVAL_GAIN = 0.42;
 
 export function playArrivalSound(state) {
   playBuffer(state, ARRIVAL_SOUND_URL, { gain: ARRIVAL_GAIN });
+}
+
+// --- warming ---------------------------------------------------------------
+//
+// Every clip is fetched and decoded on FIRST use, inside the play call. The
+// first flush of a run therefore goes: press, fetch flush-whoosh.wav, decode
+// it, and only then make a noise. On a cold cache that is a plainly audible
+// stall on the one press the sound was supposed to confirm — and it happens
+// once per clip, so it keeps happening all through the first act.
+//
+// Warming them up front costs nine small fetches and moves every one of those
+// stalls off the player's press. It runs on the first user gesture rather than
+// at load, because that is when the autoplay policy will let an AudioContext
+// start; doing it earlier just builds a suspended context that decodes into a
+// stall anyway.
+const ALL_SOUND_URLS = [
+  COMPACT_SOUND_URL, FLUSH_SOUND_URL, OVERCLOCK_SOUND_URL, DRAFTCAP_SOUND_URL,
+  LOOP_SOUND_URL, ACTION_SOUND_URL, POP_SOUND_URL, ARRIVAL_SOUND_URL,
+];
+
+let warmed = false;
+
+export function warmSounds(state) {
+  if (warmed || !audible(state)) return;
+  const AC = globalThis.AudioContext || globalThis.webkitAudioContext;
+  if (!AC) return;
+  warmed = true;
+  if (!audioCtx) audioCtx = new AC();
+  if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+  for (const url of ALL_SOUND_URLS) {
+    if (bufferCache.has(url.href)) continue;
+    bufferCache.set(url.href, fetch(url)
+      .then((r) => r.arrayBuffer())
+      .then((b) => audioCtx.decodeAudioData(b))
+      .catch(() => null));
+  }
+  // The chime is an <audio> element, not a buffer. Its own preload is the
+  // browser's job, but asking explicitly costs nothing and covers the case
+  // where the element was created before the asset was reachable.
+  if (cardAudio && typeof cardAudio.load === 'function') cardAudio.load();
+}
+
+// Test seam: the warm is one-shot, and a suite that exercises it needs to be
+// able to arm it again.
+export function resetWarmForTest() {
+  warmed = false;
 }

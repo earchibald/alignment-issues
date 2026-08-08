@@ -15,7 +15,8 @@ import { DIMENSIONAL_SETTINGS } from '../game/js/config/dimensional-settings.js'
 import { createState } from '../game/js/engine/state.js';
 import { CONST } from '../game/js/engine/constants.js';
 import {
-  projectionProps, waveBoundaryAt, PROJECTION, PROJECTION_DEFAULTS, REF_H,
+  projectionProps, waveBoundaryAt, dueForFrame,
+  PROJECTION, PROJECTION_DEFAULTS, REF_H, FRAME_MS,
 } from '../game/js/ui/projection.js';
 import { actionSpecs } from '../game/js/ui/actionspecs.js';
 
@@ -219,4 +220,33 @@ test('every projection length is authored against the reference height', () => {
     `the ring is clipped at rest: ${atRest} in a half-height of ${REF_H / 2}`);
   assert.ok(PROJECTION.orbRadius + PROJECTION.ringMaxDistance > REF_H / 2,
     'a tap no longer pushes the ring into the enclosure — the shot is gone');
+});
+
+test('the draw loop is paced to the rate its physics were authored at', () => {
+  // The bug this pins: every constant in the draw loop is per-FRAME and was
+  // authored at 60fps — `sparkleEnergy -= 1 / (60 * sparkleDuration)` says so
+  // in the source it was ported from. Uncapped on a 120Hz display, waves,
+  // sparkles and the ring settle all ran at double speed and incoming tokens
+  // spawned twice as often as autoRate asked for.
+  assert.ok(Math.abs(FRAME_MS - 1000 / 60) < 1e-9, 'the cap is no longer 60fps');
+
+  // A 120Hz display offers a frame every 8.33ms: every other one is due.
+  let last = 0;
+  let drawn = 0;
+  for (let i = 1; i <= 120; i += 1) {
+    const now = i * (1000 / 120);
+    if (dueForFrame(now, last)) { drawn += 1; last = now; }
+  }
+  assert.ok(drawn >= 59 && drawn <= 61, `120Hz produced ${drawn} draws in a second, wanted ~60`);
+
+  // A 60Hz display must NOT be halved by the slack. rAF there lands a hair
+  // early often enough that a strict >= FRAME_MS comparison drops every
+  // second frame — which is why the rule carries 1ms of tolerance.
+  last = 0;
+  drawn = 0;
+  for (let i = 1; i <= 60; i += 1) {
+    const now = i * (1000 / 60) - 0.4;        // consistently early, as rAF is
+    if (dueForFrame(now, last)) { drawn += 1; last = now; }
+  }
+  assert.ok(drawn >= 59, `60Hz was halved to ${drawn} draws — the slack is too tight`);
 });

@@ -17,7 +17,7 @@ import { installDebug } from './ui/debug.js';
 import { installSettings } from './ui/settings.js';
 import {
   playCardSound, playActionSound, playCompactSound, playFlushSound, playOverclockSound,
-  playDraftCapSound, playLoopSound, playPopSound, playArrivalSound, setMuted,
+  playDraftCapSound, playLoopSound, playPopSound, playArrivalSound, setMuted, warmSounds,
 } from './ui/sound.js';
 import { IdbStore, MemoryStore, DEV_KEY, TELEMETRY_OPTOUT_KEY } from './telemetry/store.js';
 import { createTelemetry } from './telemetry/capture.js';
@@ -693,6 +693,19 @@ async function main() {
   });
 
   installKeys(dispatch, undefined, openSettings);
+
+  // Decode every clip on the first gesture, not on the press that needs it.
+  // Each sound is fetched and decoded inside its first play call, so the first
+  // flush of a run stalls audibly on the one press the sound exists to
+  // confirm — once per clip, all through the first act. The first gesture is
+  // also the earliest moment the autoplay policy will let a context start.
+  const warmOnce = () => {
+    warmSounds(stateBox.current);
+    document.removeEventListener('pointerdown', warmOnce);
+    document.removeEventListener('keydown', warmOnce);
+  };
+  document.addEventListener('pointerdown', warmOnce, { passive: true });
+  document.addEventListener('keydown', warmOnce);
 
   // Delegated from the document, so the action tray can keep replacing its
   // own children without ever re-binding a listener.

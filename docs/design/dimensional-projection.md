@@ -113,6 +113,66 @@ The colour knobs (`faceColor`, `waveColor`, `tokenColor`) default to empty,
 meaning "let the decay palette drive it". A hex pinned there wins in all five
 eras, so it is a deliberate override rather than the normal way to set a colour.
 
+## Pipeline audit — v0.26.1
+
+Triggered by a report of noticeable lag before a sound played, "as if waiting
+for the animation to finish". Measured rather than guessed, and the first
+hypothesis was wrong.
+
+| Suspect | Verdict |
+| :--- | :--- |
+| Projection stealing main-thread time | **Not guilty.** Queued-work latency identical tapping (p50 4.6ms), idle (4.6ms) and with the loop stopped (4.6ms) |
+| Sound firing after the paint | **Not guilty.** `dispatch` plays before `paintNow()`, and always did |
+| Draw loop running at double speed | **Guilty.** 120fps against physics authored for 60 |
+| Layout forced every frame | **Guilty.** `getBoundingClientRect()` inside the draw loop |
+| Web Audio nodes never released | **Guilty.** 1360 still connected after 680 presses |
+| Every clip decoded on the press that needs it | **Guilty.** First use of each of 9 clips stalls |
+
+Two lessons for the next audit, both from probes that lied:
+
+- `btn.click()` runs **synchronously** and skips the browser's input queue, so
+  it cannot see input delay at all. It reported 0.6ms while the complaint was
+  about lag.
+- A backgrounded tab throttles timers to 1/sec and rAF to zero. Two runs
+  produced pure garbage before the probe started reporting whether the page had
+  been visible throughout. Measure that, or measure the browser instead of the
+  game.
+
+### What was fixed
+
+**The loop ran at double speed.** Every constant in the draw loop is
+per-*frame* and authored at 60fps — `sparkleEnergy -= 1 / (60 * sparkleDuration)`
+says so in the source. Uncapped on a 120Hz display, waves, sparkles and the
+ring settle all ran twice as fast as tuned, and incoming tokens spawned at
+twice the rate `autoRate` asked for. The draw is now paced to 60fps, which
+restores the authored timing and halves the work as a side effect: measured
+59.6fps on a 120Hz display. `dueForFrame()` carries 1ms of slack, because rAF
+lands a hair early often enough that a strict comparison would halve a 60Hz
+display to 30.
+
+Delta-time normalisation was the alternative. It would have re-timed every
+constant in the file against numbers that were tuned by eye.
+
+**A forced layout every frame.** `resize()` called `getBoundingClientRect()`
+inside the draw loop — a synchronous layout, 120 times a second, for a number
+that changes when the tray rebuilds and never otherwise. The ResizeObserver is
+now the only reader of the face's size. Measured 0 layouts/sec from the loop.
+`devicePixelRatio` is still checked per frame, because dragging a window to
+another monitor changes it with no resize at all, and reading it is free.
+
+**The audio graph leaked.** `playBuffer` connected a fresh source and gain to
+`destination` on every sound and never disconnected either. A node connected to
+destination stays in the graph until it is disconnected, and the action tick
+fires up to ten times a second — an act is tens of thousands of presses. Now
+torn down on `ended`: 402 connects, 402 disconnects, 0 left.
+
+**Every clip stalled on first use.** Each of the nine sounds was fetched and
+decoded *inside* its first play call, so the first flush of a run went press →
+fetch → decode → noise, once per clip, all through the first act. This is the
+best candidate for what was actually heard. They are now decoded on the first
+user gesture, which is also the earliest the autoplay policy allows a context
+to start.
+
 ## Bugs found on the way in
 
 **The loop could die on startup.** `projectionNode()` creates the canvas and

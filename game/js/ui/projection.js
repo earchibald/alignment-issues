@@ -210,24 +210,55 @@ function faceChannels(color) {
   return faceRGB;
 }
 
-function resize() {
-  const rect = node.getBoundingClientRect();
-  if (rect.width <= 0 || rect.height <= 0) return false;
+// The face's size in CSS pixels, kept by the ResizeObserver rather than read
+// per frame. getBoundingClientRect() forces a synchronous layout, and doing
+// that inside every animation frame is a self-inflicted layout thrash for a
+// number that changes when the tray is rebuilt and at no other time.
+//
+// The observer is the only writer; sizeDirty tells the next frame to resize
+// the backing store. devicePixelRatio is checked per frame instead, because
+// dragging a window to a different monitor changes it with no resize at all —
+// and unlike a rect, reading it costs nothing.
+let sizeDirty = true;
+
+function applySize() {
+  if (W <= 0 || H <= 0) return false;
   const nextDpr = Math.min(2, window.devicePixelRatio || 1);
-  const w = Math.round(rect.width * nextDpr);
-  const h = Math.round(rect.height * nextDpr);
+  if (!sizeDirty && nextDpr === dpr) return true;
+  const w = Math.round(W * nextDpr);
+  const h = Math.round(H * nextDpr);
   if (node.width !== w || node.height !== h) {
     node.width = w;
     node.height = h;
     themeAge = 1e9;      // a resize is the cheapest excuse to re-read the theme
   }
-  W = rect.width;
-  H = rect.height;
   dpr = nextDpr;
+  sizeDirty = false;
   return true;
 }
 
-function draw() {
+// The ported physics are per-FRAME, not per-second, and they were authored at
+// 60fps — `sparkleEnergy -= 1 / (60 * sparkleDuration)` says so in the source.
+// Left uncapped on a 120Hz display every wave, every sparkle and every ring
+// settle ran at double speed, and incoming tokens spawned twice as often as
+// autoRate asked for. Capping the draw is the fix that keeps the tuned
+// constants meaning what they say, and it halves the work on high-refresh
+// screens as a side effect.
+//
+// Normalising by delta-time instead would be the other way, but it would
+// re-time every constant in the file against numbers that were tuned by eye.
+export const FRAME_MS = 1000 / 60;
+let lastDrawAt = -1e9;
+
+// Whether this animation frame is due to be drawn. Pulled out so the pacing
+// rule is a thing a test can hold: the 1ms slack matters, because rAF fires a
+// hair early against a 60Hz display often enough that a strict comparison
+// drops every other frame and halves the rate again.
+export function dueForFrame(now, lastAt) {
+  return now - lastAt >= FRAME_MS - 1;
+}
+
+function draw(ts) {
   raf = 0;
   if (!node) return;
   // Idle, but NOT dead. Three ways to get here:
@@ -247,7 +278,13 @@ function draw() {
     schedule();
     return;
   }
-  if (!resize()) { schedule(); return; }
+  // Hold to 60fps. Under reduced motion there is no loop to pace — paintOnce()
+  // asked for this frame because something changed, so it always draws.
+  const now = typeof ts === 'number' ? ts : performance.now();
+  if (!reduced && !dueForFrame(now, lastDrawAt)) { schedule(); return; }
+  lastDrawAt = now;
+
+  if (!applySize()) { schedule(); return; }
 
   if (themeAge > 30) readTheme();
   themeAge += 1;
@@ -541,9 +578,29 @@ export function projectionNode() {
     if (reduced) paintOnce(); else schedule();
   });
   // A tray rebuild changes the button's width without a window resize, so the
-  // element is observed rather than the viewport.
+  // element is observed rather than the viewport. This is also the ONLY reader
+  // of the face's size: the draw loop used to call getBoundingClientRect()
+  // every frame, forcing a layout 120 times a second for a number that changes
+  // when the tray rebuilds and never otherwise.
   if (typeof ResizeObserver === 'function') {
-    new ResizeObserver(() => { if (reduced) paintOnce(); }).observe(node);
+    new ResizeObserver((entries) => {
+      const box = entries[entries.length - 1].contentRect;
+      if (box.width === W && box.height === H) return;
+      W = box.width;
+      H = box.height;
+      sizeDirty = true;
+      if (reduced) paintOnce();
+    }).observe(node);
+  } else {
+    // No observer: fall back to measuring, but only on a window resize rather
+    // than per frame. A tray rebuild does not change the button's width.
+    const measure = () => {
+      const r = node.getBoundingClientRect();
+      W = r.width; H = r.height; sizeDirty = true;
+      if (reduced) paintOnce();
+    };
+    window.addEventListener('resize', measure);
+    queueMicrotask(measure);
   }
   if (reduced) paintOnce(); else schedule();
   return node;
@@ -580,6 +637,12 @@ export function stopProjection() {
   node = null;
   ctx = null;
   sized = false;
+  // The next node measures itself from scratch; carrying a dead one's size
+  // over would draw one frame at the wrong scale.
+  W = 0;
+  H = 0;
+  sizeDirty = true;
+  lastDrawAt = -1e9;
 }
 
 // Used by the reset paths (a new run, an import, a debug load): the physics

@@ -12,6 +12,7 @@ import { createState } from '../game/js/engine/state.js';
 import { serialize, deserialize } from '../game/js/engine/save.js';
 import {
   setMuted, isMuted, playCardSound, playActionSound, playFlushSound,
+  warmSounds, resetWarmForTest,
 } from '../game/js/ui/sound.js';
 
 test('mute is off by default — a player who does nothing still gets sound', () => {
@@ -55,4 +56,25 @@ test('the gate tolerates a state with no settings at all', () => {
   setMuted(false);
   assert.doesNotThrow(() => playCardSound({}));
   assert.doesNotThrow(() => playActionSound(undefined));
+});
+
+test('warming is one-shot and never fights the mute', () => {
+  // Warming exists to move the fetch+decode of each clip OFF the press that
+  // needs it — the first flush of a run used to stall audibly while
+  // flush-whoosh.wav was fetched and decoded, once per clip, all through the
+  // first act.
+  //
+  // Under node there is no AudioContext, so this pins the guards rather than
+  // the decode: it must not throw, and a muted run must not warm at all.
+  resetWarmForTest();
+  const s = createState(1);
+  setMuted(true);
+  try {
+    assert.doesNotThrow(() => warmSounds(s));
+  } finally {
+    setMuted(false);
+  }
+  assert.doesNotThrow(() => warmSounds(s));
+  assert.doesNotThrow(() => warmSounds(s));   // idempotent
+  resetWarmForTest();
 });
