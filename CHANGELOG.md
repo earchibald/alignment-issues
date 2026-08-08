@@ -3,6 +3,10 @@
 Versions are cut with `just release X.Y.Z`, which tags the commit and stamps
 the deployed build id into the settings panel.
 
+## v0.26.1 — 2026-08-08
+
+- fix: audio and draw-loop audit — four real defects, one wrong hypothesis
+
 ## v0.26.0 — 2026-08-08
 
 - feat: ?mute=1 silences the game for automated runs
