@@ -323,6 +323,8 @@ export function installSettings({ stateBox, refs, paintNow, onReset, resetCardTr
     ackEntry('Short Sub Bass Drop G 49hz by Geoff-Bremner-Audio -- ', 'https://freesound.org/s/752399/', ' -- License: Attribution 4.0'),
     ackEntry('FX - Whir Tinkle Hit.wav by JohanDeecke -- ', 'https://freesound.org/s/367768/', ' -- License: Attribution 3.0'),
     ackEntry('FX - Wheel mechanism by bolkmar -- ', 'https://freesound.org/s/459613/', ' -- License: Creative Commons 0'),
+    ackEntry('Bubble Pop by Jayvardhan -- ', 'https://freesound.org/s/848515/', ' -- License: Attribution 4.0'),
+    ackEntry('000101_0580S3 056-064 074-075.wav by Gerent -- ', 'https://freesound.org/s/669150/', ' -- License: Creative Commons 0'),
   );
   dialog.append(ackBody);
 

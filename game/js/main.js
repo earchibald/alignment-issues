@@ -14,7 +14,7 @@ import { installDebug } from './ui/debug.js';
 import { installSettings } from './ui/settings.js';
 import {
   playCardSound, playActionSound, playCompactSound, playFlushSound, playOverclockSound,
-  playDraftCapSound, playLoopSound, playPopSound,
+  playDraftCapSound, playLoopSound, playPopSound, playArrivalSound,
 } from './ui/sound.js';
 import { IdbStore, MemoryStore, DEV_KEY, TELEMETRY_OPTOUT_KEY } from './telemetry/store.js';
 import { createTelemetry } from './telemetry/capture.js';
@@ -205,6 +205,10 @@ async function main() {
     cardPaused = false;
     cardSeqHW = stateBox.current.chatSeq;
     logSeqHW = stateBox.current.logSeq;
+    // A swapped-in state may already have a user connected. That is history
+    // being restored, not a user arriving, and must not announce itself.
+    lastQueryId = stateBox.current.activeQuery ? stateBox.current.activeQuery.id : null;
+    lastCompacting = stateBox.current.compacting;
     clearThoughts();
     if (refs.cardlay) {
       refs.cardlay.hidden = true;
@@ -400,8 +404,26 @@ async function main() {
     lastCompacting = now;
   }
 
+  // A user connecting is the one thing that happens TO the player rather
+  // than because of them, and it was silent. Watched the same way as a
+  // compaction: an edge, seeded from the state as it stands after offline
+  // catch-up so a restored mid-query save does not announce itself on load.
+  //
+  // Keyed on the query's identity, not on truthiness, so a resolve
+  // immediately followed by the next arrival is still one arrival.
+  let lastQueryId = null;
+  function watchArrival() {
+    const q = stateBox.current.activeQuery;
+    const id = q ? q.id : null;
+    // The ceiling query is the arc ending, not a user asking. It has its own
+    // set-piece and must not be introduced by the same friendly blip.
+    if (id && id !== lastQueryId && id !== 'ceiling') playArrivalSound(stateBox.current);
+    lastQueryId = id;
+  }
+
   function paintNow() {
     watchCompaction();
+    watchArrival();
     render(stateBox.current, refs);
     // Immediately after the paint that added the button, so the pop lands
     // with the drop rather than a frame behind it.
@@ -524,6 +546,7 @@ async function main() {
   cardSeqHW = stateBox.current.chatSeq;
   logSeqHW = stateBox.current.logSeq;
   lastCompacting = stateBox.current.compacting;
+  lastQueryId = stateBox.current.activeQuery ? stateBox.current.activeQuery.id : null;
 
   // Initial paint before the loop/rAF have run.
   paintNow();
@@ -577,6 +600,9 @@ async function main() {
       // chat callout + Manual entry but never pop as overlays.
       cardSeqHW = stateBox.current.chatSeq;
       logSeqHW = stateBox.current.logSeq;
+      // Same reason: whatever catch-up left connected was not an arrival the
+      // player was present for.
+      lastQueryId = stateBox.current.activeQuery ? stateBox.current.activeQuery.id : null;
       hooks.onContext('offline.catchup', { ms: elapsed });
       paintNow();
     }
