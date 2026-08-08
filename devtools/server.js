@@ -46,6 +46,11 @@ const num = (min, max) => ({ kind: 'number', min, max });
 const bool = () => ({ kind: 'boolean' });
 const oneOf = (...values) => ({ kind: 'enum', values });
 
+// Stamped once at boot and quoted in the unknown-keys error: the schema is
+// held in memory, so "the server is older than the knob" is the usual reason
+// a valid payload is refused.
+const STARTED_AT = Date.now();
+
 const TOOLS = {
   pacing: {
     label: 'Pacing',
@@ -171,7 +176,16 @@ function validate(schema, input, partial = false) {
     }
   }
   const extra = Object.keys(input).filter((k) => !(k in schema));
-  if (extra.length) errors.push(`unknown keys: ${extra.join(', ')}`);
+  if (extra.length) {
+    // The schema lives in this process's memory, so a suite left running
+    // while new knobs are added rejects them — and the message reads as a bug
+    // in the tool rather than as a stale process, which is what it almost
+    // always is. `just devtools` now runs under --watch, so this should only
+    // be reachable when the server was started by hand.
+    errors.push(`unknown keys: ${extra.join(', ')}`
+      + ` — this server booted ${new Date(STARTED_AT).toLocaleString()};`
+      + ' if those knobs were added after that, restart it');
+  }
   return { value: out, errors };
 }
 

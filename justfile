@@ -22,9 +22,14 @@ serve:
     cd game && python3 -m http.server {{port}}
 
 # Dev tuning suite at http://localhost:8899/ — tune effects, then apply them to the project
+#
+# --watch because the server holds its write schema in memory. A suite left
+# running while new knobs are added rejects them with "unknown keys", and the
+# error points at the tool rather than at the stale process — which cost a
+# real debugging session once. Node restarts it when the source changes.
 devtools port="8899":
     @echo "dev suite at http://localhost:{{port}}/  (ctrl-c to stop)"
-    node devtools/server.js {{port}}
+    node --watch devtools/server.js {{port}}
 
 # Publish main to GitHub Pages: preflight, dispatch pinned to main, watch, verify live
 deploy: preflight
