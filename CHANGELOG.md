@@ -3,6 +3,11 @@
 Versions are cut with `just release X.Y.Z`, which tags the commit and stamps
 the deployed build id into the settings panel.
 
+## v0.23.2 — 2026-08-08
+
+- fix: the dev suite reloads its own schema
+- feat: map & timetable tab — Arc 1 on one axis
+
 ## v0.23.1 — 2026-08-08
 
 - fix: cards wait for the transcript, and the field holds still until work starts
