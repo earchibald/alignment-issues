@@ -50,6 +50,30 @@ devtools/
 The server binds to `127.0.0.1` only. It writes to the working tree; it has no
 business being reachable from the network.
 
+## Publish release
+
+Next to Apply. It bumps the patch version, commits, pushes, tags, deploys and
+verifies the live site — then reports the version and build actually being
+served, or the step that failed.
+
+**It refuses unless the only modified tracked files are the ones tools
+generate.** Anything else in the diff means a human was editing, and a human's
+half-finished work does not get swept into a release they did not ask for.
+The check runs again when the button is pressed, not only when the page loaded
+it, because the tree can change in between.
+
+Two things it deliberately does not hide:
+
+- A release publishes `main`, so every commit since the last tag ships with
+  it. The confirmation lists them.
+- The tests run as part of the release. A tuning change that breaks one stops
+  the release there, and nothing is published.
+
+The publish itself shells out to `just release`, which already does preflight,
+version bump, changelog, tag, push, watch the Actions run and verify. A second
+release path here could disagree with that one. Success is confirmed by
+re-reading the live `js/version.js`, not by trusting an exit code.
+
 ## Apply
 
 One confirmation, not two. Everything the server writes is inside git, so the

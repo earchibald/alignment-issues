@@ -46,9 +46,18 @@ function confirmRelease(state) {
   ok.textContent = `Publish v${state.nextVersion}`;
   body.textContent = 'This commits the files below, pushes to main, tags the release, deploys to GitHub '
     + 'Pages and verifies the live site. Unlike Apply, it does not stay on this machine.';
-  pre.textContent = state.fromTools.join('\n');
-  note.textContent = `Current v${state.version}. The tests run as part of the release — if a tuning change `
-    + 'breaks one, the release stops there and nothing is published.';
+  // A release publishes main, so anything already committed and unreleased
+  // rides along. Naming it here is the difference between a button you can
+  // trust and one that surprises you.
+  const also = state.alsoShipping || [];
+  pre.textContent = [
+    ...state.fromTools.map((f) => `commit  ${f}`),
+    ...also.map((c) => `already on main  ${c}`),
+  ].join('\n');
+  note.textContent = `Current v${state.version}${state.lastTag ? ` (tag ${state.lastTag})` : ''}. `
+    + (also.length ? `${also.length} unreleased commit${also.length === 1 ? '' : 's'} ship with it. ` : '')
+    + 'The tests run as part of the release — if a tuning change breaks one, the release stops there '
+    + 'and nothing is published.';
 
   return new Promise((resolve) => {
     const done = (v) => {
@@ -69,6 +78,16 @@ function confirmRelease(state) {
 }
 
 export function initRelease(button, statusEl, logEl) {
+  // Show what is live before anyone presses anything: the version and build
+  // in the announcement mean more when you already know what they replaced.
+  const liveEl = document.getElementById('live-build');
+  if (liveEl) {
+    fetch('/api/release/live')
+      .then((r) => r.json())
+      .then((v) => { liveEl.textContent = v.error ? '' : `live v${v.version} · ${v.build}`; })
+      .catch(() => { liveEl.textContent = ''; });
+  }
+
   const say = (text, kind) => {
     statusEl.textContent = text;
     statusEl.className = `apply-status ${kind || ''}`;

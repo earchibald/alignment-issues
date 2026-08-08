@@ -197,6 +197,13 @@ async function workingState() {
     git('rev-parse', '--abbrev-ref', 'HEAD'),
     readFile(join(PROJECT, 'package.json'), 'utf8').then((t) => JSON.parse(t).version).catch(() => null),
   ]);
+  // A release publishes main, so it carries every commit since the last tag —
+  // not only the tuning change being made. Saying so up front stops the button
+  // being read as "publish just this file".
+  const tag = (await git('describe', '--tags', '--abbrev=0')).stdout.trim();
+  const since = tag
+    ? (await git('log', '--no-merges', '--oneline', `${tag}..HEAD`)).stdout.split('\n').filter(Boolean)
+    : [];
   const dirty = status.stdout.split('\n').filter(Boolean).map((line) => line.slice(3).trim());
   const fromTools = dirty.filter((f) => TOOL_PATHS.includes(f));
   const foreign = dirty.filter((f) => !TOOL_PATHS.includes(f));
@@ -211,6 +218,8 @@ async function workingState() {
     fromTools,
     foreign,
     toolPaths: TOOL_PATHS,
+    lastTag: tag,
+    alsoShipping: since.map((l) => l.trim()),
   };
 }
 
@@ -417,6 +426,17 @@ const server = createServer(async (req, res) => {
   if (path === '/api/release/preflight') {
     const state = await workingState();
     return send(res, 200, { ...state, blockers: releaseBlockers(state) });
+  }
+
+  // What is actually being served right now. Also exercises the parser the
+  // post-release announcement depends on, so a change to version.js's shape
+  // shows up here rather than in the middle of a release.
+  if (path === '/api/release/live') {
+    try {
+      return send(res, 200, await liveVersion());
+    } catch (err) {
+      return send(res, 502, { error: err.message });
+    }
   }
 
   if (path === '/api/release/job') {
