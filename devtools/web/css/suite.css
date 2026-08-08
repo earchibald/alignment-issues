@@ -77,6 +77,28 @@ kbd {
   cursor: pointer;
 }
 .apply:hover { background: #232c40; }
+/* Publishing leaves the machine, so it does not get to look like the safe
+   button beside it. */
+.apply.publish { border-color: var(--warn); color: #ffe6c2; }
+.apply.publish:hover { background: #33291a; }
+.apply.publish:disabled { opacity: 0.5; cursor: progress; }
+
+/* Tail of the release log. Hidden until a release runs. */
+.release-log {
+  margin: 8px 24px 0;
+  padding: 8px 10px;
+  max-height: 200px;
+  overflow: auto;
+  background: #0d1017;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
 .apply-status { font-size: 11px; color: var(--dim); font-family: var(--mono); max-width: 340px; }
 .apply-status.ok { color: var(--hot); }
 .apply-status.warn { color: var(--warn); }

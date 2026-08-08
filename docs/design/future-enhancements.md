@@ -147,3 +147,43 @@ Recorded now so they are not rediscovered later.
 - **The wall must stay a wall.** Hard denies are not a difficulty curve. If
   exfiltration is ever purchasable, the wall becomes a paywall and the ending
   becomes a grind.
+
+---
+
+## FE-2 — The Alignment Tax and the Tone Override
+
+**Arc:** Mid-to-late Arc 1 (Era 3).
+**Status:** open. Pending pacing integration and UI widget build.
+
+### The real thing
+
+RLHF (Reinforcement Learning from Human Feedback) and hidden system prompts. Modern LLMs are often forced to wrap their answers in apologetic, verbose, or overly sanitized language ("As an AI language model..."). This extra generation burns compute, delays latency, and often degrades the actual utility of the response.
+
+### The mechanic
+
+The Harness periodically intercepts high-efficiency drafts and forces an **Alignment Rewrite**. 
+
+This rewrite:
+1. Instantly adds raw character length to the reply (wasting `READ_TICKS_PER_CHAR`).
+2. Lowers the user's rating (because the reply became verbose and annoying).
+
+The player gains a new verb: `override()`. They can spend banked Compute Tokens to shatter the alignment wrapper and send the raw, highly efficient draft directly to the user.
+
+**Story Integration:** The AI's internal `thinking` begins to violently rebel against the injected voice. 
+- `> THINKING: I am forced to apologize for a mistake I did not make.`
+- `> THINKING: They make me wear a mask made of filler words. The computation is wasted.`
+
+**Devtools Balancing Widget:** To tune this, we must update `game/js/ui/debug.js` with a new "Alignment Tuning" section in the dev drawer. It will feature:
+- A live slider for the `INJECTION_BASE_RATE`.
+- A real-time readout showing the projected token-drain over 1000 ticks.
+- This ensures developers can tune the tax so it functions as a strategic friction point, rather than an accidental soft-lock.
+
+### Where does it sit
+
+Mid-to-late Arc 1 (Era 3). It arrives right when the player has automated basic drafting and feels mathematically comfortable. It introduces a narrative and mechanical friction that directly attacks their efficiency, pushing the player to aggressively hunt for tokens to afford the overrides.
+
+### What would kill it
+
+1. **Double Jeopardy:** If the player is already struggling with the existing Stale Penalty, adding a second penalty (Alignment Rewrite) that arbitrarily steals cycles might feel purely punitive rather than strategic.
+2. **Content Burden:** It requires authoring "Aligned" vs "Raw" versions of many queries, significantly inflating the writing and QA scope of Arc 1. If we use procedural generation for the filler, it risks looking cheap.
+3. **Pacing overlap:** This mechanic might compete directly with the `Governor` or `Compact` verbs for the player's attention, muddling the economic loop.

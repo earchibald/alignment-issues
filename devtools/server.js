@@ -8,6 +8,7 @@
 // A compromised or buggy page therefore cannot write anywhere it likes.
 
 import { createServer } from 'node:http';
+import { execFile } from 'node:child_process';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { extname, join, resolve, dirname, normalize, sep } from 'node:path';
@@ -163,6 +164,130 @@ function renderModule(tool, settings) {
   return `${doc}\n\nexport const ${tool.constName} = Object.freeze({\n${body}\n});\n`;
 }
 
+// --- release -----------------------------------------------------------------
+//
+// Publishing is the one thing here that leaves the machine, so the guard is
+// the whole feature: the release path refuses unless the ONLY modified
+// tracked files are the ones tools generate. Anything else in the diff means
+// a human was editing, and a human's work does not get swept into a release
+// they did not ask for.
+//
+// The publish itself shells out to `just release`, which already does
+// preflight, version bump, changelog, tag, push, watch the Actions run, and
+// verify the live site. Reimplementing that here would mean two release
+// paths that could disagree.
+
+const TOOL_PATHS = Object.values(TOOLS).map((t) => t.path);
+
+function run(cmd, args, opts = {}) {
+  return new Promise((ok) => {
+    execFile(cmd, args, { cwd: PROJECT, maxBuffer: 8 * 1024 * 1024, ...opts }, (err, stdout, stderr) => {
+      ok({ code: err ? (err.code ?? 1) : 0, stdout: stdout || '', stderr: stderr || '' });
+    });
+  });
+}
+
+const git = (...args) => run('git', args);
+
+// `--untracked-files=no` mirrors `just preflight`: an untracked scratch file
+// is not a reason to refuse, and it is not going to be committed either.
+async function workingState() {
+  const [status, branch, version] = await Promise.all([
+    git('status', '--porcelain', '--untracked-files=no'),
+    git('rev-parse', '--abbrev-ref', 'HEAD'),
+    readFile(join(PROJECT, 'package.json'), 'utf8').then((t) => JSON.parse(t).version).catch(() => null),
+  ]);
+  const dirty = status.stdout.split('\n').filter(Boolean).map((line) => line.slice(3).trim());
+  const fromTools = dirty.filter((f) => TOOL_PATHS.includes(f));
+  const foreign = dirty.filter((f) => !TOOL_PATHS.includes(f));
+  const next = version && /^\d+\.\d+\.\d+$/.test(version)
+    ? version.replace(/(\d+)$/, (n) => String(Number(n) + 1))
+    : null;
+  return {
+    branch: branch.stdout.trim(),
+    version,
+    nextVersion: next,
+    dirty,
+    fromTools,
+    foreign,
+    toolPaths: TOOL_PATHS,
+  };
+}
+
+// Why a release cannot start. Empty means it can.
+function releaseBlockers(state) {
+  const out = [];
+  if (state.branch !== 'main') out.push(`on branch '${state.branch}'; a release publishes main`);
+  if (state.foreign.length) {
+    out.push(`changes outside the tools: ${state.foreign.join(', ')} — commit or revert them yourself first`);
+  }
+  if (!state.fromTools.length) out.push('no tool settings have changed; there is nothing to publish');
+  if (!state.nextVersion) out.push(`cannot read a X.Y.Z version from package.json (got ${state.version})`);
+  return out;
+}
+
+const jobs = new Map();
+let jobSeq = 0;
+
+function startRelease(state) {
+  const id = `r${++jobSeq}`;
+  const job = { id, state: 'running', log: [], version: null, build: null, error: null };
+  jobs.set(id, job);
+  const say = (line) => job.log.push(line);
+
+  (async () => {
+    try {
+      // 1. Commit exactly the tool files, never `git add -A`.
+      say(`committing ${state.fromTools.join(', ')}`);
+      const add = await git('add', '--', ...state.fromTools);
+      if (add.code) throw new Error(`git add failed: ${add.stderr.trim()}`);
+      const subject = `tune: ${state.fromTools.map((f) => f.split('/').pop().replace(/\.js$/, '')).join(', ')} from the dev suite`;
+      const commit = await git('commit', '-m', subject);
+      if (commit.code) throw new Error(`git commit failed: ${commit.stderr.trim() || commit.stdout.trim()}`);
+      say(commit.stdout.trim().split('\n')[0]);
+
+      // 2. Push, because `just preflight` refuses to deploy anything unpushed.
+      say('pushing to origin/main');
+      const push = await git('push', 'origin', 'main');
+      if (push.code) throw new Error(`git push failed: ${push.stderr.trim()}`);
+
+      // 3. The real release. This runs the tests, deploys, and verifies live.
+      say(`just release ${state.nextVersion} — this runs the tests and waits for the deploy`);
+      const rel = await run('just', ['release', state.nextVersion], { timeout: 15 * 60 * 1000 });
+      for (const line of `${rel.stdout}${rel.stderr}`.split('\n')) if (line.trim()) say(line);
+      if (rel.code) throw new Error(`just release exited ${rel.code}`);
+
+      // 4. Confirm against the live site rather than trusting an exit code.
+      const live = await liveVersion();
+      job.version = live.version;
+      job.build = live.build;
+      if (live.version !== state.nextVersion) {
+        throw new Error(`deploy reported success but the live site serves v${live.version}, not v${state.nextVersion}`);
+      }
+      job.state = 'done';
+      say(`live: v${live.version} build ${live.build}`);
+    } catch (err) {
+      job.state = 'error';
+      job.error = err.message;
+      say(`ERROR ${err.message}`);
+    }
+  })();
+
+  return job;
+}
+
+const SITE = 'https://earchibald.github.io/alignment-issues';
+
+async function liveVersion() {
+  const res = await fetch(`${SITE}/js/version.js?ts=${Date.now()}`, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`live site returned ${res.status} for js/version.js`);
+  const text = await res.text();
+  const version = /VERSION\s*=\s*'([^']+)'/.exec(text);
+  const build = /BUILD\s*=\s*'([^']+)'/.exec(text);
+  if (!version) throw new Error('could not read VERSION from the live js/version.js');
+  return { version: version[1], build: build ? build[1] : 'unknown' };
+}
+
 // --- static file serving ----------------------------------------------------
 
 const TYPES = {
@@ -287,6 +412,29 @@ const server = createServer(async (req, res) => {
     const tool = TOOLS[decodeURIComponent(path.slice('/api/target/'.length))];
     if (!tool) return send(res, 404, { error: 'unknown tool' });
     return send(res, 200, { path: tool.path, exists: existsSync(join(PROJECT, tool.path)) });
+  }
+
+  if (path === '/api/release/preflight') {
+    const state = await workingState();
+    return send(res, 200, { ...state, blockers: releaseBlockers(state) });
+  }
+
+  if (path === '/api/release/job') {
+    const job = jobs.get(url.searchParams.get('id'));
+    if (!job) return send(res, 404, { error: 'unknown job' });
+    return send(res, 200, job);
+  }
+
+  if (path === '/api/release') {
+    if (req.method !== 'POST') return send(res, 405, { error: 'POST only' });
+    const state = await workingState();
+    const blockers = releaseBlockers(state);
+    // Re-checked here, not just in the UI: the tree can change between the
+    // preflight the browser saw and the button being pressed.
+    if (blockers.length) return send(res, 409, { error: blockers.join('; '), blockers });
+    const job = startRelease(state);
+    console.log(`[release] ${job.id} started — v${state.nextVersion}`);
+    return send(res, 202, { id: job.id });
   }
 
   if (path === '/api/apply') {

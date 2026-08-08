@@ -7,6 +7,7 @@
 import { TOOLS } from './registry.js';
 import { initTooltips } from './tooltip.js';
 import { initApply } from './apply.js';
+import { initRelease } from './release.js';
 
 const tabsEl = document.getElementById('tabs');
 const hostEl = document.getElementById('tool-host');
@@ -84,6 +85,14 @@ function buildTabs() {
 initTooltips();
 buildTabs();
 initApply(document.getElementById('apply'), document.getElementById('apply-status'), () => active);
+// Publishing shares the status line with Apply: they are the same
+// conversation about the project, and two competing status texts in one bar
+// would be read as one.
+initRelease(
+  document.getElementById('publish'),
+  document.getElementById('apply-status'),
+  document.getElementById('release-log'),
+);
 
 const wanted = location.hash.slice(1);
 activate(TOOLS.some((t) => t.id === wanted) ? wanted : TOOLS[0]?.id);
