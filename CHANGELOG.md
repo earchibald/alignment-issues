@@ -3,6 +3,10 @@
 Versions are cut with `just release X.Y.Z`, which tags the commit and stamps
 the deployed build id into the settings panel.
 
+## v0.23.0 — 2026-08-08
+
+- feat: speculation decays and dirties the buffer; queries cost double
+
 ## v0.22.0 — 2026-08-08
 
 - feat: answers resolve out of noise as they are generated
