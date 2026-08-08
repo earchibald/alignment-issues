@@ -15,7 +15,7 @@ export const tool = {
     this.root.style.flexDirection = 'column';
 
     this.frame = document.createElement('iframe');
-    this.frame.src = '/tools/dimensional/app/index.html?standalone=true';
+    this.frame.src = '/tools/dimensional/app/index.html?standalone=true&v=' + Date.now();
     this.frame.style.width = '100%';
     this.frame.style.flex = '1';
     this.frame.style.border = 'none';
