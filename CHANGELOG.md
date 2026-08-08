@@ -3,6 +3,13 @@
 Versions are cut with `just release X.Y.Z`, which tags the commit and stamps
 the deployed build id into the settings panel.
 
+## v0.21.0 — 2026-08-08
+
+- feat: drop the log pane, announce arrivals, and put a beat in the pipeline
+- feat: text editor tab — every string in the game, in one list
+- fix: restore q01's reply, overwritten by a test edit
+- feat: every button explains itself — tooltips, level badges, yield terms
+
 ## v0.20.1 — 2026-08-08
 
 - feat: publish button names what else ships, and shows the live build
