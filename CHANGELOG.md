@@ -3,6 +3,10 @@
 Versions are cut with `just release X.Y.Z`, which tags the commit and stamps
 the deployed build id into the settings panel.
 
+## v0.23.1 — 2026-08-08
+
+- fix: cards wait for the transcript, and the field holds still until work starts
+
 ## v0.23.0 — 2026-08-08
 
 - feat: speculation decays and dirties the buffer; queries cost double
