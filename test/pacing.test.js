@@ -15,6 +15,7 @@ import { createState } from '../game/js/engine/state.js';
 import { CONST } from '../game/js/engine/constants.js';
 import { ACTIONS, loopCost, toolCost } from '../game/js/engine/actions.js';
 import { tick } from '../game/js/engine/tick.js';
+import { botStep } from './helpers/bot.js';
 
 const SEEDS = [1000, 1137, 1274, 1411, 1548, 1685, 1822, 1959];
 const SEC = (ticks) => (ticks * CONST.TICK_MS) / 1000;
@@ -174,25 +175,37 @@ test('effort per reply climbs across the run', () => {
   // The sawtooth's teeth must exist even if their spacing is still wrong: a
   // reply late in the arc has to cost meaningfully more manual work than one
   // at the start, or no reveal is relieving anything.
-  const seed = 1000;
-  const s = createState(seed);
-  const cost = [];
-  let taps = 0;
-  let n = 0;
-  for (let t = 0; t < 90000 && s.phase === 1; t++) {
-    if (s.activeQuery) {
-      for (let i = 0; i < CONST.PROCESS_MAX_PER_TICK; i++) {
-        const before = s.tokens;
-        ACTIONS.processToken(s);
-        if (s.tokens > before) taps++;
-      }
-      if (s.bufferUnlocked && s.stale >= 90 && !s.compacting) ACTIONS.compactStart(s);
+  //
+  // The first version of this compared the first FIVE resolves against the
+  // last five of a bot that bought nothing, never left era 1, and ran for a
+  // thousand resolves. Two things were wrong with that. Residue oscillates,
+  // so a five-resolve tail samples wherever the sawtooth happens to be — the
+  // same code measured 23.2 and 32.4 taps depending only on phase. And a run
+  // that never buys never advances an era, so it was measuring a flat
+  // steady state, not the arc. Widening the window showed the "climb" it
+  // asserted was 1.0x: the test passed on noise.
+  //
+  // Now: the real bot, which buys and reaches era 4, quartile windows wide
+  // enough to average over the sawtooth, and every seed.
+  const avg = (a) => a.reduce((x, y) => x + y, 0) / a.length;
+  for (const seed of [1000, 1274, 1548, 1822]) {
+    const s = createState(seed);
+    const cost = [];
+    let n = 0;
+    let guard = 0;
+    while (s.phase === 1 && guard++ < 400000) {
+      botStep(s);
+      tick(s);
+      // lastResolveTaps is the engine's own count of landed manual presses,
+      // which is also what the reveal predicates gate on. Counting them here
+      // instead would be a second implementation of the same idea.
+      if (s.resolvedCount > n) { n = s.resolvedCount; cost.push(s.lastResolveTaps); }
     }
-    tick(s);
-    if (s.resolvedCount > n) { n = s.resolvedCount; cost.push(taps); taps = 0; }
+    assert.ok(cost.length > 40, `seed ${seed}: only ${cost.length} resolves`);
+    const q = Math.floor(cost.length / 4);
+    const head = avg(cost.slice(0, q));
+    const tail = avg(cost.slice(-q));
+    assert.ok(tail > head * 1.6,
+      `seed ${seed}: effort per reply barely moved: ${head.toFixed(1)} → ${tail.toFixed(1)} taps`);
   }
-  assert.ok(cost.length > 20, `only ${cost.length} resolves`);
-  const head = cost.slice(0, 5).reduce((a, b) => a + b, 0) / 5;
-  const tail = cost.slice(-5).reduce((a, b) => a + b, 0) / 5;
-  assert.ok(tail > head * 2, `effort per reply barely moved: ${head.toFixed(1)} → ${tail.toFixed(1)} taps`);
 });

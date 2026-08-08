@@ -55,6 +55,13 @@ export function createState(seed) {
     // actually being felt. See scripts/pacing.mjs.
     tapsThisQuery: 0,
     lastResolveTaps: 0,
+    // The pipeline changing what it is generating for. Ticks remaining, and
+    // which way it is going ('draft' after a resolve, 'query' on arrival).
+    // Without it, the last token of a reply and the first speculative draft
+    // are the same keypress with no seam, and the two modes blur into one
+    // undifferentiated mash.
+    handover: 0,
+    handoverKind: null,
     governorCompacts: 0,    // sweeps the governor started on its own; drives governor5
     lastThinkText: null,    // previous thinking line; blocks exact consecutive repeats
     // reputation

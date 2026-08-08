@@ -6,7 +6,7 @@ import { createState } from './engine/state.js';
 import { tick } from './engine/tick.js';
 import { ACTIONS } from './engine/actions.js';
 import { saveLocal, loadLocal, offlineCatchUp, SAVE_KEY } from './engine/save.js';
-import { render, onChatScroll, onChatGesture, scrollChatToEnd } from './ui/render.js';
+import { render, onChatScroll, onChatGesture, scrollChatToEnd, takeArrivals } from './ui/render.js';
 import { harnessCard, hintCard, thoughtCard, thinkSeconds } from './ui/components.js';
 import { installKeys } from './ui/keys.js';
 import { installTooltips } from './ui/tooltip.js';
@@ -14,7 +14,7 @@ import { installDebug } from './ui/debug.js';
 import { installSettings } from './ui/settings.js';
 import {
   playCardSound, playActionSound, playCompactSound, playFlushSound, playOverclockSound,
-  playDraftCapSound, playLoopSound,
+  playDraftCapSound, playLoopSound, playPopSound,
 } from './ui/sound.js';
 import { IdbStore, MemoryStore, DEV_KEY, TELEMETRY_OPTOUT_KEY } from './telemetry/store.js';
 import { createTelemetry } from './telemetry/capture.js';
@@ -106,7 +106,6 @@ async function main() {
     app: document.getElementById('app'),
     chat: document.getElementById('chat'),
     chatwrap: document.getElementById('chatwrap'),
-    log: document.getElementById('log'),
     status: document.getElementById('status'),
     actions: document.getElementById('actions'),
     crash: document.getElementById('crash'),
@@ -146,6 +145,9 @@ async function main() {
   let logSeqHW = 0;
   let cardQueue = [];
   let cardPaused = false;
+  // Timestamp before which no card may open: a button is dropping into the
+  // tray and the player should watch that happen first.
+  let cardHoldUntil = 0;
   // Thoughts leak into the corner and fade. They never pause the game, so
   // they ride a separate queue from the interrupting cards.
   let thoughtQueue = [];
@@ -315,7 +317,29 @@ async function main() {
     // opening the overlay until the dialog closes, so a card is never shown
     // (and its keydown swallowed) while the player can't see it.
     if (document.getElementById('settings')?.open) return;
+    // A card that explains a button must not land before the button has
+    // finished arriving. See announceArrivals().
+    if (performance.now() < cardHoldUntil) return;
     if (!cardPaused && cardQueue.length > 0) showNextCard();
+  }
+
+  // A new control drops into the tray with a pop and a flash, and the card
+  // that teaches it waits for that to finish.
+  //
+  // This is the fix for cards feeling jarring: they used to interrupt with no
+  // visible referent, so the player read an explanation of a change they had
+  // not seen happen. Now the change happens first, loudly, in the place it
+  // happened — and the card arrives as the follow-up it always was.
+  const ARRIVE_HOLD_MS = 620;   // must cover the .act.arrive animation
+
+  function announceArrivals() {
+    const arrived = takeArrivals();
+    if (arrived.length === 0) return;
+    playPopSound(stateBox.current);
+    hooks.onContext(`ui.arrive:${arrived.join(',')}`);
+    // Only ever push the hold forward. Two buttons arriving in consecutive
+    // frames must not shorten the wait for the first.
+    cardHoldUntil = Math.max(cardHoldUntil, performance.now() + ARRIVE_HOLD_MS);
   }
 
   // Dismisses the currently-shown card. If more are queued, immediately
@@ -379,6 +403,9 @@ async function main() {
   function paintNow() {
     watchCompaction();
     render(stateBox.current, refs);
+    // Immediately after the paint that added the button, so the pop lands
+    // with the drop rather than a frame behind it.
+    announceArrivals();
     lastPaintedSeq = stateBox.current.uiSeq;
     hooks.afterPaint();
     if (coldOpenActive && !isColdOpen()) {

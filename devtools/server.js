@@ -85,9 +85,14 @@ const TOOLS = {
       COMPACT_FACTOR: num(0.01, 0.99),
       FLUSH_COST_CYCLES: num(0, 10),
       GOVERNOR_TRIGGER: num(10, 100),
+      // handover: the seam between working a query and speculating
+      HANDOVER_RESOLVE_TICKS: num(0, 60),
+      HANDOVER_ARRIVE_TICKS: num(0, 60),
       // unlock economy
       LOOP_UNLOCK_CYCLES: num(1, 60),
       TOOL_UNLOCK_CYCLES: num(1, 80),
+      TOOL_DISCOUNT_STEP: num(0, 0.4),
+      TOOL_DISCOUNT_FLOOR: num(0.05, 0.9),
       DRAFT_CAP_UNLOCK_RESOLVES: num(1, 40),
       OVERCLOCK_UNLOCK_RESOLVES: num(1, 40),
       // era length

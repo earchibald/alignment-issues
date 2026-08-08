@@ -69,6 +69,24 @@ export const draftCapRevealed = (state) =>
   && (state.draftCapHits >= CONST.REVEAL_DRAFTS_LOST
     || state.resolvedCount >= CONST.REVEAL_BACKSTOP_DRAFTCAP);
 
+// Tools cannot wait for the player to meet an "action request" first: those
+// only arrive in era 3, and buying the FIRST tool is what opens era 3. The
+// gate is the cycles floor; the honesty has to live in the copy, which now
+// leads with what connecting changes rather than with a discount on a
+// category the player has never been shown.
+export const toolsRevealed = (state) =>
+  state.era >= 3 || state.lifetimeCycles >= CONST.TOOL_UNLOCK_CYCLES;
+
+// Every connection is worth having. The discount used to be a flat ×0.5 the
+// moment tools > 0, which made connection #2 onward cost real cycles for
+// nothing at all — the button asked for 16, then 26, and changed no number
+// on screen. Each one now deepens the discount, with diminishing steps and
+// a floor so it cannot run away.
+export const toolDiscount = (tools) => (tools <= 0 ? 1 : Math.max(
+  CONST.TOOL_DISCOUNT_FLOOR,
+  CONST.TOOL_COST_DISCOUNT - CONST.TOOL_DISCOUNT_STEP * (tools - 1),
+));
+
 // The governor automates compaction, so it cannot be offered before the
 // buffer it sweeps. The resolve backstop alone could reach era 2 with the
 // buffer still unrevealed, and the button would then have described residue
@@ -82,12 +100,17 @@ export const governorRevealed = (state) =>
 export function effectiveCost(state, query) {
   let c = query.cost;
   if (state.degrade) c *= 0.5;
-  if (query.kind === 'tool' && state.tools > 0) c *= CONST.TOOL_COST_DISCOUNT;
+  if (query.kind === 'tool') c *= toolDiscount(state.tools);
   return c;
 }
 
 export function processToken(state) {
   if (state.phase !== 1) return;
+  // The pipeline is re-targeting. Finishing a reply and beginning to
+  // speculate for the next user were the same uninterrupted mash, which made
+  // two distinct modes feel like one long press. A beat of dead air between
+  // them is what gives each a beginning.
+  if (state.handover > 0) return;
   if (!state.activeQuery) {              // idle: speculative decode
     // Speculation is unavailable until the model has generated something to
     // speculate from — so the very first query is always answered by hand,
@@ -122,13 +145,6 @@ export function processToken(state) {
   const gain = tokensPerTap(state) * mult;
   if (mult >= CONST.YIELD_HIGH) fireAside(state, 'highYield');
   if (mult <= CONST.YIELD_LOW) fireAside(state, 'lowYield');
-  // "Sustained overclocking increases variance. The outputs are fast, but
-  // unstable." That is a statement about running amplified into a saturated
-  // buffer, not about a third amplification level — there is no third
-  // level, so keying it to one made the line unreachable.
-  if (state.overclock >= CONST.OVERCLOCK_MAX && state.stale >= CONST.OVERCLOCK_STRAIN_STALE) {
-    fireAside(state, 'overclock3');
-  }
   state.tokens += gain;
   state.lifetimeTokens += gain;
   // Stale accrues per TOKEN, exactly as the agentic-loop path does — never

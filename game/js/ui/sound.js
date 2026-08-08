@@ -124,3 +124,38 @@ const ACTION_GAIN = 0.03;
 export function playActionSound(state) {
   playBuffer(state, ACTION_SOUND_URL, { gain: ACTION_GAIN, rate: ACTION_RATE });
 }
+
+// The pop a new control makes when it drops into the tray.
+//
+// Synthesised rather than sampled: a pop is a pitch falling fast under a
+// very short envelope, which is four lines of Web Audio and needs no asset.
+// It also lets the pitch be tuned against the clips already in the mix
+// instead of hoping a downloaded wav sits in the right place.
+//
+// This fires BEFORE the card that explains the new button, so it has to
+// read as "look here", not as a reward chime — short, dry, and quiet enough
+// to sit under the card sound that follows it.
+const POP_GAIN = 0.16;
+
+export function playPopSound(state) {
+  if (!state.settings.sound) return;
+  const AC = globalThis.AudioContext || globalThis.webkitAudioContext;
+  if (!AC) return;
+  if (!audioCtx) audioCtx = new AC();
+  if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+  const t = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'sine';
+  // 880 Hz down to 200 in 70 ms is the classic bubble-pop contour.
+  osc.frequency.setValueAtTime(880, t);
+  osc.frequency.exponentialRampToValueAtTime(200, t + 0.07);
+  // Near-instant attack, exponential decay. A linear release on a sine this
+  // short clicks at the tail.
+  gain.gain.setValueAtTime(0.0001, t);
+  gain.gain.exponentialRampToValueAtTime(POP_GAIN, t + 0.006);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.16);
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start(t);
+  osc.stop(t + 0.18);
+}

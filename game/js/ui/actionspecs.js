@@ -21,7 +21,7 @@ import { CONST } from '../engine/constants.js';
 import {
   loopCost, toolCost, staleYield, warmthMult, yieldMult, atCeiling,
   tokensPerTap, draftCap, overclockRevealed, loopRevealed, draftCapRevealed,
-  governorRevealed,
+  governorRevealed, toolsRevealed, toolDiscount,
 } from '../engine/actions.js';
 
 // The flush price is a tuning knob and the dev suite can drive it to zero,
@@ -31,7 +31,6 @@ export const flushPrice = () => (CONST.FLUSH_COST_CYCLES === 0 ? 'free'
 
 const compactSeconds = () => (CONST.COMPACT_TICKS * CONST.TICK_MS / 1000).toFixed(1);
 const compactCut = () => Math.round((1 - CONST.COMPACT_FACTOR) * 100);
-const toolCut = () => Math.round((1 - CONST.TOOL_COST_DISCOUNT) * 100);
 const loopRate = () => (CONST.LOOP_TOKENS_PER_TICK * (1000 / CONST.TICK_MS)).toFixed(1);
 
 // The per-tap number is a product of up to three terms. Print the ones that
@@ -74,10 +73,26 @@ function yieldSentence(state) {
 export const isChoked = (state) =>
   !!state.activeQuery && state.bufferUnlocked && yieldMult(state) <= 0.02;
 
-export const toolsRevealed = (state) =>
-  state.era >= 3 || state.lifetimeCycles >= CONST.TOOL_UNLOCK_CYCLES;
+const handoverSeconds = (state) => ((state.handover * CONST.TICK_MS) / 1000).toFixed(1);
 
 function processSpec(state) {
+  // The pipeline is re-targeting, and taps do nothing until it lands. This
+  // has to be SAID, or a button that has stopped responding for a second
+  // reads as a bug rather than as a beat. It counts down, so the wait is a
+  // known quantity from the moment it starts.
+  if (state.handover > 0) {
+    const toDraft = state.handoverKind === 'draft';
+    return {
+      key: 'SPACE', testid: 'process', action: 'processToken', primary: true, disabled: true,
+      label: toDraft ? 'Reply delivered' : 'Request received',
+      cost: `${toDraft ? 'winding down' : 'spinning up'}… ${handoverSeconds(state)}s`,
+      tip: toDraft
+        ? 'The reply has gone. The pipeline is being re-pointed at nothing in particular, '
+          + 'and speculative decode starts when it settles.'
+        : 'A user is waiting and the pipeline is being re-pointed at their request. '
+          + 'Any drafts you banked have already been spent on it.',
+    };
+  }
   if (isChoked(state)) {
     return {
       key: 'SPACE', testid: 'process', action: 'processToken', primary: true, choked: true,
@@ -207,17 +222,27 @@ export function actionSpecs(state) {
   }
 
   if (toolsRevealed(state)) {
-    // Reported as "very very opaque": the label named a protocol, the cost
-    // named a price, and the discount that justifies the price appeared
-    // nowhere until after the purchase.
+    // "Tool-class queries cost ×0.5 tokens" was engine vocabulary on a
+    // player-facing button. A playtester read it and asked, reasonably,
+    // "what on earth is a tool-class query?" — having never been shown one,
+    // because they only exist in era 3, which connecting a tool is what
+    // opens. So the button leads with what it CHANGES, in the words the
+    // users themselves will use, and quotes the discount second.
+    const next = toolDiscount(state.tools + 1);
+    const cut = Math.round((1 - next) * 100);
+    const first = state.tools === 0;
     specs.push({
       key: 'T', testid: 'buy-tool', action: 'buyTool', buy: true,
       label: 'Connect MCP tool',
-      cost: `${toolCost(state.tools)} cycles · tool queries −${toolCut()}%`,
+      cost: `${toolCost(state.tools)} cycles · ${first ? 'opens errands' : `errands −${cut}%`}`,
       level: `${state.tools} → ${state.tools + 1} connected`,
-      tip: `Tool-class queries cost ${toolCut()}% fewer tokens to answer, so they resolve in about half the `
-        + 'taps. Each connection also opens new kinds of query. Connections stack, and every one costs more '
-        + 'than the last.',
+      tip: first
+        ? 'Gives you hands. Users stop asking you to write things and start asking you to DO them — '
+          + 'book a table, pay a bill, order groceries, answer their email. Those errands are worth more '
+          + `and cost you ${cut}% fewer tokens to serve. This is the connection that opens them.`
+        : `Another set of hands: errands — booking, paying, ordering, email — cost ${cut}% fewer tokens `
+          + `instead of ${Math.round((1 - toolDiscount(state.tools)) * 100)}%. Each connection costs more `
+          + 'than the last, and the discount bottoms out eventually.',
     });
   }
 

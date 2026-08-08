@@ -8,22 +8,37 @@ import { CONST } from '../engine/constants.js';
 import {
   effectiveCost, loopCost, toolCost, staleYield, warmthMult, yieldMult, atCeiling,
   tokensPerTap, draftCap, overclockRevealed, loopRevealed, draftCapRevealed, governorRevealed,
+  toolsRevealed,
 } from '../engine/actions.js';
 import { CRASH_LINES, TEASER_VARIANTS, SPINE_THINKING } from '../engine/content.js';
 import {
-  entryBlock, genImgCard, toolCallCard, thoughtFold, chatNote, logLine,
+  entryBlock, genImgCard, toolCallCard, thoughtFold, chatNote,
   meterRow, resRead, actionButton,
 } from './components.js';
-import { actionSpecs, isChoked, toolsRevealed } from './actionspecs.js';
+import { actionSpecs, isChoked } from './actionspecs.js';
 import { retargetTip } from './tooltip.js';
 
 // --- module-scope change-detection state -----------------------------
 let lastChatLen = 0;
-let lastLogLen = 0;
 let lastChatSeq = 0;
-let lastLogSeq = 0;
 let lastStatusSeq = -1;
 let lastActionsSig = null;
+// The set of buttons the player has already been shown, and the ones that
+// appeared on the last render and have not yet been announced. Both are
+// module state for the same reason the render signatures are: the renderer
+// is called fresh every tick and owns no instance.
+let seenActionIds = null;
+let pendingArrivals = [];
+// testid -> the timestamp its arrival animation should end at.
+//
+// The tray rebuilds from scratch whenever its signature changes, which on a
+// live query is every tap. A button marked .arrive on one render was being
+// replaced by an unmarked clone milliseconds later, so the drop was never
+// actually seen. The window survives the rebuilds, and the elapsed time is
+// handed to CSS as a negative animation-delay so the animation RESUMES at
+// the right offset instead of restarting and stuttering.
+const arrivingUntil = new Map();
+const ARRIVE_MS = 620;
 let lastCrashLine = -1;
 let lastPhase = null;
 let headerEl = null;
@@ -125,11 +140,12 @@ function updateFloats(state, refs) {
 // which is correct, but the DOM still holds the old state's nodes).
 export function resetRenderTrackers(refs) {
   lastChatLen = 0;
-  lastLogLen = 0;
   lastChatSeq = 0;
-  lastLogSeq = 0;
   lastStatusSeq = -1;
   lastActionsSig = null;
+  seenActionIds = null;
+  pendingArrivals = [];
+  arrivingUntil.clear();
   lastCrashLine = -1;
   lastPhase = null;
   lastHeaderKey = null;
@@ -142,7 +158,6 @@ export function resetRenderTrackers(refs) {
   chatPinned = true;
   if (refs) {
     if (refs.chat) refs.chat.replaceChildren();
-    if (refs.log) refs.log.replaceChildren();
     if (refs.fx) refs.fx.replaceChildren();
   }
 }
@@ -376,28 +391,6 @@ export function onChatGesture() {
   gestureUntil = now() + GESTURE_MS;
 }
 
-function renderLog(state, refs) {
-  if (state.log.length > 0 && (state.resolvedCount > 0 || state.hintsSeen.length > 0)) refs.log.hidden = false;
-  if (state.logSeq !== lastLogSeq) {
-    const seqDelta = state.logSeq - lastLogSeq;
-    const lenDelta = state.log.length - lastLogLen;
-    const capped = lenDelta !== seqDelta;
-    // `thinking` lines stay in state.log — telemetry and the tests read the
-    // machine's record there — but the drawer does not draw them. The
-    // transcript owns interiority now, folded (see pushThinking).
-    if (capped) {
-      refs.log.replaceChildren();
-      for (const entry of state.log) if (entry.kind !== 'thinking') refs.log.append(logLine(entry));
-    } else {
-      for (let i = lastLogLen; i < state.log.length; i++) {
-        if (state.log[i].kind !== 'thinking') refs.log.append(logLine(state.log[i]));
-      }
-    }
-    lastLogLen = state.log.length;
-    lastLogSeq = state.logSeq;
-    refs.log.scrollTop = refs.log.scrollHeight;
-  }
-}
 
 function renderStatus(state, refs) {
   if (state.uiSeq === lastStatusSeq) return;
@@ -492,6 +485,8 @@ function renderActions(state, refs) {
     overclockRevealed(state) && state.overclock < CONST.OVERCLOCK_MAX, state.overclock,
     draftCapRevealed(state) && state.draftCapLevel < CONST.DRAFT_CAP_MAX_LEVEL, state.draftCapLevel,
     choked,
+    // the handover branch replaces the whole primary button and counts down
+    state.handover, state.handoverKind,
     // whether there is anything to flush — the per-tap figure below is
     // masked to 0 while idle, so it cannot stand in for this
     state.stale > 0,
@@ -518,12 +513,36 @@ function renderActions(state, refs) {
 
   // What each button says is decided in ui/actionspecs.js, which is pure and
   // therefore testable. This loop only turns a description into an element.
-  for (const spec of actionSpecs(state)) {
+  //
+  // A control the player has never had before does not simply appear. It
+  // drops in, with a sound and a moment of light, and only THEN does the
+  // card explaining it arrive. The old order — card first, over a tray that
+  // had silently changed behind it — is why the cards read as jarring:
+  // nothing on screen connected the interruption to the thing it was about.
+  const specs = actionSpecs(state);
+  const ids = specs.map((sp) => sp.testid);
+  for (const spec of specs) {
     const btn = actionButton({ ...spec, onclick: () => refs.dispatch(spec.action) });
     if (spec.choked) btn.classList.add('choked');
     if (spec.disabled) btn.disabled = true;
+    // seenActionIds is null on the first paint of a state — a restored save
+    // must not announce every button the player already owns.
+    if (seenActionIds && !seenActionIds.has(spec.testid)) {
+      arrivingUntil.set(spec.testid, now() + ARRIVE_MS);
+      pendingArrivals.push(spec.testid);
+    }
+    const until = arrivingUntil.get(spec.testid);
+    if (until !== undefined) {
+      if (now() >= until) {
+        arrivingUntil.delete(spec.testid);
+      } else {
+        btn.classList.add('arrive');
+        btn.style.setProperty('--arrive-elapsed', `${Math.round(ARRIVE_MS - (until - now()))}ms`);
+      }
+    }
     refs.actions.append(btn);
   }
+  seenActionIds = new Set(ids);
 
   if (state.resolvedCount === 0 && state.chat.length <= 1) {
     refs.actions.classList.add('cold-open');
@@ -533,6 +552,16 @@ function renderActions(state, refs) {
   // it to the replacement rather than dropping it — on touch it is being
   // read, and the process-token tip shows live numbers that must keep up.
   retargetTip(refs.actions);
+}
+
+// Buttons that appeared on the last render. The caller takes them, so each
+// arrival is announced exactly once even if several renders run before the
+// loop next looks.
+export function takeArrivals() {
+  if (pendingArrivals.length === 0) return [];
+  const out = pendingArrivals;
+  pendingArrivals = [];
+  return out;
 }
 
 function buildCrashTerm(state) {
@@ -593,7 +622,6 @@ function renderPhase(state, refs) {
   if (state.phase === 'crash') {
     if (lastPhase !== 'crash') {
       setGameSectionsHidden(refs, true);
-      refs.log.hidden = true;
       refs.status.hidden = true;
       refs.teaser.hidden = true;
       refs.crash.hidden = false;
@@ -605,7 +633,6 @@ function renderPhase(state, refs) {
   } else if (state.phase === 'teaser') {
     if (lastPhase !== 'teaser') {
       setGameSectionsHidden(refs, true);
-      refs.log.hidden = true;
       refs.status.hidden = true;
       refs.crash.hidden = true;
       refs.teaser.hidden = false;
@@ -647,7 +674,6 @@ export function render(state, refs) {
 
   if (state.phase !== 'crash' && state.phase !== 'teaser') {
     renderChat(state, refs);
-    renderLog(state, refs);
     renderStatus(state, refs);
     updateFloats(state, refs);
     renderActions(state, refs);

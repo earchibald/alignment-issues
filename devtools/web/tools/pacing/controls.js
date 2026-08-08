@@ -67,6 +67,19 @@ export const GROUPS = [
     ],
   },
   {
+    legend: 'Handover — the seam between working and speculating',
+    controls: [
+      {
+        key: 'HANDOVER_RESOLVE_TICKS', label: 'wind-down (ticks)', min: 0, max: 30, step: 1,
+        title: 'Dead ticks after a reply lands, before speculative decode accepts taps. At 0 the tap that finishes a reply is also the tap that starts drafting, and the two modes read as one undifferentiated mash. One tick is 200 ms.',
+      },
+      {
+        key: 'HANDOVER_ARRIVE_TICKS', label: 'spin-up (ticks)', min: 0, max: 30, step: 1,
+        title: 'Dead ticks after a user arrives, before manual processing accepts taps. Long enough to watch the banked drafts transfer; short enough not to read as lag.',
+      },
+    ],
+  },
+  {
     legend: 'Buffer economy',
     controls: [
       {
@@ -88,6 +101,8 @@ export const GROUPS = [
     controls: [
       { key: 'LOOP_UNLOCK_CYCLES', label: 'loop @ cycles', min: 1, max: 40, step: 1, title: 'Lifetime Spare Cycles before loops can be revealed at all. The grind gate sits on top of this, never under it.' },
       { key: 'TOOL_UNLOCK_CYCLES', label: 'tools @ cycles', min: 1, max: 60, step: 1, title: 'Lifetime cycles before MCP tools are offered. Raised from 10 once the measurement showed it landing in the same breath as the cache reveal.' },
+      { key: 'TOOL_DISCOUNT_STEP', label: 'tool step', min: 0, max: 0.2, step: 0.01, title: 'How much each connection AFTER the first deepens the action-request discount. At 0 the second tool and every one after it costs cycles and changes nothing, which is how this shipped.' },
+      { key: 'TOOL_DISCOUNT_FLOOR', label: 'tool floor', min: 0.1, max: 0.5, step: 0.05, title: 'Cheapest an action request can ever get, however many tools are connected. Guards era 3 against the discount outrunning the cost curve.' },
       { key: 'DRAFT_CAP_UNLOCK_RESOLVES', label: 'widen @ resolves', min: 1, max: 30, step: 1, title: 'Floor on widening the speculation buffer, under the overflow gate.' },
       { key: 'OVERCLOCK_UNLOCK_RESOLVES', label: 'amplify @ resolves', min: 1, max: 30, step: 1, title: 'Floor on amplification, under the taps gate.' },
       {

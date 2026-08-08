@@ -38,7 +38,7 @@ body {
 }
 /* Inner scrollers keep their scroll to themselves — reaching the end of the
    chat must not chain into a page-level bounce. */
-.g-chat, .g-log, .term, .dev-drawer, dialog#settings { overscroll-behavior: contain; }
+.g-chat, .term, .dev-drawer, dialog#settings { overscroll-behavior: contain; }
 
 /* ============================================================
    GAME UI TOKENS — driven by data-decay="0..4" on #app
@@ -412,27 +412,12 @@ body:has(#app[data-theme="light"][data-decay="2"]) { background: #dfe3e8; }
   padding: 2px 0;
 }
 
-/* Activity log drawer (appears after first resolve) */
-.g-log {
-  flex: none;
-  /* Sized for the mechanics feed alone. It used to carry an arrival and a
-     resolve line per query — both duplicated from the transcript — which is
-     what made it need a quarter of the screen. */
-  max-height: clamp(58px, 13dvh, 116px);
-  overflow-y: auto;
-  border-top: 1px solid var(--g-line);
-  background: var(--g-surface);
-  padding: 8px 14px;
-  font-family: var(--g-font-log);
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 1.6;
-}
-.g-log .l-system { color: var(--g-ink-dim); }
-.g-log .l-inner { color: var(--g-inner); font-style: italic; }
-.g-log .l-harness { color: var(--g-harness); }
-.g-log .l-gap { margin-top: 9px; }
-.g-log > div { padding: 1px 0; }
+/* The activity log drawer is gone. It carried the mechanics feed in a
+   fixed slice of the screen below the transcript, and every line in it was
+   either duplicated in the chat or now written on the button it describes.
+   A new mechanic announces itself where it actually lives (see .act.arrive)
+   instead of as one more line in a pane nobody was reading. The space is
+   the transcript's. */
 
 /* Status strip: token bar + resources */
 .g-status {
@@ -519,6 +504,63 @@ body:has(#app[data-theme="light"][data-decay="2"]) { background: #dfe3e8; }
 @keyframes sweep { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
 @media (prefers-reduced-motion: reduce) { .act.sweep::after { animation: none; content: none; } }
 .act:focus-visible { outline: 2px solid var(--g-accent); outline-offset: 2px; }
+
+/* ============================================================
+   ARRIVAL — a control the player has never had before.
+   It drops in, glints, and settles. The card that teaches it is
+   held back until this finishes (main.js ARRIVE_HOLD_MS), so the
+   interruption always has a visible referent on screen.
+   ============================================================ */
+.act.arrive {
+  /* --arrive-elapsed is set by the renderer on every rebuild during the
+     window. A negative delay starts the animation partway through, so a
+     tray that repaints mid-drop resumes rather than restarting. */
+  animation: act-drop 0.42s cubic-bezier(0.22, 1.4, 0.36, 1) both;
+  animation-delay: calc(-1 * var(--arrive-elapsed, 0ms));
+  /* z-index so the glint and the overshoot are not clipped under the
+     neighbouring buttons in the grid. */
+  z-index: 1;
+}
+@keyframes act-drop {
+  0%   { opacity: 0; transform: translateY(-18px) scale(0.94); }
+  60%  { opacity: 1; transform: translateY(2px) scale(1.02); }
+  100% { opacity: 1; transform: none; }
+}
+/* The glint: a band of light crossing the face, plus a colour wash that
+   settles into the button's own hue. Drawn on ::before so it composites
+   over the label without touching the .sweep tap animation on ::after. */
+.act.arrive::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 18% 30%, rgba(255,255,255,0.95) 0 1.5px, transparent 2.5px),
+    radial-gradient(circle at 72% 22%, rgba(255,255,255,0.9) 0 1.2px, transparent 2.2px),
+    radial-gradient(circle at 44% 78%, rgba(255,255,255,0.85) 0 1.3px, transparent 2.3px),
+    radial-gradient(circle at 88% 66%, rgba(255,255,255,0.8) 0 1px, transparent 2px),
+    linear-gradient(105deg, transparent 35%, color-mix(in srgb, var(--g-buy) 55%, white) 50%, transparent 65%);
+  background-size: 100% 100%, 100% 100%, 100% 100%, 100% 100%, 260% 100%;
+  animation: act-glint 0.62s ease-out both;
+  animation-delay: calc(-1 * var(--arrive-elapsed, 0ms));
+}
+@keyframes act-glint {
+  0%   { opacity: 0; background-position: 0 0, 0 0, 0 0, 0 0, 160% 0; }
+  25%  { opacity: 1; }
+  100% { opacity: 0; background-position: 0 0, 0 0, 0 0, 0 0, -60% 0; }
+}
+/* Motion is the announcement, so with motion suppressed the edge has to
+   carry it instead — a still button that simply exists teaches nothing. */
+@media (prefers-reduced-motion: reduce) {
+  .act.arrive { animation: none; }
+  .act.arrive::before {
+    background: none;
+    animation: act-arrive-edge 1.2s ease-out 2 both;
+    box-shadow: inset 0 0 0 2px var(--g-buy);
+  }
+  @keyframes act-arrive-edge { 0%, 100% { opacity: 0; } 40% { opacity: 1; } }
+}
 .act.primary {
   grid-column: 1 / -1;
   background: var(--g-accent);
@@ -1112,7 +1154,6 @@ dialog#settings .harness-card { margin: 8px 0; }
   .e-body { font-size: 13px; }
   .entry.sys .e-body { font-size: 12px; }
   #thoughts { right: 8px; bottom: 6px; max-width: calc(100vw - 16px); }
-  .g-log { font-size: 10.5px; padding: 6px 10px; }
   .g-status { padding: 8px 10px 4px; }
   .g-actions { padding: 6px 8px max(8px, env(safe-area-inset-bottom)); gap: 5px; }
   .act { font-size: 11.5px; padding: 4px 8px; }
@@ -1209,7 +1250,7 @@ dialog#settings .harness-card { margin: 8px 0; }
    zoom survives. Do NOT reach for user-scalable=no instead: it takes
    pinch-zoom away from everyone and modern Safari ignores it anyway.
    touch-action does not inherit, and the ancestor walk stops at a
-   scroll container (.g-chat, .g-log are both scrollers), so setting it
+   scroll container (.g-chat is a scroller), so setting it
    on body alone is not enough — it is applied to the whole subtree.
    Scrollers keep working: `manipulation` still permits panning.
    ============================================================ */

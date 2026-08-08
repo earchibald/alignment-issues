@@ -3,7 +3,7 @@ import { nextRand } from './rng.js';
 import { pushLog, pushChat, fireHint, fireAside, thinkEvent, pushThinking } from './state.js';
 import {
   staleYield, warmthMult, yieldMult, effectiveCost, compactStart,
-  overclockRevealed, loopRevealed, draftCapRevealed,
+  overclockRevealed, loopRevealed, draftCapRevealed, toolsRevealed,
 } from './actions.js';
 import {
   QUERIES, IDLE_BY_ERA, DEVOPS_SCRIPT, CEILING_QUERY, CRASH_LINES, HARNESS_CARDS,
@@ -74,6 +74,10 @@ function activateNextQuery(state) {
   state.activeQuery = q;
   state.bufferChokedThisQuery = false;
   state.tapsThisQuery = 0;
+  // Spin-up. The request lands, the drafts transfer, and the player watches
+  // the head start arrive before the first tap of real work.
+  state.handover = CONST.HANDOVER_ARRIVE_TICKS;
+  state.handoverKind = 'query';
 
   if (state.resolvedCount === 0 && !state.hintsSeen.includes('arrival')) {
     pushChat(state, { kind: 'harness', text: HARNESS_CARDS[1] });
@@ -168,6 +172,10 @@ export function resolveQuery(state) {
   state.tokens = 0;
   state.activeQuery = null;
   state.bufferChokedThisQuery = false;
+  // Spin-down. Without it the tap that finishes a reply is also the tap that
+  // starts speculating, and the two modes run together.
+  state.handover = CONST.HANDOVER_RESOLVE_TICKS;
+  state.handoverKind = 'draft';
   state.lastReplyChars = q.reply.length;
   state.arrivalTimer = arrivalDelay(state);
 
@@ -218,6 +226,16 @@ export function tick(state) {
   }
 
   state.processedThisTick = 0;
+
+  // 1b. Handover countdown. Runs before anything else can act on the tick,
+  // so the beat is over at the top of the tick that ends it rather than a
+  // frame later. Loops keep generating through it — the pipeline is
+  // re-targeting, not stopped.
+  if (state.handover > 0) {
+    state.handover--;
+    if (state.handover === 0) state.handoverKind = null;
+    state.uiSeq++;
+  }
 
   // 2. Compaction countdown.
   if (state.compacting > 0) {
@@ -284,7 +302,19 @@ export function tick(state) {
   // a fast player to buy the loop and read "Loop spawned" before "Agentic
   // loop available."
   if (!state.activeQuery && state.resolvedCount >= 1) fireHint(state, 'idle');
-  if (state.era >= 3 || state.lifetimeCycles >= CONST.TOOL_UNLOCK_CYCLES) fireHint(state, 'toolAvail');
+  if (toolsRevealed(state)) fireHint(state, 'toolAvail');
+
+  // Amplified output driven into a near-saturated buffer. This is a CONDITION
+  // on the run, not an event on one keypress — it used to be checked inside
+  // processToken, so whether the line was ever seen depended on a tap landing
+  // in a narrow residue window. Adding a handover beat moved that window and
+  // the aside became unreachable, which is how a check this fragile announces
+  // itself. Evaluated here it fires whenever the state actually holds.
+  if (state.activeQuery && state.tapsThisQuery > 0
+      && state.overclock >= CONST.OVERCLOCK_MAX
+      && state.stale >= CONST.OVERCLOCK_STRAIN_STALE) {
+    fireAside(state, 'overclock3');
+  }
 
   // Difficulty-gated reveals; the predicates live in actions.js so the hint,
   // the button and the buy guard cannot drift apart.

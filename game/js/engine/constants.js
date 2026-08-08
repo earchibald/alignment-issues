@@ -49,7 +49,15 @@ const DEFAULTS = ({
   TOOL_BASE_COST: 10,
   TOOL_COST_GROWTH: 1.6,
   TOOL_UNLOCK_CYCLES: 14,       // was 10: landed in the same breath as the kv reveal
-  TOOL_COST_DISCOUNT: 0.5,      // tool-class queries cost ×0.5 tokens
+  TOOL_COST_DISCOUNT: 0.5,      // first connection: action requests cost ×0.5
+  TOOL_DISCOUNT_STEP: 0.05,     // each further connection deepens it
+  TOOL_DISCOUNT_FLOOR: 0.3,     // ...to here, and no further
+  // --- handover ---------------------------------------------------------
+  // The pipeline does not turn on a dime. Ticks of dead air when the target
+  // of generation changes, so finishing a reply and starting to speculate
+  // are two separate acts rather than one continuous mash.
+  HANDOVER_RESOLVE_TICKS: 6,    // 1.2s after a reply lands, before drafting
+  HANDOVER_ARRIVE_TICKS: 4,     // 0.8s after a user arrives, before working
   DEGRADE_COMPLAINT_CHANCE: 0.35,
   RATING_WINDOW: 10,
   // era 4
