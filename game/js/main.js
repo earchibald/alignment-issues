@@ -17,7 +17,7 @@ import { installDebug } from './ui/debug.js';
 import { installSettings } from './ui/settings.js';
 import {
   playCardSound, playActionSound, playCompactSound, playFlushSound, playOverclockSound,
-  playDraftCapSound, playLoopSound, playPopSound, playArrivalSound,
+  playDraftCapSound, playLoopSound, playPopSound, playArrivalSound, setMuted,
 } from './ui/sound.js';
 import { IdbStore, MemoryStore, DEV_KEY, TELEMETRY_OPTOUT_KEY } from './telemetry/store.js';
 import { createTelemetry } from './telemetry/capture.js';
@@ -79,6 +79,19 @@ async function main() {
   const savedAt = loaded ? readSavedAt() : null;
 
   const stateBox = { current: loaded || createState(Date.now() >>> 0) };
+
+  // ?mute=1 — sound off for this load, whatever the save says.
+  //
+  // For automated runs. Sound defaults ON and a scripted playthrough on a real
+  // machine otherwise spends its life making noise at whoever is sitting
+  // there; an audio graph nobody asked for is also one more thing that can
+  // throw mid-test. Drop the flag and the sound is back — it is per-load and
+  // never written to the save, so a test cannot silently mute a player's game.
+  //
+  // See docs/operations/testing.md.
+  setMuted(new URLSearchParams(
+    globalThis.location ? globalThis.location.search : '',
+  ).get('mute') === '1');
 
   if (savedAt !== null) {
     const elapsed = Date.now() - savedAt;

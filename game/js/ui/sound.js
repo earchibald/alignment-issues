@@ -13,9 +13,28 @@ const CARD_SOUND_URL = new URL('../../assets/ui-sound-8.wav', import.meta.url);
 
 const cardAudio = typeof Audio === 'function' ? new Audio(CARD_SOUND_URL.href) : null;
 
+// A hard mute that sits OUTSIDE the save, for automated runs (?mute=1, see
+// main.js and docs/operations/testing.md).
+//
+// It deliberately does not touch state.settings.sound. That field is the
+// player's preference and it is persisted, so a scripted run that flipped it
+// would silently mute the game of whoever opened the tab next — a test must
+// not be able to change a player's settings as a side effect.
+let muted = false;
+
+export function setMuted(on) {
+  muted = !!on;
+}
+
+export const isMuted = () => muted;
+
+// The single gate. Every play path goes through it, so there is one place
+// where "should this make a noise" is decided.
+const audible = (state) => !muted && !!(state && state.settings && state.settings.sound);
+
 export function playCardSound(state) {
   if (!cardAudio) return;
-  if (!state.settings.sound) return;
+  if (!audible(state)) return;
   cardAudio.currentTime = 0;
   const played = cardAudio.play();
   if (played && typeof played.catch === 'function') played.catch(() => {});
@@ -32,7 +51,7 @@ let audioCtx = null;
 const bufferCache = new Map();
 
 function playBuffer(state, url, { gain = 1, rate = 1 } = {}) {
-  if (!state.settings.sound) return;
+  if (!audible(state)) return;
   const AC = globalThis.AudioContext || globalThis.webkitAudioContext;
   if (!AC) return;
   if (!audioCtx) audioCtx = new AC();
