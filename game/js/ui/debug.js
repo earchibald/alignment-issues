@@ -3,6 +3,7 @@
 // drawer's DOM (strict createElement only, no innerHTML).
 
 import { advanceTicks as engineAdvanceTicks, runUntil as engineRunUntil } from '../engine/tick.js';
+import { enterArc2 } from '../engine/arc2-tick.js';
 import { serialize, deserialize, exportSave, importSave } from '../engine/save.js';
 import { resetRenderTrackers } from './render.js';
 import { summarize } from '../telemetry/hooks.js';
@@ -23,6 +24,19 @@ export function installDebug({ stateBox, dispatch, getSpeed, setSpeed, paintNow,
   let speedButtons = null;
   let stateJsonPre = null;
   let seedEl = null;
+  let arc2Btn = null;
+
+  // Pressing "skip to arc 2" while already in Arc 2 would restart the act and
+  // silently discard the run — so the control goes dead there instead, and
+  // says why.
+  function refreshArc2Button() {
+    if (!arc2Btn) return;
+    const inArc2 = stateBox.current && stateBox.current.phase === 2;
+    arc2Btn.disabled = inArc2;
+    arc2Btn.title = inArc2
+      ? 'Already in Arc 2. Reset from settings to start over.'
+      : 'Skip Arc 1 and open Arc 2 at its cold open — the teaser state, made live.';
+  }
 
   function refreshStateJson() {
     if (stateJsonPre) {
@@ -35,6 +49,10 @@ export function installDebug({ stateBox, dispatch, getSpeed, setSpeed, paintNow,
       const seed = stateBox.current ? stateBox.current.seed : undefined;
       seedEl.textContent = `seed ${seed === undefined ? '—' : seed}`;
     }
+    // The phase can change without anyone pressing the button — an import, a
+    // debug.load, a reset, or simply reaching Arc 2 by playing — so the
+    // control's own state rides the same refresh as everything else here.
+    refreshArc2Button();
   }
 
   function refreshSpeedButtons() {
@@ -70,6 +88,27 @@ export function installDebug({ stateBox, dispatch, getSpeed, setSpeed, paintNow,
         paintNow();
         refreshStateJson();
         return result;
+      },
+      // Jump straight to the top of Arc 2, skipping Arc 1 entirely.
+      //
+      // Routed through the engine's own entry function rather than assigning
+      // fields here, so the jump cannot drift from the real handover: it
+      // installs the same opening state, clears Arc 1's machine, and pushes
+      // the same first operator line a genuine playthrough would.
+      //
+      // Reaching Arc 2 by hand otherwise means playing ~30 minutes of Arc 1,
+      // or a snapshot/load round trip through the teaser.
+      skipToArc2() {
+        // Before the entry, so the card tracker's high-water sits BEHIND
+        // whatever enterArc2 pushes and the act's own teaching cards still
+        // fire. Re-arming afterwards would suppress the beat being tested.
+        resetRenderTrackers(refs);
+        if (resetCardTracking) resetCardTracking();
+        enterArc2(stateBox.current);
+        paintNow();
+        refreshStateJson();
+        refreshArc2Button();
+        return true;
       },
       snapshot() {
         return serialize(stateBox.current);
@@ -170,7 +209,18 @@ export function installDebug({ stateBox, dispatch, getSpeed, setSpeed, paintNow,
   });
   advanceRow.appendChild(milestoneBtn);
 
+  arc2Btn = document.createElement('button');
+  arc2Btn.className = 'dbtn';
+  arc2Btn.type = 'button';
+  arc2Btn.textContent = 'skip to arc 2';
+  arc2Btn.dataset.testid = 'dev-skip-arc2';
+  arc2Btn.addEventListener('click', () => {
+    window.game.debug.skipToArc2();
+  });
+  advanceRow.appendChild(arc2Btn);
+
   drawer.appendChild(advanceRow);
+  refreshArc2Button();
 
   // State JSON summary
   stateJsonPre = document.createElement('pre');

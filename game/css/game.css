@@ -967,6 +967,9 @@ body:has(#app[data-theme="light"][data-decay="2"]) { background: #dfe3e8; }
   padding: 4px 9px; cursor: pointer;
 }
 .dev-drawer .dbtn.on { border-color: #d8a03d; color: #d8a03d; }
+/* A dead control that looks live is a lie — "skip to arc 2" goes disabled
+   once you are already there, and has to read that way. */
+.dev-drawer .dbtn:disabled { opacity: 0.4; cursor: not-allowed; }
 .dev-drawer pre {
   margin: 0 0 10px;
   background: #0b0e12; border: 1px solid #2a323c; border-radius: 4px;

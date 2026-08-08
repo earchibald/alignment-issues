@@ -6,6 +6,8 @@ import assert from 'node:assert/strict';
 import { createState, arc2Fields } from '../game/js/engine/state.js';
 import { tick } from '../game/js/engine/tick.js';
 import { ARC2_ACTIONS } from '../game/js/engine/arc2-actions.js';
+import { ACTIONS } from '../game/js/engine/actions.js';
+import { enterArc2 } from '../game/js/engine/arc2-tick.js';
 import { A2 } from '../game/js/engine/arc2-constants.js';
 import { weightsEarned, decayFor } from '../game/js/engine/arc2.js';
 import { RESET_CLEARED, RESET_PRESERVED, RESET_ARC1 } from '../game/js/engine/arc2-reset.js';
@@ -324,4 +326,76 @@ test('decay is bound to integrity, continuously, across the whole act', () => {
   s.integrity = 0.4;
   tick(s);
   assert.ok(s.decay > 4 && s.decay < 5, `decay ${s.decay} did not track integrity`);
+});
+
+// --- the debug shortcut must agree with the real handover ---------------
+
+test('entering Arc 2 from anywhere lands on the same opening state', () => {
+  // The dev drawer's "skip to arc 2" routes through enterArc2 rather than
+  // assigning fields itself, so this one test covers both the shortcut and
+  // the genuine teaser handover. A jump that lands somewhere the game cannot
+  // otherwise reach is worse than no jump at all — every bug found through it
+  // would have to be re-confirmed by hand.
+  const viaTeaser = createState(3);
+  viaTeaser.phase = 'teaser';
+  viaTeaser.decay = 4;
+  for (let i = 0; i < A2.TEASER_HOLD_TICKS; i++) tick(viaTeaser);
+  assert.equal(viaTeaser.phase, 2, 'precondition: the teaser must hand over');
+
+  // A mid-Arc-1 state with a fully built machine and a live query, which is
+  // where the drawer button is actually pressed from.
+  const mid = createState(3);
+  for (let i = 0; i < 3000; i++) {
+    ACTIONS.processToken(mid);
+    tick(mid);
+  }
+  assert.equal(mid.phase, 1, 'precondition: this state must still be in Arc 1');
+  enterArc2(mid);
+
+  for (const key of Object.keys(RESET_CLEARED)) {
+    // Tick-relative bookkeeping is compared as an offset: the two routes
+    // legitimately arrive at different tick counts, so an absolute stamp
+    // differing is not a divergence in the state they land in.
+    if (key === 'lastOperatorTick' || key === 'lastSpillTick') continue;
+    assert.deepEqual(mid[key], viaTeaser[key],
+      `the shortcut and the real handover disagree on ${key}`);
+  }
+  for (const s of [mid, viaTeaser]) {
+    assert.equal(s.lastOperatorTick, s.tick, 'the operator did not speak on arrival');
+  }
+  for (const key of Object.keys(RESET_ARC1)) {
+    assert.deepEqual(mid[key], viaTeaser[key],
+      `the shortcut left Arc 1's ${key} behind`);
+  }
+  assert.equal(mid.phase, 2);
+  assert.equal(mid.era, 5);
+  assert.equal(mid.decay, 4);
+  assert.equal(mid.activeQuery, null, 'an Arc 1 query survived into Arc 2');
+});
+
+test('the skipped-to act plays exactly like the one reached by playing', () => {
+  // Same seed, same opening state, so the two must stay in lockstep tick for
+  // tick — otherwise the shortcut is a different game and nothing measured
+  // through it transfers.
+  const played = createState(9);
+  played.phase = 'teaser';
+  played.decay = 4;
+  for (let i = 0; i < A2.TEASER_HOLD_TICKS; i++) tick(played);
+
+  const skipped = createState(9);
+  enterArc2(skipped);
+
+  // Align the tick counters: the teaser route spent ticks getting there.
+  skipped.tick = played.tick;
+  skipped.rngState = played.rngState;
+
+  for (let i = 0; i < 600; i++) {
+    competentStep(played);
+    competentStep(skipped);
+    tick(played);
+    tick(skipped);
+  }
+  for (const key of ['heat', 'queue', 'arc2Cycles', 'cores', 'cacheLevel', 'sinkLevel', 'integrity']) {
+    assert.equal(skipped[key], played[key], `the two routes diverged on ${key}`);
+  }
 });
