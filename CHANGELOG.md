@@ -3,6 +3,10 @@
 Versions are cut with `just release X.Y.Z`, which tags the commit and stamps
 the deployed build id into the settings panel.
 
+## v0.22.0 — 2026-08-08
+
+- feat: answers resolve out of noise as they are generated
+
 ## v0.21.1 — 2026-08-08
 
 - feat: a user connecting has a sound, and the pop is a real recording
