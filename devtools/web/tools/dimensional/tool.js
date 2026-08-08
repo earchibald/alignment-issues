@@ -10,7 +10,7 @@ export const tool = {
     this.root = document.createElement('div');
     this.root.className = 'dimensional-tool';
     this.root.style.width = '100%';
-    this.root.style.height = '100%';
+    this.root.style.height = 'calc(100vh - 100px)';
     this.root.style.display = 'flex';
     this.root.style.flexDirection = 'column';
 

@@ -27,15 +27,22 @@
 // the meaning lives and what test/projection.test.js checks.
 
 import { CONST } from '../engine/constants.js';
+import { DIMENSIONAL_SETTINGS } from '../config/dimensional-settings.js';
 
 // The height the composition was authored at. Every length below is in
 // "reference pixels" and gets multiplied by (height / REF_H) at draw time.
 export const REF_H = 120;
 
-// Aesthetic configuration — section 3 of the integration guide. Exported as a
-// single mutable object so the dev suite can drive it live without this module
-// growing a props system.
-export const PROJECTION = {
+// Aesthetic configuration — section 3 of the integration guide.
+//
+// The defaults are the documented baseline and stay readable as such; the dev
+// suite's tuner writes config/dimensional-settings.js, which is merged over
+// them at the bottom of this block. Same arrangement engine/constants.js and
+// arc2-constants.js use.
+//
+// PROJECTION is deliberately mutable rather than frozen: the tuner's live
+// preview drives it in place between applies.
+const DEFAULTS = {
   // Shape and container.
   bezelThickness: 0,        // the CSS border on .act.primary IS the bezel
   trailLength: 0.7,         // motion blur: higher holds the previous frame longer
@@ -53,7 +60,13 @@ export const PROJECTION = {
   waveOverflowDistance: 0,  // .act has overflow:hidden, so bleed is not free
   minPushDistance: 15,
   waveSpeed: 7.0,
-  waveReach: 350,           // free-expansion headroom at full context health
+  // Free-expansion headroom at full context health, as a multiple of the
+  // face's half-diagonal. The sandbox used a flat 350px against a 380x120
+  // button; scaled by height alone that range mostly falls off-canvas on a
+  // tray button, and the constriction — the whole point of the context meter —
+  // becomes invisible. Measured against the face instead, so >1 always means
+  // "runs clear off the corners" whatever the button's shape.
+  waveReach: 1.15,
   tokenSize: 3,
   tokenFlowDistance: 20,
 
@@ -64,9 +77,40 @@ export const PROJECTION = {
   ringSparkleSize: 1.5,
   sparkleDuration: 1.0,
   alwaysSparkle: false,
+
+  // Colour overrides. Empty means "let the theme drive it", which is the
+  // normal case: the tray repaints across five decay palettes, so a hex
+  // pinned here wins everywhere and strands the button in one era. The
+  // tuner's colour pickers land in these; clearing them hands control back.
+  faceColor: '',
+  waveColor: '',
+  tokenColor: '',
 };
 
+export const PROJECTION = { ...DEFAULTS, ...DIMENSIONAL_SETTINGS };
+
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
+
+// How far a tap's wave gets before it hits the wall — the context meter's
+// entire readout, and the only piece of the draw loop worth extracting.
+//
+// The penalty is QUADRATIC in health, per the guide: residue is forgiving at
+// first and then closes in fast, which is the shape of the mechanic it is
+// reporting on. Two things it must do at the extremes:
+//
+//   at 100 — clear the corners of the face, so a clean buffer never looks
+//            like a constrained one just because the button is wide;
+//   at 0   — collapse onto the ring, so every tap visibly slams into a wall.
+//
+// The headroom is measured against the FACE (its half-diagonal), not against
+// the reference composition. The sandbox used a flat 350px authored for a
+// 380x120 button; on a tray button most of that range is off-canvas and the
+// constriction never becomes visible at all.
+export function waveBoundaryAt(contextHealth, ringRadius, w, h, s = 1) {
+  const penalty = (1 - clamp(contextHealth, 0, 100) / 100) ** 2;
+  const reach = (Math.hypot(w, h) / 2) * PROJECTION.waveReach;
+  return ringRadius + PROJECTION.minPushDistance * s + (1 - penalty) * reach;
+}
 
 // --- the four driving props ------------------------------------------------
 //
@@ -128,10 +172,11 @@ function readTheme() {
     const v = cs.getPropertyValue(name).trim();
     return v || fallback;
   };
+  // A tuned colour wins; an empty one leaves the decay palette in charge.
   theme = {
-    face: pick('--proj-face', '#141a22'),
-    wave: pick('--proj-wave', '#a855f7'),
-    token: pick('--proj-token', '#38bdf8'),
+    face: PROJECTION.faceColor || pick('--proj-face', '#141a22'),
+    wave: PROJECTION.waveColor || pick('--proj-wave', '#a855f7'),
+    token: PROJECTION.tokenColor || pick('--proj-token', '#38bdf8'),
     radius: parseFloat(pick('--proj-radius', '16')) || 0,
   };
   themeAge = 0;
@@ -179,10 +224,21 @@ function resize() {
 
 function draw() {
   raf = 0;
-  if (!node || !node.isConnected) return;
-  // offsetParent goes null when the tray is hidden — Arc 2, the crash screen,
-  // the teaser. No point animating a surface nobody can see.
-  if (node.offsetParent === null || document.hidden) {
+  if (!node) return;
+  // Idle, but NOT dead. Three ways to get here:
+  //
+  //   - the node is not in the document yet. projectionNode() creates it and
+  //     schedules the loop; render.js prepends it into a button that is itself
+  //     attached later. If this frame wins that race, the canvas is real and
+  //     unparented for a tick;
+  //   - offsetParent is null, so the tray is hidden — Arc 2, the crash, the
+  //     teaser;
+  //   - the tab is in the background.
+  //
+  // All three are temporary, so all three reschedule. Returning without one
+  // killed the loop for the rest of the session and left a blank button; it
+  // reproduced on roughly one cold load in three, because it is a race.
+  if (!node.isConnected || node.offsetParent === null || document.hidden) {
     schedule();
     return;
   }
@@ -294,8 +350,7 @@ function draw() {
       radius,
     );
     ctx.clip();
-    const healthPenalty = (1 - contextHealth / 100) ** 2;
-    const waveBoundary = ringRadius + (P.minPushDistance + (1 - healthPenalty) * P.waveReach) * s;
+    const waveBoundary = waveBoundaryAt(contextHealth, ringRadius, W, H, s);
     for (const w of waves) {
       if (w.r > waveBoundary) {
         w.v *= 0.75;
@@ -462,7 +517,10 @@ export function projectionSupported() {
 // signature moves.
 export function projectionNode() {
   if (node) {
-    if (reduced) paintOnce();
+    // Every tray rebuild passes through here, so this doubles as the loop's
+    // heartbeat: schedule() is a no-op while a frame is already pending, and
+    // restarts it if anything ever did stop it.
+    if (reduced) paintOnce(); else schedule();
     return node;
   }
   node = document.createElement('canvas');

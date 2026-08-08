@@ -8,10 +8,15 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+import { DIMENSIONAL_SETTINGS } from '../game/js/config/dimensional-settings.js';
 
 import { createState } from '../game/js/engine/state.js';
 import { CONST } from '../game/js/engine/constants.js';
-import { projectionProps, PROJECTION, REF_H } from '../game/js/ui/projection.js';
+import {
+  projectionProps, waveBoundaryAt, PROJECTION, REF_H,
+} from '../game/js/ui/projection.js';
 import { actionSpecs } from '../game/js/ui/actionspecs.js';
 
 const query = { text: 'q', tokensNeeded: 20, kind: 'chat' };
@@ -113,6 +118,80 @@ test('the token button is the last thing in the tray, in every scene', () => {
   }
 });
 
+// The face the tray actually produces: full-width, 104px tall. The sandbox was
+// authored against 380x120, which is a completely different aspect.
+const FACE = [494, 104];
+const RING = 48;   // the ring at rest on that face
+
+test('a clean buffer lets a wave run clear off the face', () => {
+  // The failure this replaces: waveReach was a flat 350px authored for a
+  // 380-wide button. Scaled by height alone, most of that range fell outside
+  // a tray button, so a suffocating buffer and a clean one drew the same
+  // picture and the meter reported nothing.
+  const halfDiagonal = Math.hypot(...FACE) / 2;
+  assert.ok(waveBoundaryAt(100, RING, ...FACE) > halfDiagonal,
+    'a wave at full health stops inside the face — the corners never clear');
+});
+
+test('a full buffer collapses the wave onto the ring', () => {
+  const boundary = waveBoundaryAt(0, RING, ...FACE);
+  assert.ok(boundary > RING, 'the boundary is inside the ring itself');
+  assert.ok(boundary - RING < FACE[1] / 4,
+    `a wave still travels ${(boundary - RING).toFixed(0)}px at zero health — nothing looks trapped`);
+});
+
+test('the boundary closes in monotonically, and accelerates as it does', () => {
+  // Quadratic, not linear: residue is meant to be forgiving at first and then
+  // close in fast. A linear ramp would make the last 20% of the buffer feel
+  // the same as the first 20%.
+  const at = (h) => waveBoundaryAt(h, RING, ...FACE);
+  for (let h = 0; h < 100; h += 5) {
+    assert.ok(at(h + 5) > at(h), `boundary did not grow between health ${h} and ${h + 5}`);
+  }
+  // The last fifth of the buffer has to cost far more than the first: filling
+  // a clean buffer to 20% barely moves the wall, and the final 20% slams it in.
+  const firstFifth = at(100) - at(80);
+  const lastFifth = at(20) - at(0);
+  assert.ok(lastFifth > firstFifth * 4,
+    `the ramp is near-linear (${firstFifth.toFixed(0)} then ${lastFifth.toFixed(0)}) — the squeeze has no bite`);
+});
+
+test('the boundary scales with the face, not with a hardcoded button', () => {
+  // Both departures from the sandbox in one assertion: a wider face gets more
+  // headroom, so the composition survives a phone and a desktop.
+  const narrow = waveBoundaryAt(100, RING, 320, 104);
+  const wide = waveBoundaryAt(100, RING, 700, 104);
+  assert.ok(wide > narrow * 1.5, `${wide.toFixed(0)} vs ${narrow.toFixed(0)} — reach is not tracking width`);
+});
+
+test('the dev suite tunes knobs the projection actually has', () => {
+  // A tuner key with no matching knob is worse than a missing one: the slider
+  // moves, the apply succeeds, the file is written, and the button does not
+  // change. The tuner shipped with buttonColor/bezelColor against a module
+  // that has neither, which is exactly this failure.
+  const server = readFileSync(new URL('../devtools/server.js', import.meta.url), 'utf8');
+  const block = server.match(/dimensional:\s*\{[\s\S]*?\n {4}\},\n {2}\},/);
+  assert.ok(block, 'no dimensional tool found in devtools/server.js');
+  const schema = block[0].match(/^ {6}(\w+):\s*(?:num|bool|str|oneOf)\(/gm) || [];
+  const keys = schema.map((line) => line.trim().split(':')[0]);
+  assert.ok(keys.length > 10, `only parsed ${keys.length} schema keys — the matcher is stale`);
+
+  const unwired = keys.filter((k) => !(k in PROJECTION));
+  assert.deepEqual(unwired, [], `dev-suite knobs the projection ignores: ${unwired.join(', ')}`);
+
+  // And the other way: a knob with no slider is a knob nobody can reach.
+  const untunable = Object.keys(PROJECTION).filter((k) => !keys.includes(k));
+  assert.deepEqual(untunable, [], `projection knobs the dev suite cannot reach: ${untunable.join(', ')}`);
+});
+
+test('the shipped override layer is empty and exports what the tuner writes', () => {
+  // `partial: true` means the generated module is an override layer; if it
+  // stops exporting DIMENSIONAL_SETTINGS the game fails to boot, not the suite.
+  assert.equal(typeof DIMENSIONAL_SETTINGS, 'object');
+  assert.deepEqual(Object.keys(DIMENSIONAL_SETTINGS), [],
+    'a tuned override was committed — the shipped defaults live in projection.js');
+});
+
 test('every projection length is authored against the reference height', () => {
   // The sandbox hardcoded a 380x120 button and told the porting agent to keep
   // the numbers in step with the CSS by hand. This asserts the replacement
@@ -121,7 +200,7 @@ test('every projection length is authored against the reference height', () => {
   assert.equal(typeof REF_H, 'number');
   assert.ok(REF_H > 0);
   for (const [key, value] of Object.entries(PROJECTION)) {
-    if (typeof value === 'boolean') continue;
+    if (typeof value === 'boolean' || typeof value === 'string') continue;
     assert.equal(typeof value, 'number', `PROJECTION.${key} is not a number`);
     assert.ok(Number.isFinite(value), `PROJECTION.${key} is not finite`);
   }
