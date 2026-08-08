@@ -3,6 +3,18 @@
 Versions are cut with `just release X.Y.Z`, which tags the commit and stamps
 the deployed build id into the settings panel.
 
+## v0.26.0 — 2026-08-08
+
+- feat: ?mute=1 silences the game for automated runs
+- feat(devtools): the Token Button tuner drives the real renderer
+- feat: the token button is a dimensional projection, and it moved to the bottom
+- fix(devtools): fix iframe collapsing to 150px height
+- fix(devtools): add cache buster to iframe
+- feat(devtools): export dimensional settings to config
+- feat(devtools): add dimensional projection tuner tool
+- docs: add integration guide for dimensional projection button
+- feat(matrix-visuals): add interactive dev suite and dimensional projection token UI button
+
 ## v0.25.1 — 2026-08-08
 
 - feat: skip straight to arc 2 from the debug drawer
