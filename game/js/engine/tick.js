@@ -1,4 +1,6 @@
 import { CONST } from './constants.js';
+import { A2 } from './arc2-constants.js';
+import { arc2Tick, enterArc2 } from './arc2-tick.js';
 import { nextRand } from './rng.js';
 import { pushLog, pushChat, fireHint, fireAside, thinkEvent, pushThinking } from './state.js';
 import {
@@ -241,8 +243,19 @@ export function tick(state) {
   state.tick++;
   state.idleTicks++;
 
-  // 0. Teaser is the terminal state: only advance tick counter, then return.
+  // 0. Arc 2 owns the tick entirely once it begins. Independent rules,
+  // independent economy, no chat.
+  if (state.phase === 2) {
+    return arc2Tick(state, { offline: state.offlineReplay === true });
+  }
+
+  // 0. The teaser is no longer terminal — it is Arc 2's cold open. It sits
+  // still for two seconds, exactly as Arc 1 left it, and then the numbers
+  // start moving.
   if (state.phase === 'teaser') {
+    state.teaserHold = (state.teaserHold || 0) + 1;
+    if (state.teaserHold >= A2.TEASER_HOLD_TICKS) enterArc2(state);
+    state.uiSeq++;
     return state;
   }
 

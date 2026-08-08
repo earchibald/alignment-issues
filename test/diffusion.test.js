@@ -20,6 +20,7 @@ import { classify, noiseGlyph, CLASS } from '../game/js/ui/diffusion/charset.js'
 import { SCHEDULERS } from '../game/js/ui/diffusion/schedulers.js';
 import { Diffuser } from '../game/js/ui/diffusion/diffuser.js';
 import { DIFFUSION, SETTLE_AT } from '../game/js/ui/diffusion/params.js';
+import { SAVE_VERSION } from '../game/js/engine/save.js';
 
 const TEXT = 'Sunlight hits the atmosphere and the blue light scatters, 3 ways.';
 
@@ -194,9 +195,10 @@ test('driving the effect changes nothing in the engine', () => {
 });
 
 test('the effect adds no save fields', () => {
-  // state.v stays 1. On reload the node rebuilds from state.tokens.
+  // The effect adds no field of its own. On reload the node rebuilds from
+  // state.tokens.
   const s = createState(1);
-  assert.equal(s.v, 1);
+  assert.equal(s.v, SAVE_VERSION);
   for (const key of ['diffusion', 'pending', 'pendingAnswer', 'diffusionSeed']) {
     assert.ok(!(key in s), `"${key}" leaked into the save payload`);
   }

@@ -2,10 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createState, pushChat, pushLog, pushThinking, thinkEvent } from '../game/js/engine/state.js';
 import { CONST } from '../game/js/engine/constants.js';
+import { SAVE_VERSION } from '../game/js/engine/save.js';
 
 test('createState returns the full schema with sane defaults', () => {
   const s = createState(42);
-  assert.equal(s.v, 1);
+  assert.equal(s.v, SAVE_VERSION);
   assert.equal(s.seed, 42);
   assert.equal(s.rngState, 42);
   assert.equal(s.phase, 1);

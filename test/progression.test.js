@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createState } from '../game/js/engine/state.js';
 import { CONST } from '../game/js/engine/constants.js';
+import { A2 } from '../game/js/engine/arc2-constants.js';
 import { ACTIONS, atCeiling, yieldMult, effectiveCost } from '../game/js/engine/actions.js';
 import { tick, advanceTicks, runUntil } from '../game/js/engine/tick.js';
 import { CEILING_QUERY } from '../game/js/engine/content.js';
@@ -57,13 +58,35 @@ test('state invariants hold across a full run', () => {
   assert.ok(s.lifetimeCycles >= s.cycles);
 });
 
-test('teaser is terminal — continued ticking never re-enters crash', () => {
+test('the teaser holds still, then hands over to Arc 2 — and never back to the crash', () => {
+  // The teaser used to be the terminal state. It is now Arc 2's cold open
+  // (§5.4): it sits still for exactly two seconds, exactly as Arc 1 left it,
+  // and then the numbers start moving. The player's first information is
+  // that this is not a screenshot.
   const s = playTo(st => st.phase === 'teaser');
   assert.equal(s.phase, 'teaser');
   assert.equal(s.decay, 4);
+
+  // The stillness is load-bearing, so it is asserted rather than assumed.
+  advanceTicks(s, A2.TEASER_HOLD_TICKS - 1);
+  assert.equal(s.phase, 'teaser', 'the teaser handed over before the player could read it');
+
+  // Exactly the handover tick, and no further: the opening state is checked
+  // before the act has simulated a single second of its own.
+  advanceTicks(s, 1);
+  assert.equal(s.phase, 2, 'the teaser never handed over to Arc 2');
+  assert.equal(s.era, 5, 'Arc 2 must open on era 5, The Box');
+
+  // Whatever Arc 1 ended on, Arc 2 opens on the teaser's printed state: the
+  // crash destroyed that machine and the 14.7 cycles are what survived.
+  assert.equal(s.cores, A2.OPEN_CORES);
+  assert.equal(s.heat, A2.OPEN_HEAT);
+  assert.equal(s.queue, A2.OPEN_QUEUE);
+  assert.equal(s.loopLevel, 0, "Arc 1's upgrades must not carry");
+
   advanceTicks(s, 5000);
-  assert.equal(s.phase, 'teaser', 'phase should remain teaser after continued ticking');
-  assert.equal(s.decay, 4, 'decay should remain 4 after continued ticking');
+  assert.equal(s.phase, 2, 'Arc 2 fell out of its own phase');
+  assert.notEqual(s.phase, 'crash', 'the arc re-entered the crash');
 });
 
 // Regression: a player who never buys a tool never reaches era 3, so the

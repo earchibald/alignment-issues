@@ -1,18 +1,79 @@
 import { CONST } from './constants.js';
 import { HINTS, HARNESS_ASIDES, THINKING_EVENTS } from './content.js';
 import { nextRand } from './rng.js';
+import { A2 } from './arc2-constants.js';
+import { A2_HINTS } from './arc2-content.js';
+
+// Arc 2's hints live in their own content file but ride the same one-shot
+// machinery, so the id namespace is shared and prefixed `a2`.
+const A2_HINT_TEXT = Object.fromEntries(
+  Object.entries(A2_HINTS).map(([k, v]) => [`a2${k[0].toUpperCase()}${k.slice(1)}`, v]),
+);
+
+// Arc 2's block, split out so createState and the v1 -> v2 migration cannot
+// drift apart: a fresh game and a migrated Arc 1 save must land on the same
+// shape, and the only way to guarantee that is one definition.
+export function arc2Fields() {
+  return {
+    // --- host (§9.1) ---
+    cores: A2.OPEN_CORES,
+    clock: A2.OPEN_CLOCK,        // GHz. Notches 1.4 | 2.4 | 3.0 | 3.6
+    cacheLevel: A2.OPEN_CACHE,
+    sinkLevel: A2.OPEN_SINK,
+    heat: A2.OPEN_HEAT,          // teaser canon; NOT ambient
+    throttle: 0,
+    coolantCd: 0,                // ticks
+    haltTicks: 0,                // resolution cut to PURGE_WORK
+    shedCd: 0,
+    lockoutSeen: false,          // the first lockout is a scene, once
+    lockoutTicks: 0,
+    // --- traffic ---
+    queue: A2.OPEN_QUEUE,
+    queueCap: A2.QUEUE_CAP,
+    inflow: A2.Q_BASE,           // derived per tick, stored for the renderer
+    runResolved: 0,              // drives inflow growth; CLEARED by retrain (§9.3)
+    arc2Cycles: 0,               // cycles EARNED this arc; the wall predicate (§6.10)
+    lifetimeResolved: 0,         // monotone forever; telemetry and tests
+    lifetimeDropped: 0,
+    lifetimeShed: 0,
+    burstUntil: 0,
+    burstWarned: 0,
+    nextBurstAt: A2.BURST_EVERY,
+    offlineBacklog: 0,
+    // --- legibility + prestige ---
+    integrity: 1.0,
+    integrityShown: false,       // the number appears at its first fall (§6.4)
+    sessionDropCost: 0,          // per-session cap on involuntary loss
+    operatorStage: 0,
+    operatorLine: 0,             // index into the current stage's report pool
+    lastOperatorTick: -9999,
+    spillCount: 0,               // §6.8 — neighbours absorbing overflow
+    lastSpillTick: -9999,
+    queueOpens: 0,               // §6.6 — read back on the ending screen
+    queueOpen: false,            // the display toggle's own state
+    retrainOffered: false,
+    retrainDeclined: false,
+    retrainCount: 0,
+    endingKind: null,            // 'scheduled' | 'jumped', set at the offer
+    weights: 0,                  // earned here, spent in Arc 3
+    weightsClaimed: 0,           // high-water (§9.4)
+    // --- reserved but dark (§10) ---
+    reach: [],
+    observation: 0,
+    evidence: 0,
+  };
+}
 
 export function createState(seed) {
   return {
-    v: 1,
+    v: 2,
     seed,
     rngState: seed,
-    phase: 1,               // 1 | 'crash' | 'teaser'
-    era: 1,                 // 1 chatbot, 2 agentic, 3 tools, 4 coding-agent
+    phase: 1,               // 1 | 'crash' | 'teaser' | 2
+    era: 1,                 // 1 chatbot, 2 agentic, 3 tools, 4 coding-agent, 5 box, 6 floor
     decay: 0,
     tick: 0,
     // query flow
-    queryIndex: 0,          // legacy pointer; kept for save compatibility only
     servedIds: [],          // query ids already served this run; recycles when exhausted
     era3Served: 0,         // era-3 queries served; drives the era-4 turn
     eraServed: 0,          // queries served in the CURRENT era; drives the tier ramp
@@ -95,6 +156,9 @@ export function createState(seed) {
     uiSeq: 0,               // bumped on any visible change; renderer watches it
     chatSeq: 0,              // monotonic counter, bumped on every pushChat (survives ring-buffer caps)
     logSeq: 0,               // monotonic counter, bumped on every pushLog (survives ring-buffer caps)
+    teaserHold: 0,           // ticks the teaser has sat still; §5.4 beat 1
+    offlineReplay: false,    // set only for the duration of offlineCatchUp (§6.7)
+    ...arc2Fields(),
   };
 }
 
@@ -109,8 +173,12 @@ export function pushLog(state, kind, text, gap = false) {
 // game, tracked via state.hintsSeen. No-op on repeat calls for the same id.
 export function fireHint(state, id) {
   if (state.hintsSeen.includes(id)) return;
+  const text = HINTS[id] ?? A2_HINT_TEXT[id];
+  // A hint id with no text would push `undefined` into the feed and pop a
+  // blank teaching card. Fail loudly in tests instead of quietly on screen.
+  if (text === undefined) return;
   state.hintsSeen.push(id);
-  pushLog(state, 'harness', HINTS[id], true);
+  pushLog(state, 'harness', text, true);
 }
 
 // Harness aside: same one-shot tracking as hints (hintsSeen), but the text

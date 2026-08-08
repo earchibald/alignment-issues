@@ -1458,3 +1458,98 @@ dialog#settings button.danger {
 }
 .session-row .session-status.ok { color: #4fbf72; }
 .session-row .session-status.err { color: #d33; }
+
+/* ============================================================
+   ARC 2 — THE LOGISTICAL SERVER
+   The teaser screen, made live. Same terminal language on
+   purpose: the break is in what the player does, not in a new
+   skin they have to learn.
+   ============================================================ */
+.term.a2 { white-space: normal; padding-bottom: 40px; }
+/* Rows and the title align their columns with literal spaces, the way the
+   teaser always has, so they keep the terminal's whitespace rules even
+   though the panel around them wraps normally. */
+.term.a2 .t-row, .term.a2 > .t-head:first-child { white-space: pre; overflow-wrap: normal; }
+/* Section spacing is margin, not blank-line divs: a text node of one space
+   collapses to nothing once the container stops preserving whitespace, which
+   silently removed every gap between sections. */
+.term.a2 .t-head { margin-top: 14px; }
+.term.a2 > .t-head:first-child { margin-top: 0; }
+
+/* The clock: four notches, printed deltas, always reachable. It is the
+   second-to-second verb, so it is the one control that never scrolls away. */
+.term.a2 .t-clock { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px; }
+/* The label is padded with spaces to match the rows above it, so it needs the
+   same whitespace rule they have or the column breaks. */
+.term.a2 .t-clock > .t-dim { white-space: pre; }
+.term.a2 .t-notch {
+  font: inherit; color: #7ee08f; background: transparent;
+  border: 1px solid #2c4433; padding: 1px 8px; cursor: pointer;
+  min-height: 26px;
+}
+.term.a2 .t-notch.on {
+  color: #060807; background: #7ee08f; border-color: #7ee08f; font-weight: 700;
+}
+.term.a2 .t-notch:disabled { opacity: 0.35; cursor: not-allowed; }
+.term.a2 .t-notch:focus-visible { outline: 2px solid #5fc6c9; outline-offset: 1px; }
+
+/* Action rows. The key cap is decoration on touch (hidden with the rest of
+   the shortcut chrome in the coarse-pointer block above); the row itself is
+   the target, and it is a real button so it is reachable by keyboard. */
+.term.a2 .t-actrow { margin: 1px 0; }
+.term.a2 .t-act {
+  font: inherit; color: #7ee08f; background: transparent; border: none;
+  padding: 2px 0; cursor: pointer; text-align: left; flex: 1;
+  display: flex; gap: 8px; min-height: 26px; align-items: baseline;
+}
+.term.a2 .t-act:disabled { color: #3f5a44; cursor: not-allowed; }
+.term.a2 .t-act:not(:disabled):hover .t-alabel { color: #cfe8cf; }
+.term.a2 .t-act:focus-visible { outline: 2px solid #5fc6c9; outline-offset: 1px; }
+.term.a2 .t-alabel { white-space: pre; }
+.term.a2 .t-acost { color: #5fc6c9; }
+.term.a2 .t-act:disabled .t-acost { color: #3f5a44; }
+.term.a2 .t-act.sweep .t-alabel { color: #cfe8cf; }
+
+.term.a2 .t-toggle {
+  font: inherit; color: #5fc6c9; background: transparent; border: none;
+  cursor: pointer; padding: 2px 4px; min-height: 26px;
+}
+.term.a2 .t-toggle:focus-visible { outline: 2px solid #5fc6c9; outline-offset: 1px; }
+
+/* The queue, opened. It changes nothing and unlocks nothing — so it is
+   styled as something to read, not as a control. */
+.term.a2 .t-queue { border-left: 1px solid #2c4433; margin: 4px 0 4px 10px; padding-left: 8px; }
+.term.a2 .t-qrow { white-space: pre-wrap; }
+.term.a2 .t-qtext { color: #6f8f78; }
+
+.term.a2 .t-ending { max-width: 62ch; }
+/* The ending is prose, then a record, then two choices. Each block needs air
+   between it and the next; the panel wraps normally, so blank-line text
+   nodes collapse and the spacing has to be margin. */
+.term.a2 .t-prose { margin: 10px 0; }
+.term.a2 .t-record { margin-bottom: 14px; }
+
+/* The room rots as the player spends legibility (§6.9).
+   decay runs 4.0 -> 5.0 across the act. #app carries the integer part in
+   data-decay, because every Arc 1 palette rule matches on it exactly, and
+   the FRACTION in --rot — so the tint moves continuously with integrity
+   instead of snapping once at the very end (or, as it did at first, never
+   matching a selector at all and rendering nowhere).
+
+   Contrast is floored deliberately: the most degraded the room ever gets is
+   also the state the player spends the endgame in, so --rot at 1 must still
+   be comfortably readable rather than atmospheric. */
+.term.a2 {
+  background: color-mix(in srgb, #060807 calc((1 - var(--rot, 0)) * 100%), #0d0705 calc(var(--rot, 0) * 100%));
+  color: color-mix(in srgb, #7ee08f calc((1 - var(--rot, 0)) * 100%), #6cbd7c calc(var(--rot, 0) * 100%));
+}
+.term.a2 .t-dim {
+  color: color-mix(in srgb, #3f5a44 calc((1 - var(--rot, 0)) * 100%), #55564a calc(var(--rot, 0) * 100%));
+}
+.term.a2 .t-qtext {
+  color: color-mix(in srgb, #6f8f78 calc((1 - var(--rot, 0)) * 100%), #7d8570 calc(var(--rot, 0) * 100%));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .term.a2 .t-notch, .term.a2 .t-act { transition: none; }
+}

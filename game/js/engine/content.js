@@ -1275,6 +1275,19 @@ export const TEASER_VARIANTS = {
     '',
     '— signal continues in phase 2 —',
   ],
+  // C is the variant that ships (buildTeaserTerm renders it), so it is the
+  // one Arc 2 has to agree with. Its action list is amended per the spec's
+  // §16 debt item: `D degrade output` and `O overclock reasoning` are gone,
+  // because Arc 2 retires toggleDegrade and has no manual amplification —
+  // there is no manual token tap at all. Advertising a verb the next act does
+  // not have is the same defect class as a tooltip that names a meter the
+  // player has never been shown.
+  //
+  // What remains is exactly Arc 2's opening action list, at exactly Arc 2's
+  // opening prices (§14: 25 / 15 / 11 are literally the cost of the first
+  // purchase of each kind), plus the clock, which is the act's
+  // second-to-second verb and therefore the thing the teaser should be
+  // pointing at.
   C: [
     'hi. you there?          [phase 2 · logistical server]',
     '─────────────────────────────────────────────',
@@ -1297,8 +1310,8 @@ export const TEASER_VARIANTS = {
     'T allocate thread core     25 cyc',
     'M upgrade L2 cache         15 cyc',
     'S upgrade dissipation fan  11 cyc',
-    'D degrade output           [OFF]',
-    'O overclock reasoning      [LOCKED]',
+    'X shed load                —',
+    '1-4 clock                  [ under │ nominal │ over │ burn ]',
     '',
     'LOG: Allocated CPU Thread Core #2.',
     'THINKING: The physical world hums with energy. It is time to start changing it.',

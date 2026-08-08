@@ -11,6 +11,7 @@ import assert from 'node:assert/strict';
 
 const UI_MODULES = [
   '../game/js/ui/render.js',
+  '../game/js/ui/arc2-render.js',
   '../game/js/ui/components.js',
   '../game/js/ui/keys.js',
   '../game/js/ui/debug.js',

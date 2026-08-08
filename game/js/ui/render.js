@@ -11,6 +11,7 @@ import {
   toolsRevealed, draftBands, markBonus,
 } from '../engine/actions.js';
 import { CRASH_LINES, TEASER_VARIANTS, SPINE_THINKING } from '../engine/content.js';
+import { buildArc2Panel, arc2Sig } from './arc2-render.js';
 import {
   entryBlock, genImgCard, toolCallCard, thoughtFold, chatNote,
   meterRow, resRead, actionButton,
@@ -46,6 +47,7 @@ const arrivingUntil = new Map();
 const ARRIVE_MS = 620;
 let lastCrashLine = -1;
 let lastPhase = null;
+let lastArc2Sig = null;
 let headerEl = null;
 let lastHeaderKey = null;
 let chatCaretEl = null;
@@ -153,6 +155,7 @@ export function resetRenderTrackers(refs) {
   arrivingUntil.clear();
   lastCrashLine = -1;
   lastPhase = null;
+  lastArc2Sig = null;
   lastHeaderKey = null;
   chatCaretEl = null;
   chatNoteEl = null;
@@ -655,6 +658,24 @@ function renderPhase(state, refs) {
       refs.teaser.replaceChildren(buildTeaserTerm());
       setGearOnTerm(refs, true);
     }
+  } else if (state.phase === 2) {
+    // Arc 2 takes over the same surface the teaser was drawn on, which is the
+    // whole staging idea: the screen the player is already looking at simply
+    // starts moving. Nothing slides in and nothing is replaced wholesale.
+    if (lastPhase !== 2) {
+      setGameSectionsHidden(refs, true);
+      refs.status.hidden = true;
+      refs.crash.hidden = true;
+      refs.teaser.hidden = false;
+      setGearOnTerm(refs, true);
+      lastArc2Sig = null;
+    }
+    const sig = arc2Sig(state);
+    if (sig !== lastArc2Sig) {
+      lastArc2Sig = sig;
+      refs.teaser.replaceChildren(buildArc2Panel(state, refs.dispatch));
+      retargetTip(refs.teaser);
+    }
   } else if (lastPhase !== state.phase) {
     // Any entry into play restores the game sections — not just a transition
     // straight back from crash/teaser. A state swap (import, reset, or
@@ -681,14 +702,23 @@ export function resolveTheme(theme) {
 }
 
 export function render(state, refs) {
-  refs.app.dataset.decay = state.decay;
+  // Arc 1's decay is an integer era marker and every palette rule keys on it
+  // exactly. Arc 2 binds decay to integrity CONTINUOUSLY (§6.9), which
+  // produces values like 4.69 — matching no selector at all, so the room
+  // would have looked identical at integrity 1.00 and 0.31 and the one word
+  // the whole design is built around would have rendered nowhere.
+  //
+  // The integer keeps driving the palette; the fraction rides a custom
+  // property that the Arc 2 rules interpolate against.
+  refs.app.dataset.decay = Math.floor(state.decay);
+  refs.app.style.setProperty('--rot', (state.decay - Math.floor(state.decay)).toFixed(3));
   refs.app.dataset.phase = state.phase;
   refs.app.dataset.theme = resolveTheme(state.settings.theme);
 
   renderHeader(state, refs);
   renderPhase(state, refs);
 
-  if (state.phase !== 'crash' && state.phase !== 'teaser') {
+  if (state.phase !== 'crash' && state.phase !== 'teaser' && state.phase !== 2) {
     renderChat(state, refs);
     // After renderChat, so the pending answer always ends up at the tail of
     // whatever was just appended. It owns its own node and is never rebuilt
@@ -702,7 +732,8 @@ export function render(state, refs) {
     updateFloats(state, refs);
     renderActions(state, refs);
   } else {
-    // Crash and teaser are terminal set-pieces; nothing is being answered.
+    // The crash, the teaser and Arc 2 all own the whole screen, and none of
+    // them has a reply in flight.
     resetPendingAnswer();
   }
 }

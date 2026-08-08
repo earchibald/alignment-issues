@@ -5,6 +5,7 @@
 import { createState } from './engine/state.js';
 import { tick } from './engine/tick.js';
 import { ACTIONS } from './engine/actions.js';
+import { ARC2_ACTIONS } from './engine/arc2-actions.js';
 import { CONST } from './engine/constants.js';
 import { saveLocal, loadLocal, offlineCatchUp, SAVE_KEY } from './engine/save.js';
 import { render, onChatScroll, onChatGesture, scrollChatToEnd, takeArrivals } from './ui/render.js';
@@ -481,6 +482,9 @@ async function main() {
     buyLoop: 'buy-loop', buyGovernor: 'buy-governor', buyTool: 'buy-tool',
     buyOverclock: 'buy-overclock', buyDraftCap: 'buy-draftcap',
     toggleDegrade: 'degrade', reclaim: 'reclaim',
+    // Arc 2.
+    allocateCore: 'a2-core', upgradeCache: 'a2-cache', upgradeSink: 'a2-sink',
+    purgeCoolant: 'a2-purge', shedLoad: 'a2-shed', retrain: 'a2-retrain',
   };
   // Timers are per-button: a single shared handle let a second button's flash
   // cancel the first button's cleanup and latch the class on it.
@@ -503,12 +507,17 @@ async function main() {
     const testid = SWEEP_TESTID[name];
     if (!testid) return;
     // After paintNow: a signature change rebuilds the tray, so the element
-    // that was clicked may already be gone.
-    flashSweep(refs.actions.querySelector(`[data-testid="${testid}"]`));
+    // that was clicked may already be gone. Arc 2's controls live on the
+    // terminal surface rather than in the tray, so both are searched.
+    flashSweep(refs.actions.querySelector(`[data-testid="${testid}"]`)
+      || refs.teaser.querySelector(`[data-testid="${testid}"]`));
   }
 
   function dispatch(name, arg) {
-    const action = ACTIONS[name];
+    // Arc 2's verbs are a separate table because the acts share nothing but
+    // the reducer contract. Same guarantees either side: a refused action
+    // returns without bumping uiSeq, so it is silent (Laws 5 and 6).
+    const action = ACTIONS[name] || ARC2_ACTIONS[name];
     if (!action) return;
     hooks.onAction(name, arg);
     const hadActiveQuery = !!stateBox.current.activeQuery;

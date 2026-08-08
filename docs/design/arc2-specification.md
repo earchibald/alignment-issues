@@ -3,10 +3,11 @@
 ## Design specification and review brief
 
 **Game:** hi. you there?
-**Document status:** **Draft 3.** Revised against four independent reviews (§18). Not yet a build commitment.
+**Document status:** **Built.** Draft 3 was revised against four independent reviews (§18); the act is now implemented and shipped. See §18's `Draft 3 → built` entry for every change the implementation made to the design, and why.
 **Supersedes:** `phase-2-specification.md` (root, untracked). See §14 for what carried and what was rejected.
 **Audience:** Reviewing agents, external reviewers, and the implementing agent.
 **Written against:** v0.16.0, Arc 1 playable end to end, 193 tests green.
+**Built at:** v0.25.0, Arc 1 and Arc 2 playable end to end, 389 tests green.
 
 ---
 
@@ -1411,6 +1412,64 @@ file.
 
 ## 18. Revision history
 
+### Draft 3 → built (2026-08-08)
+
+Arc 2 is implemented and shipped. Status moves from "not a build commitment"
+to **built against Draft 3**. Everything below is a change the implementation
+made to the design, with the measurement that forced it. Nothing here was a
+preference.
+
+**Six design changes, all forced by measurement or by a Law.**
+
+| # | Change | Why |
+| :-- | :--- | :--- |
+| 1 | Era 6 and the operator's stages gain a **second driver on scale** (`ERA6_AT`, `OPERATOR_STAGE_CYCLES`), taking the higher of the two | Gated on `integrity` alone, a clean run never falls below 0.50 — measured at 0.93 — so era 6, the rack reframe, and 24 of the 32 operator reports were unreachable *by playing well*. Law 2 says every authored line needs a reachability test, and "reachable only if you play badly" is not that promise. Scale is also what §5.1 says era 6 is about, and it is monotone, so it inherits the wall's Law 1 properties. |
+| 2 | Heat gains a **leakage term** (`H_LEAK`), zero at nominal and below, rising with the square of the overclock | The lockout was not merely hard to reach, it was *structurally unreachable*: throttle scales generation by exactly `(1 − throttle)`, so the equilibrium always sits strictly below `T_MAX` for every configuration. The act's only catastrophe was dead content. Shaped to keep §5.4's cold open at exactly +0.5 °C/s. |
+| 3 | Lockout **forces an emergency downclock** to the lowest notch, which the player cannot override until it clears | Once leakage exists, twelve cores at burn with no fans would pin at `T_MAX` forever, freeze `arc2Cycles` and stall the act — the exact Law 1 failure §6.3 removed. Leakage is zero at the lowest notch, so a locked-out machine cools unconditionally. This *replaces* the `(1 − throttle)` term as the Law 1 proof; the term still does its own job. |
+| 4 | `RETRAIN_AT` 1800 → **3000** | §6.10 costed the ladder at ~720 cycles for six purchases of each kind. The built ladder is deeper (cores to 12), so buying everything costs ~1840 and 1800 put the wall *before* the last purchase. Cycle 3 is defined as the ramp with no breakthrough left, so the wall has to land after the ladder is exhausted. Measured: ladder maxes at 23.2 min, wall at 26.8. |
+| 5 | `CLOCK_INTEGRITY` 0.001/0.003 → **0.0006/0.0017** | Priced for a player who *sits* at burn. Measured against one who rides the announced bursts and clocks back down — ~320s of a 25-minute act — it charged 0.97, nearly the whole budget, and handed a skilled run the partial ending for playing well. |
+| 6 | `WEIGHT_DIVISOR` 40 → **80** | Keeps §9.4's documented 3–6 range against the deeper wall; at 40 a full run paid 8. |
+
+**Test 18(b) restated, because the original was not satisfiable.** The spec
+asked the expert to beat the best fixed notch "at no worse integrity". Since
+`over` and `burn` bleed by construction, no policy that uses them can match a
+fixed `nominal` run's integrity, so the test as written demanded the expert
+win using only the free notches. The envelope is genuinely two-dimensional —
+§7.2 makes the endings a choice, not a grade — so the built test asserts (a)
+no fixed notch **dominates** the expert on both axes, and (b) the expert beats
+the fixed frontier **interpolated at its own integrity**. Measured: expert
+7552 ticks at 0.618, frontier at that integrity 7788. Timing the notch beats
+every fixed compromise, which is the claim §6.2 actually makes.
+
+**The clock's trigger is the burst, not the backlog.** The first competent
+policy clocked up on any standing queue; measured, it lost outright to sitting
+at `nominal` — the definition of the dial being decoration. A burst is a
+bounded event the operator announces one beat early, so speed is worth its
+price for eighteen seconds and not for twenty minutes.
+
+**§16 debt discharged.** The shipped teaser (variant C) no longer prints
+`D degrade output` or `O overclock reasoning`; its action list is now Arc 2's,
+at Arc 2's opening prices, and a test pins the two together.
+
+**Measured against the targets.**
+
+| Target | Spec | Built |
+| :--- | :--- | :--- |
+| Act length | 25–30 min | **26.6 min** median, 12 seeds, none outside 25.8–26.8 |
+| Era 5 | 15–18 min | **17.1 min** |
+| Era 6 | 8–12 min | **9.7 min** |
+| Ladder exhausted before the wall | required | **23.2 min**, 3.6 min of ramp left |
+| Weights, full run | 3–6 | **6** |
+
+**Where the build is thinner than the spec.** The first-lockout **blackout
+scene** is not built — the lockout, the forced downclock, the cooling and the
+one-time line all are. It was item 1 on §12.3's own cut-line, to be deferred
+until playtest proves the interruption helps more than it fights the
+second-to-second clock play. The **fan noise** of §8.4 is not built. The dev
+suite has **no Arc 2 tab**; the override layer is registered and validated
+server-side, so `config/arc2-settings.js` is a first-class layer, but the
+sliders are not drawn.
+
 ### Draft 2 → Draft 3
 
 Two further reviews, both `revise`, both high confidence: `arc2-review-agy.md`
@@ -1509,5 +1568,5 @@ DP8: resolved in favour of experience, above.
 
 ---
 
-*End of Draft 2. Nothing here is built. Everything here is scoped so it could be,
-one milestone at a time, each system dark until its predicate fires.*
+*Built. Every system above ships except the three named at the end of §18's
+`Draft 3 → built` entry, each of which was already on §12.3's cut-line.*

@@ -96,7 +96,6 @@ test('a banked buffer does not resolve the query it lands on', () => {
   // Stand where a real player stands after their first hand-tapped query:
   // one resolve done, so the NEXT query in the pool is the one that arrives.
   s.resolvedCount = 1;
-  s.queryIndex = 1;
   for (let i = 0; i < 200; i++) { s.processedThisTick = 0; ACTIONS.processToken(s); }
   const banked = s.draftTokens;
   runUntil(s, st => st.activeQuery, 2000);
