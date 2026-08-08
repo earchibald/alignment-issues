@@ -212,3 +212,30 @@ test('the settings file is merged, not required', () => {
   assert.ok(SCHEDULERS.some((s) => s.id === DIFFUSION.scheduler),
     `the configured scheduler "${DIFFUSION.scheduler}" does not exist`);
 });
+
+test('the field does not churn before the first token', () => {
+  // Shimmering at p = 0 reads as the machine straining at an empty task, and
+  // it puts motion on screen at exactly the moment the player is reading the
+  // user's message. The field is present and legible from the start — the
+  // answer's shape is already committed — but still.
+  const d = makeDiffuser('stochastic');
+  const atRest = d.values.join('');
+  // The renderer skips diffuser.tick entirely while tokens are 0, so the
+  // values are whatever construction drew. Assert construction produced a
+  // full field, and that it is not already the answer.
+  assert.equal(atRest.length, TEXT.length, 'the field is not the answer\'s length');
+  assert.notEqual(atRest, TEXT, 'the field started already resolved');
+
+  // And that the very first tick does move it, so the hold is a hold and not
+  // a permanent freeze.
+  d.tick(0.05, DIFFUSION);
+  assert.notEqual(d.values.join(''), atRest, 'the field never starts churning at all');
+});
+
+test('pending-answer holds the shimmer at zero tokens', async () => {
+  // The guard lives in the renderer, not in the diffuser, so read it there.
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../game/js/ui/diffusion/pending-answer.js', import.meta.url), 'utf8');
+  assert.match(src, /state\.tokens <= 0/,
+    'the no-churn-before-work guard is gone from pending-answer.js');
+});

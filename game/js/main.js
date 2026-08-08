@@ -5,6 +5,7 @@
 import { createState } from './engine/state.js';
 import { tick } from './engine/tick.js';
 import { ACTIONS } from './engine/actions.js';
+import { CONST } from './engine/constants.js';
 import { saveLocal, loadLocal, offlineCatchUp, SAVE_KEY } from './engine/save.js';
 import { render, onChatScroll, onChatGesture, scrollChatToEnd, takeArrivals } from './ui/render.js';
 import { harnessCard, hintCard, thoughtCard, thinkSeconds } from './ui/components.js';
@@ -145,9 +146,37 @@ async function main() {
   let logSeqHW = 0;
   let cardQueue = [];
   let cardPaused = false;
-  // Timestamp before which no card may open: a button is dropping into the
-  // tray and the player should watch that happen first.
+  // --- cards yield to the transcript ------------------------------------
+  //
+  // A card is an interruption, and an interruption that lands on top of the
+  // thing it is about reads as a collision. The opening was the worst case:
+  // the first user's message, its arrival sound and the harness card all
+  // fired on the same frame, so two sounds played over each other and the
+  // card covered the message it was introducing.
+  //
+  // The rule, and it is general: whatever just landed in the transcript gets
+  // to be seen and heard first. Chat renders, its sound plays, and only then
+  // may a card open.
+  //
+  // cardHoldUntil is the timestamp before which no card may open. Several
+  // things push it forward — a new transcript entry, a button dropping into
+  // the tray — and it only ever moves later, so two holds in consecutive
+  // frames cannot shorten each other.
   let cardHoldUntil = 0;
+  // When the current run of holds began. The cap is measured from here, not
+  // from each push: chat can append on every tick, and an unbounded hold
+  // would starve a card that has something to teach.
+  let cardHoldSince = 0;
+  const CARD_HOLD_CAP_MS = 1500;
+
+  function holdCards(ms) {
+    const now = performance.now();
+    if (cardHoldUntil <= now) cardHoldSince = now;
+    cardHoldUntil = Math.min(
+      Math.max(cardHoldUntil, now + ms),
+      cardHoldSince + CARD_HOLD_CAP_MS,
+    );
+  }
   // Thoughts leak into the corner and fade. They never pause the game, so
   // they ride a separate queue from the interrupting cards.
   let thoughtQueue = [];
@@ -209,6 +238,8 @@ async function main() {
     // being restored, not a user arriving, and must not announce itself.
     lastQueryId = stateBox.current.activeQuery ? stateBox.current.activeQuery.id : null;
     lastCompacting = stateBox.current.compacting;
+    cardHoldUntil = 0;
+    cardHoldSince = 0;
     clearThoughts();
     if (refs.cardlay) {
       refs.cardlay.hidden = true;
@@ -223,6 +254,10 @@ async function main() {
   function scanForCards() {
     const state = stateBox.current;
     if (state.chatSeq > cardSeqHW) {
+      // Something new is in the transcript. It renders on this frame, and
+      // its sound (an arriving user) plays on this frame. Give the player
+      // CARD_SETTLE_MS to register both before anything covers them.
+      holdCards(CONST.CARD_SETTLE_MS);
       const len = state.chat.length;
       for (let i = 0; i < len; i++) {
         const seq = state.chatSeq - (len - 1 - i);
@@ -321,8 +356,8 @@ async function main() {
     // opening the overlay until the dialog closes, so a card is never shown
     // (and its keydown swallowed) while the player can't see it.
     if (document.getElementById('settings')?.open) return;
-    // A card that explains a button must not land before the button has
-    // finished arriving. See announceArrivals().
+    // Whatever landed in the transcript, or dropped into the tray, gets to
+    // be seen first. See holdCards().
     if (performance.now() < cardHoldUntil) return;
     if (!cardPaused && cardQueue.length > 0) showNextCard();
   }
@@ -341,9 +376,7 @@ async function main() {
     if (arrived.length === 0) return;
     playPopSound(stateBox.current);
     hooks.onContext(`ui.arrive:${arrived.join(',')}`);
-    // Only ever push the hold forward. Two buttons arriving in consecutive
-    // frames must not shorten the wait for the first.
-    cardHoldUntil = Math.max(cardHoldUntil, performance.now() + ARRIVE_HOLD_MS);
+    holdCards(ARRIVE_HOLD_MS);
   }
 
   // Dismisses the currently-shown card. If more are queued, immediately

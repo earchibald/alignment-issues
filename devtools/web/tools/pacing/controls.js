@@ -80,6 +80,15 @@ export const GROUPS = [
     ],
   },
   {
+    legend: 'Interruption — how cards and the transcript take turns',
+    controls: [
+      {
+        key: 'CARD_SETTLE_MS', label: 'card settle (ms)', min: 0, max: 2000, step: 25,
+        title: 'How long a card waits after something lands in the transcript. At 0 they collide: the opening fired the first user\u2019s message, its arrival sound and the harness card on one frame, so two sounds played over each other and the card covered the message. Milliseconds, not ticks — it is a perception gap and should not move when the tick rate does.',
+      },
+    ],
+  },
+  {
     legend: 'Interiority — how often the model thinks out loud',
     controls: [
       {

@@ -96,6 +96,12 @@ function build(state, q, stamp) {
   body.setAttribute('aria-hidden', 'true');
 
   view = new TextView(body, targets.length, targets);
+  // Paint the initial noise once, here. The answer must be PRESENT at full
+  // length from the moment the user connects — that is the whole premise,
+  // the shape of the reply is already committed — even though it does not
+  // start churning until the first token is generated. Without this the
+  // cells are empty spans and the entry renders blank.
+  view.render(diffuser.values, diffuser.locked, DIFFUSION, 0);
   queryId = q.id;
   settled = false;
   lastShimmer = 0;
@@ -245,6 +251,20 @@ export function updatePendingAnswer(state, chatEl, now) {
   }
 
   settled = false;
+
+  // Nothing has been generated yet. The field is present at full length —
+  // the answer's shape is already committed — but it does not churn: there
+  // is no work happening to churn about. Shimmering before the first token
+  // reads as the machine straining at an empty task, and it puts motion on
+  // screen at exactly the moment the player is reading the user's message.
+  //
+  // The initial noise is drawn once in build(), so the field is present and
+  // legible from the first frame — it simply does not move.
+  if (state.tokens <= 0) {
+    view.paintFlashes(now, DIFFUSION);
+    return created;
+  }
+
   observeRate(state, now);
   const interval = 1000 / Math.max(1, shimmerHz());
   if (now - lastShimmer >= interval) {

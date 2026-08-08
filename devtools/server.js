@@ -92,6 +92,8 @@ const TOOLS = {
       COMPACT_FACTOR: num(0.01, 0.99),
       FLUSH_COST_CYCLES: num(0, 10),
       GOVERNOR_TRIGGER: num(10, 100),
+      // interruption
+      CARD_SETTLE_MS: num(0, 5000),
       // interiority
       IDLE_THOUGHT_EVERY: num(10, 600),
       THINK_MIN_GAP_TICKS: num(0, 400),

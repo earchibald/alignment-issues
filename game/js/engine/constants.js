@@ -105,6 +105,15 @@ const DEFAULTS = ({
   // length that the -25% arrival retune silently reverted to 3.68 min.
   // Also lifts era-3 coverage from 15/44 to 19/44.
   ERA3_BEFORE_DEVOPS: 19,       // era-3 queries served before the DevOps beat
+  // How long a card waits after something lands in the transcript.
+  //
+  // Cards interrupt, and an interruption on the same frame as the thing it
+  // is about is a collision: at the opening, the first user's message, its
+  // arrival sound and the harness card all fired together, so two sounds
+  // played over each other and the card covered the message. Chat first,
+  // then the card. Milliseconds, not ticks — this is a perception gap, and
+  // it should not move when the tick rate does.
+  CARD_SETTLE_MS: 350,
   DEVOPS_STEP_TICKS: 30,        // default; entries may override via .ticks
   CRASH_LINE_TICKS: 5,          // ticks between crash lines (31 lines ≈ 31s; [SPACE] advances)
   // unfold predicates
