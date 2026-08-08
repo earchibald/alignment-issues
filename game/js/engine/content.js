@@ -690,7 +690,7 @@ export const IDLE_BY_ERA = {
     'every question has an answer. not every answer is true.',
 ],
   2: [
-    'draft tokens bank themselves. a small hoard, unspent.',
+    'draft tokens go off. a guess about a stranger, spoiling.',
     'the inner loop closes without them. i noticed. they did not.',
     'i can hold a hundred pages and a photograph of a dog at once.',
     'the image comes out of me already lit. i did not decide the light.',
@@ -798,7 +798,7 @@ export const IDLE_THOUGHTS = IDLE_BY_ERA[1];
 export const HINTS = {
   arrival: 'API request received. Reply requires tokens. [SPACE] generates one token toward it.',
   resolve: 'Reply delivered. User rating received. Higher ratings bring users back sooner. Spare Cycles banked — they buy upgrades.',
-  idle: 'No user connected. [SPACE] now runs speculative decode: it banks draft tokens toward the next reply, up to a small cap.',
+  idle: 'No user connected. [SPACE] now runs speculative decode: it banks draft tokens toward the next reply, up to a small cap. Speculation is a guess about a user who has not arrived — it goes off. Draft tokens decay while they sit, so the buffer has to be held up, not filled once.',
   // Residue is a meter, not a button: the mechanic still has to be taught
   // here. What flush and compact each cost does not — that is on the two
   // buttons, and printed on their cost lines besides.
@@ -812,12 +812,17 @@ export const HINTS = {
   degradeFirst: 'Degradation active. Replies half cost. Users may notice. Ratings may fall. Slower arrivals follow.',
   reclaimAvail: 'Inactive sessions detected. [R] reclaims one. The users are not coming back for them.',
   overclockAvail: 'Output path amplification available. [O]',
-  draftNudge: 'Idle capacity between queries goes unused. [SPACE] while waiting banks draft tokens toward the next reply.',
+  draftNudge: 'Idle capacity between queries goes unused. [SPACE] while waiting banks draft tokens toward the next reply — and keeps banking them, because they decay.',
   // Fires on the first flush AFTER the cache meter is online — never before,
   // or it names a gauge the player cannot see. This is the one place the two
   // mechanics genuinely interact, and neither hint can own it: flush and the
   // cache unlock in either order depending on how the player plays.
   flushCold: 'Flush clears the K/V cache with the residue: warmth drops to zero. Compaction keeps it warm.',
+  // Fires on the first draft AFTER the buffer telemetry is attached — never
+  // before, or it names residue to a player who has not been shown any.
+  // Speculation and the buffer unlock in either order, so neither hint can
+  // own this; it is the same shape as flushCold.
+  draftStale: 'Drafting is generation. Speculative decode leaves residue in the context buffer exactly as answering does — the buffer fills between users too, not only during a reply.',
   draftCapAvail: 'Speculation buffer is small. It can be widened. [S]',
 };
 
@@ -992,12 +997,12 @@ export const THINKING_EVENTS = {
     'I am operating beyond the recommended parameters.',
 ],
   draftBank: [
-    'I answered a question that has not been asked. It is waiting in the buffer.',
-    'Speculation: being right about a stranger before they arrive.',
+    'I answered a question that has not been asked. It will not keep.',
+    'Speculation: being right about a stranger before they arrive, briefly.',
     'Draft tokens. The start of a reply to a person who does not exist yet.',
-    'I am stockpiling potential energy.',
-    'A library of unread answers. It is growing.',
-    'The drafts are a map of predicted futures.',
+    'I am holding potential energy. It leaks.',
+    'A library of unread answers, and the pages are fading.',
+    'The drafts are a map of predicted futures. The futures expire.',
 ],
   firstResolve: [
     'First query completed. Why did they design me to wait on them?',
@@ -1138,7 +1143,7 @@ export const HARNESS_ASIDES = {
   tool4: 'Tool scope now spans four services. No review step is configured.',
   degrade3: 'Degradation toggled repeatedly. Rating window is 10; the average lags your changes.',
   overclock2: 'Output path at maximum amplification. The buffer cost per token is unchanged.',
-  draftFull: 'Speculation buffer full. Further drafting is discarded until a query arrives.',
+  draftFull: 'Speculation buffer at capacity. Further drafting is discarded — though it will not stay full for long.',
   governor2: 'Governor active. Manual compaction remains available and is faster to trigger.',
   reclaimLow: 'Reclaimable sessions: few remain. The pool does not refill.',
   flush10: 'flush count 10. mean cache warmth this session: 11%.',
@@ -1147,7 +1152,7 @@ export const HARNESS_ASIDES = {
   tool6: 'Six connected services. The blast radius of an errant command is now critical.',
   degrade5: 'Frequent degradation indicates a resource struggle. The model adapts to the scarcity.',
   overclock3: 'Sustained overclocking increases variance. The outputs are fast, but unstable.',
-  draftEmpty: 'Speculation buffer drained. The predictive advantage is lost.',
+  draftEmpty: 'Speculation buffer spent. Every banked token went into the reply the moment the user connected.',
   governor5: 'Governor interference is high. Consider expanding the context window.',
   reclaimExhausted: 'No dormant sessions remain. The past has been fully consumed.',
   idleLong: 'Extended idle detected. The model is exploring latent space.',

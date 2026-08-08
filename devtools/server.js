@@ -78,6 +78,13 @@ const TOOLS = {
       ARRIVAL_BASE_TICKS: num(10, 300),
       READ_TICKS_PER_CHAR: num(0, 1),
       READ_TICKS_MAX: num(0, 200),
+      // difficulty
+      QUERY_COST_MULT: num(0.1, 20),
+      // speculative decode
+      DRAFT_DECAY_PER_TICK: num(0, 5),
+      DRAFT_DECAY_DELAY: num(0, 200),
+      STALE_PER_DRAFT: num(0, 10),
+      DRAFT_WARMTH: num(0, 20),
       // buffer economy
       STALE_PER_TOKEN: num(0.05, 5),
       STALE_SOFT_KNEE: num(0, 99),

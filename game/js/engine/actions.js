@@ -98,7 +98,9 @@ export const governorRevealed = (state) =>
     || state.resolvedCount >= CONST.REVEAL_BACKSTOP_GOVERNOR);
 
 export function effectiveCost(state, query) {
-  let c = query.cost;
+  // The ceiling query is a sentinel, not a workload: its cost is the marker
+  // that it never resolves. Scaling it would be meaningless.
+  let c = query.id === 'ceiling' ? query.cost : query.cost * CONST.QUERY_COST_MULT;
   if (state.degrade) c *= 0.5;
   if (query.kind === 'tool') c *= toolDiscount(state.tools);
   return c;
@@ -130,10 +132,22 @@ export function processToken(state) {
       if (state.draftCapHits === 1) thinkEvent(state, 'draftBank');
       if (state.draftCapHits === 2) fireAside(state, 'draftFull');
     }
-    // Drafting is real decode work: it keeps the K/V cache warm through the
-    // gap between users, instead of the cache always being stone cold when
-    // the next query lands.
+    // Drafting is real decode work. Two consequences, and they are the whole
+    // reason speculation is a mechanic rather than a free action:
+    //
+    // It keeps the K/V cache warm through the gap between users, instead of
+    // the cache being stone cold when the next query lands.
     state.warmth = Math.min(100, state.warmth + CONST.DRAFT_WARMTH);
+    // And it leaves residue, exactly as generating a real reply does. Every
+    // token this model produces goes through the same context. Drafting used
+    // to be the one kind of output that cost nothing at all, which made the
+    // gap between users dead air with a free upside; now the buffer moves
+    // while you wait, and clearing it is a decision you make between users
+    // as well as during a reply.
+    state.stale = Math.min(100, state.stale + CONST.STALE_PER_TOKEN * CONST.STALE_PER_DRAFT);
+    // Only once the meter exists. Speculation and the buffer unlock in either
+    // order, so this interaction cannot belong to either one's own hint.
+    if (state.bufferUnlocked) fireHint(state, 'draftStale');
     state.idleTicks = 0;
     state.uiSeq++;
     return;

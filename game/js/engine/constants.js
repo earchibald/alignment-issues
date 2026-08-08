@@ -35,6 +35,22 @@ const DEFAULTS = ({
   DRAFT_CAP_MAX_LEVEL: 2,
   DRAFT_CAP_UNLOCK_RESOLVES: 5, // was 3: the hint preceded affordability by 2 resolves
   DRAFT_WARMTH: 1,              // drafting warms the K/V cache at half rate
+  // Drafting is output, so it fouls the buffer like any other output. As a
+  // fraction of STALE_PER_TOKEN: a draft token is a token.
+  STALE_PER_DRAFT: 1,
+  // Draft tokens go stale on their own. The speculation is a guess about a
+  // user who has not arrived yet, and the longer it sits the less of it is
+  // still worth anything.
+  //
+  // This is what turns the gap between users from dead air into play: the
+  // buffer drains from underneath the player while they are filling it, so
+  // topping it up is a live decision rather than a chore to finish once. It
+  // also keeps the K/V cache warm through the gap as a side effect, because
+  // the taps that hold the buffer up are the taps that hold the cache up.
+  DRAFT_DECAY_PER_TICK: 0.28,   // ~1.4 drafts/sec: a 5-cap buffer empties in ~3.5s
+  // Ticks of grace after the last draft before decay starts, so a single tap
+  // is not immediately undone and the meter does not jitter while tapping.
+  DRAFT_DECAY_DELAY: 6,
   ARRIVAL_BASE_TICKS: 64,       // 12.8s base gap between users (was 85; -25% pacing trim)
   READ_TICKS_PER_CHAR: 0.1875,  // arrival delay grows with reply length (was 0.25)
   READ_TICKS_MAX: 45,           // cap on the reading bonus (+9s, was 60)
@@ -67,6 +83,11 @@ const DEFAULTS = ({
   DEGRADE_COMPLAINT_CHANCE: 0.35,
   RATING_WINDOW: 10,
   // era 4
+  // Global multiplier on every query's authored cost. THE coarse difficulty
+  // dial: 1 is the original tuning, 2 doubles the work every reply takes.
+  // Applied in effectiveCost, so degrade and the tool discount still stack on
+  // top of it and nothing else has to know.
+  QUERY_COST_MULT: 2,
   CEILING_COST: 9999,
   CRASH_AT_TOKENS: 2500,        // passive progress fires the crash here
   RECLAIM_POOL: 12,

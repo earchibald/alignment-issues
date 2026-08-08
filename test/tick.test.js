@@ -32,9 +32,52 @@ test('draft tokens bank while idle and apply on arrival', () => {
   s.resolvedCount = 1;
   for (let i = 0; i < 4; i++) { s.processedThisTick = 0; ACTIONS.processToken(s); }
   assert.equal(s.draftTokens, 4);
-  runUntil(s, st => st.activeQuery, 1000);
-  assert.ok(s.tokens >= 4 - 1e-9, 'banked drafts pay into the new query');
+  // Drafts decay while they wait, so this holds the buffer up until a user
+  // connects — which is what a player does now. The assertion is that
+  // whatever is in the buffer at that moment transfers in full.
+  let banked = 0;
+  runUntil(s, (st) => {
+    if (st.activeQuery) return true;
+    banked = st.draftTokens;
+    st.processedThisTick = 0;
+    ACTIONS.processToken(st);
+    return false;
+  }, 1000);
+  assert.ok(s.tokens > 0, 'banked drafts pay into the new query');
+  assert.ok(banked > 0, 'precondition: the buffer was not empty on arrival');
   assert.equal(s.draftTokens, 0);
+});
+
+test('an untended draft buffer drains', () => {
+  // Speculation is a guess about a user who has not arrived. It goes off, and
+  // that is what makes the gap between users a thing to play rather than a
+  // thing to wait through.
+  const s = createState(1);
+  s.resolvedCount = 1;
+  for (let i = 0; i < 5; i++) { s.processedThisTick = 0; ACTIONS.processToken(s); }
+  const banked = s.draftTokens;
+  assert.ok(banked > 0);
+
+  // The grace period first: a single tap must not be undone before it lands.
+  for (let i = 0; i < CONST.DRAFT_DECAY_DELAY; i++) tick(s);
+  assert.equal(s.draftTokens, banked, 'decay started inside the grace period');
+
+  for (let i = 0; i < 40; i++) tick(s);
+  assert.ok(s.draftTokens < banked, 'the buffer never drained');
+  assert.ok(s.draftTokens >= 0, 'the buffer went negative');
+});
+
+test('drafting leaves residue, exactly as answering does', () => {
+  // Drafting used to be the one kind of output that cost nothing, which made
+  // the gap between users dead air with a free upside.
+  const s = createState(1);
+  s.resolvedCount = 1;
+  s.bufferUnlocked = true;
+  const before = s.stale;
+  s.processedThisTick = 0;
+  ACTIONS.processToken(s);
+  assert.ok(s.stale > before, 'speculative decode produced output for free');
+  assert.equal(s.stale, before + CONST.STALE_PER_TOKEN * CONST.STALE_PER_DRAFT);
 });
 
 test('a banked buffer does not resolve the query it lands on', () => {

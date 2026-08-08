@@ -409,7 +409,10 @@ function renderStatus(state, refs) {
   } else {
     const cap = draftCap(state);
     const pct = (state.draftTokens / cap) * 100;
-    tokenRow = meterRow({ label: 'DRAFT TOKENS', pct, fillClass: '', count: `${state.draftTokens} / ${cap} banked`, testid: 'tokenbar' });
+    // The bar itself is continuous — the drain has to be visible as motion,
+    // which is the whole point of the decay — but the readout is floored:
+    // "3.62 / 5 banked" is noise, and the player is managing a level.
+    tokenRow = meterRow({ label: 'DRAFT TOKENS', pct, fillClass: '', count: `${Math.floor(state.draftTokens)} / ${cap} banked`, testid: 'tokenbar' });
   }
   refs.status.append(tokenRow);
 
@@ -485,7 +488,9 @@ function renderActions(state, refs) {
     state.stale > 0,
     // the idle button counts banked drafts, and a full buffer makes the tap
     // a no-op — leaving it stale reads as an unresponsive game
-    state.activeQuery ? 0 : state.draftTokens,
+    // Floored: the tray prints whole drafts, and a fractional value would
+    // rebuild the whole tray on every tick of decay for no visible change.
+    state.activeQuery ? 0 : Math.floor(state.draftTokens),
     // the per-tap figure is live, so it must retrigger the tray render
     state.activeQuery ? Math.round(yieldMult(state) * 100) : 0,
     // The breakdown prints the two factors SEPARATELY, so the product above

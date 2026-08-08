@@ -48,14 +48,15 @@ test('the discount only ever deepens, and stops at the floor', () => {
 test('no tools means no discount at all', () => {
   const s = createState(1);
   assert.equal(toolDiscount(0), 1);
-  assert.equal(effectiveCost(s, toolQuery), 100);
+  assert.equal(effectiveCost(s, toolQuery), 100 * CONST.QUERY_COST_MULT);
 });
 
 test('the discount touches action requests and nothing else', () => {
   const s = createState(1);
   s.tools = 3;
-  assert.ok(effectiveCost(s, toolQuery) < 100, 'action requests are not discounted');
-  assert.equal(effectiveCost(s, textQuery), 100, 'the discount leaked onto ordinary replies');
+  const base = 100 * CONST.QUERY_COST_MULT;
+  assert.ok(effectiveCost(s, toolQuery) < base, 'action requests are not discounted');
+  assert.equal(effectiveCost(s, textQuery), base, 'the discount leaked onto ordinary replies');
 });
 
 test('the button quotes the discount it will actually apply', () => {

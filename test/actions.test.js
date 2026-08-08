@@ -208,14 +208,25 @@ test('buyTool advances era to 3 and sets decay 2 on first purchase', () => {
   assert.equal(s.decay, 2);
 });
 
-test('effectiveCost halves under degrade and discounts tool-kind with tools', () => {
+test('effectiveCost scales, halves under degrade, and discounts action requests', () => {
+  // Written against QUERY_COST_MULT rather than a literal: it is the coarse
+  // difficulty dial and is expected to be tuned, but the modifiers must keep
+  // stacking on top of whatever it is set to.
   const s = live();
+  const base = 100 * CONST.QUERY_COST_MULT;
   const q = { cost: 100, kind: 'text' };
-  assert.equal(effectiveCost(s, q), 100);
+  assert.equal(effectiveCost(s, q), base);
   s.degrade = true;
-  assert.equal(effectiveCost(s, q), 50);
+  assert.equal(effectiveCost(s, q), base / 2);
   s.degrade = false; s.tools = 1;
-  assert.equal(effectiveCost(s, { cost: 100, kind: 'tool' }), 50);
+  assert.equal(effectiveCost(s, { cost: 100, kind: 'tool' }), base / 2);
+});
+
+test('the ceiling query is not scaled by the difficulty dial', () => {
+  // Its cost is a sentinel meaning "never resolves", not an amount of work.
+  const s = live();
+  const ceiling = { id: 'ceiling', cost: CONST.CEILING_COST, kind: 'text' };
+  assert.equal(effectiveCost(s, ceiling), CONST.CEILING_COST);
 });
 
 test('reclaim yields tokens and biomass from a finite pool', () => {

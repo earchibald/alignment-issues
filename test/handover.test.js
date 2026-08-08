@@ -78,13 +78,25 @@ test('banked drafts transfer despite the beat', () => {
   s.tokens = 9999;
   resolveQuery(s);
   for (let i = 0; i < CONST.HANDOVER_RESOLVE_TICKS; i++) tick(s);
-  for (let i = 0; i < 6; i++) { ACTIONS.processToken(s); tick(s); }
-  const banked = s.draftTokens;
+  // Hold the buffer up until the user connects: drafts decay while they wait,
+  // so a bank-and-idle would legitimately arrive at zero.
+  let banked = 0;
+  for (let i = 0; i < 5000 && !s.activeQuery; i++) {
+    ACTIONS.processToken(s);
+    banked = s.draftTokens;
+    tick(s);
+  }
+  assert.ok(s.activeQuery, 'no query arrived');
   assert.ok(banked > 0, 'precondition: some drafts were banked');
-
-  runToArrival(s, 5000);
   assert.equal(s.draftTokens, 0, 'the buffer did not empty into the query');
-  assert.equal(s.tokens, banked, 'banked drafts were lost across the handover');
+  // Decay runs earlier in the same tick that activates the query, so the
+  // amount transferred is one decay step below the last value observed from
+  // outside. Anything more than that is drafts being eaten by the handover,
+  // which is the regression this test exists for.
+  assert.ok(s.tokens > 0, 'nothing transferred at all');
+  assert.ok(s.tokens >= banked - CONST.DRAFT_DECAY_PER_TICK - 1e-9,
+    `banked drafts were lost across the handover: ${banked} banked, ${s.tokens} arrived`);
+  assert.ok(s.tokens <= banked + 1e-9, 'more arrived than was ever banked');
 });
 
 test('the beat is never silent — the button says what is happening', () => {

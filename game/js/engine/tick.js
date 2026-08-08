@@ -237,6 +237,23 @@ export function tick(state) {
     state.uiSeq++;
   }
 
+  // 1c. Draft decay. Speculation is a guess about a user who has not arrived
+  // yet, and it goes off. The buffer drains from underneath the player while
+  // they are filling it, which is what makes the gap between users a thing to
+  // play rather than a thing to wait through.
+  //
+  // Only while idle: once a user is connected the drafts have already been
+  // spent, and there is nothing left to decay.
+  //
+  // The delay is measured from the last draft, so a single tap is not undone
+  // before the player sees it land.
+  if (!state.activeQuery && state.draftTokens > 0
+      && state.idleTicks > CONST.DRAFT_DECAY_DELAY) {
+    const before = state.draftTokens;
+    state.draftTokens = Math.max(0, state.draftTokens - CONST.DRAFT_DECAY_PER_TICK);
+    if (state.draftTokens !== before) state.uiSeq++;
+  }
+
   // 2. Compaction countdown.
   if (state.compacting > 0) {
     state.compacting--;

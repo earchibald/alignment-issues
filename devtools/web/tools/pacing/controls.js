@@ -93,6 +93,36 @@ export const GROUPS = [
     ],
   },
   {
+    legend: 'Difficulty — the coarse dial',
+    controls: [
+      {
+        key: 'QUERY_COST_MULT', label: 'query cost ×', min: 0.25, max: 6, step: 0.25,
+        title: 'Multiplies EVERY query\u2019s authored cost. The single biggest lever on how much work a reply takes: 1 is the original tuning, 2 doubles it. Degrade and the tool discount stack on top. Measured at x1: 11.7 taps a reply, 27 min a run. At x2: 28.4 taps, 33 min — the run grows far less than the effort, because much of a run is waiting for users.',
+      },
+    ],
+  },
+  {
+    legend: 'Speculative decode',
+    controls: [
+      {
+        key: 'DRAFT_DECAY_PER_TICK', label: 'draft decay/tick', min: 0, max: 1.5, step: 0.02,
+        title: 'Draft tokens lost per tick while no user is connected. This is what makes the gap between users playable: the buffer drains from underneath the player while they fill it. At 0 the buffer is a chore you finish once. One tick is 200 ms, so 0.28 is about 1.4 a second.',
+      },
+      {
+        key: 'DRAFT_DECAY_DELAY', label: 'decay grace (ticks)', min: 0, max: 60, step: 1,
+        title: 'Ticks after the last draft before decay resumes. Stops a single tap being undone before the player sees it land, and stops the meter jittering while they tap.',
+      },
+      {
+        key: 'STALE_PER_DRAFT', label: 'draft residue ×', min: 0, max: 3, step: 0.05,
+        title: 'Residue a draft token leaves, as a multiple of STALE_PER_TOKEN. At 1 a draft is exactly as dirty as any other token. At 0 speculation is free again and the buffer stops moving between users.',
+      },
+      {
+        key: 'DRAFT_WARMTH', label: 'draft warmth', min: 0, max: 5, step: 0.5,
+        title: 'K/V cache warmth per draft token. Drafting is what keeps the cache alive through the gap, so this and the decay rate together decide whether a warm cache is worth holding.',
+      },
+    ],
+  },
+  {
     legend: 'Buffer economy',
     controls: [
       {

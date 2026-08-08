@@ -133,10 +133,17 @@ where the fiction earns the transition from *one conversation at a time* to
 
 The dead time is still a real problem. The right Arc 1 fix is to make the **gap
 playable**, not to fill it with a queue — which is the balance review's own M5
-(draft overflow with decay). That is deferred to a measured pass, not rejected.
+(draft overflow with decay).
 
-**Deferred, with the reason recorded.** The reviewer's `bottlenecks.md` framing
-is right about Arc 2 and wrong about which act it belongs to.
+**Shipped in v0.23.0.** Draft tokens now decay while no user is connected
+(`DRAFT_DECAY_PER_TICK`, with `DRAFT_DECAY_DELAY` ticks of grace after the last
+draft), and drafting leaves residue in the context buffer like any other output
+(`STALE_PER_DRAFT`). The gap between users is now a level to hold rather than a
+chore to finish once, and the buffer moves between users as well as during a
+reply. All three are sliders in the dev suite's Pacing tab.
+
+The reviewer's `bottlenecks.md` framing was right about Arc 2 and wrong about
+which act the gap-filling belonged to.
 
 ---
 
@@ -146,7 +153,8 @@ is right about Arc 2 and wrong about which act it belongs to.
 | :--- | :--- | :--- |
 | B-B1 | Implement a real queue | §3.2 — it is Arc 2 |
 | B-M2 | Reprice loops (`LOOP_TOKENS_PER_TICK` 0.2 → 0.75) | Real finding — idle income is 8.6% of tokens and parity needs L10 = 1,024 cycles. But it shortens era 4's idle ceiling 13.9 → 3.7 min and interacts with `CRASH_AT_TOKENS`. Wants its own measured pass |
-| B-M4/M5 | Price degrade; draft overflow + decay | Both are new mechanics in a shipped act. Measure first |
+| B-M4 | Price degrade | A new mechanic in a shipped act. Measure first |
+| ~~B-M5~~ | ~~Draft overflow + decay~~ | **Shipped v0.23.0** — see §3.2 |
 | B-m1/m5 | `OVERCLOCK_MAX` 4; era-4 re-pacing | Depends on M2 landing first |
 | B-m4 | Offline capped by content, not time | Good finding (8 h offline burns 42 unseen queries through a 60-entry ring). Touches `save.js`, which Arc 2 is about to migrate — do it there |
 | L3 | The Anthropomorphizer: 12–15 new polite queries | **The largest content gap** — 3/112 queries contain a capital letter, "thank you" appears zero times. Verified. Wants a proper authoring pass, not a rushed one |

@@ -151,6 +151,7 @@ Call sites — each replaces a fixed string or adds a new beat:
 | `salvage` | `tick.js` credential drip | 1-in-3 firings |
 | `overclock` | `actions.js` `buyOverclock` | each level |
 | `draftBank` | `actions.js` `processToken` | first time drafts hit the cap |
+| `draftStale` | `actions.js` `processToken` | first draft after the context buffer is revealed — drafting leaves residue, and neither the `idle` nor the `buffer` hint can own that, because they unlock in either order |
 
 Existing fixed lines are already inside the matching pool, so nothing is lost.
 

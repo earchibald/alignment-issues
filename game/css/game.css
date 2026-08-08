@@ -735,21 +735,28 @@ body:has(#app[data-theme="light"][data-decay="2"]) { background: #dfe3e8; }
 
 /* Transient thought cards: the leak. Fixed layer, never in the scroll flow. */
 #thoughts {
-  /* Anchored to #chatwrap, so the cards sit at the foot of the transcript —
-     inside the game column on a wide screen, and never over the status strip
-     or the action buttons, which must stay tappable. */
+  /* Top-centre of the transcript, anchored to #chatwrap.
+
+     They used to sit bottom-right, which is where the transcript's newest
+     content is: the incoming user message and the "next user connecting in
+     ~Ns" note were both covered by exactly the thing that was supposed to be
+     ambient. Interiority belongs away from the thing the player is waiting
+     on. Centred because there is nothing to align to up here — the top of
+     the transcript is the oldest content and the least likely to matter. */
   position: absolute;
-  right: 12px;
-  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  top: 8px;
   /* Below #cardlay (20). A thought must never render over a harness card;
      main.js retires live cards when the overlay opens, and this is the
      backstop if one ever slips through. */
   z-index: 10;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: center;
   gap: 8px;
-  max-width: min(360px, calc(100vw - 28px));
+  width: max-content;
+  max-width: min(360px, calc(100% - 24px));
   /* The layer must never eat a tap meant for the action buttons under it;
      only the cards themselves are clickable. */
   pointer-events: none;
@@ -767,11 +774,13 @@ body:has(#app[data-theme="light"][data-decay="2"]) { background: #dfe3e8; }
   padding: 8px 11px;
   box-shadow: 0 6px 20px rgba(0,0,0,0.22);
   opacity: 0;
-  transform: translateY(6px);
+  /* Cards drop in from above and lift back out, matching where they now
+     live. Reversed from the old bottom-anchored version, where they rose. */
+  transform: translateY(-6px);
   transition: opacity 320ms ease, transform 320ms ease;
 }
 .thought-card.in { opacity: 1; transform: translateY(0); }
-.thought-card.out { opacity: 0; transform: translateY(-4px); }
+.thought-card.out { opacity: 0; transform: translateY(-10px); }
 .thought-card .tc-label {
   display: block;
   font-size: 9px;

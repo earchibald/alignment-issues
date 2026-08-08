@@ -75,6 +75,14 @@ export const isChoked = (state) =>
 
 const handoverSeconds = (state) => ((state.handover * CONST.TICK_MS) / 1000).toFixed(1);
 
+// Draft decay, per second rather than per tick: ticks are an implementation
+// detail the player never sees.
+const draftDecayPerSec = () =>
+  (CONST.DRAFT_DECAY_PER_TICK * (1000 / CONST.TICK_MS)).toFixed(1);
+// The buffer is fractional once decay is running. Showing "3.62/5" is noise;
+// the player is managing a level, not an integer.
+const draftShown = (state) => Math.floor(state.draftTokens);
+
 function processSpec(state) {
   // The pipeline is re-targeting, and taps do nothing until it lands. This
   // has to be SAID, or a button that has stopped responding for a second
@@ -127,15 +135,18 @@ function processSpec(state) {
     // "warms cache" named a meter the K/V reveal has not necessarily
     // introduced yet. The cost line only says it once the meter exists.
     cost: locked ? 'nothing to speculate from yet'
-      : full ? `${state.draftTokens}/${draftCap(state)} banked — waiting for the next user`
-      : `bank drafts${state.kvUnlocked ? ' · warms cache' : ''} · ${state.draftTokens}/${draftCap(state)}`,
+      : full ? `${draftShown(state)}/${draftCap(state)} banked · decaying`
+      : `bank drafts · −${draftDecayPerSec()}/s decay · ${draftShown(state)}/${draftCap(state)}`,
     tip: locked
       ? 'No user has connected yet. There is nothing to generate toward until one does. '
         + 'The first request arrives on its own.'
       : `Runs ahead of the next user: each tap banks one draft token, up to ${draftCap(state)}. `
-        + 'Banked drafts are spent automatically on the next reply, so it starts part-finished.'
-        + (full ? ' The buffer is full — further taps are discarded.' : '')
-        + (state.kvUnlocked ? ' Drafting also keeps the K/V cache warm.' : ''),
+        + 'Banked drafts are spent automatically on the next reply, so it starts part-finished. '
+        + `Drafts decay while they wait — about ${draftDecayPerSec()} a second — so the buffer has to be `
+        + 'held up rather than filled once.'
+        + (full ? ' It is at capacity now: further taps are discarded.' : '')
+        + (state.bufferUnlocked ? ' Drafting is generation, so it leaves residue like any other output.' : '')
+        + (state.kvUnlocked ? ' It also keeps the K/V cache warm.' : ''),
     disabled: !locked && full,
   };
 }
@@ -191,7 +202,8 @@ export function actionSpecs(state) {
       level: `L${state.draftCapLevel} → L${state.draftCapLevel + 1}`,
       tip: `Banks ${CONST.DRAFT_CAP_STEP} more draft tokens while no user is connected: `
         + `${draftCap(state)} → ${draftCap(state) + CONST.DRAFT_CAP_STEP}. Drafts are spent on the next reply, `
-        + 'so a wider buffer turns idle time into a bigger head start.',
+        + 'so a wider buffer turns idle time into a bigger head start — and gives the decay more room to '
+        + 'eat before it reaches the bottom.',
     });
   }
 
