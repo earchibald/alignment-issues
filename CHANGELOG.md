@@ -3,6 +3,10 @@
 Versions are cut with `just release X.Y.Z`, which tags the commit and stamps
 the deployed build id into the settings panel.
 
+## v0.24.0 — 2026-08-08
+
+- feat: speculative decode is a mark to hit, not a bar to fill
+
 ## v0.23.2 — 2026-08-08
 
 - fix: the dev suite reloads its own schema
