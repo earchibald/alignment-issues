@@ -87,6 +87,11 @@ const DEFAULTS = {
   tokenColor: '',
 };
 
+// The documented baseline, before any tuning. Exported so a test can tell an
+// applied override from a knob that exists — PROJECTION is built FROM the
+// overrides, so checking a key against it would always pass.
+export const PROJECTION_DEFAULTS = Object.freeze({ ...DEFAULTS });
+
 export const PROJECTION = { ...DEFAULTS, ...DIMENSIONAL_SETTINGS };
 
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
@@ -562,6 +567,19 @@ export function setProjectionInput(state) {
     return;
   }
   live = next;
+}
+
+// Stop the loop and forget the canvas. The game never calls this — its node is
+// always re-parented into the next tray — but the dev suite detaches the
+// preview for good when you switch tabs, and the idle branch in draw() would
+// otherwise reschedule forever against a node nobody will ever re-attach.
+// projectionNode() builds a fresh one on the next call.
+export function stopProjection() {
+  if (raf) cancelAnimationFrame(raf);
+  raf = 0;
+  node = null;
+  ctx = null;
+  sized = false;
 }
 
 // Used by the reset paths (a new run, an import, a debug load): the physics
