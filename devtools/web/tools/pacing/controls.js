@@ -122,6 +122,38 @@ export const GROUPS = [
         title: 'Ticks after the last draft before decay resumes. Stops a single tap being undone before the player sees it land, and stops the meter jittering while they tap.',
       },
       {
+        key: 'DRAFT_BAND1_HALF', label: 'band 1 half', min: 0.005, max: 0.3, step: 0.005,
+        title: 'Half-width of the paying band, as a fraction of the bar. The whole band is twice this. Narrow enough to demand attention, wide enough that a human with reaction delay can land it — the bot policy hits it about 70% of gaps at 0.045.',
+      },
+      {
+        key: 'DRAFT_BAND2_HALF', label: 'band 2 half', min: 0.01, max: 0.45, step: 0.005,
+        title: 'Half-width of the consolation band. Must stay above band 1 or the payouts invert.',
+      },
+      {
+        key: 'DRAFT_BAND_STEP', label: 'widen step', min: 0, max: 0.1, step: 0.005,
+        title: 'How much each "Widen speculation bands" level adds to BOTH half-widths. This is what the purchase buys — a bigger target, not a longer bar.',
+      },
+      {
+        key: 'DRAFT_MARK_EDGE', label: 'edge margin', min: 0, max: 0.3, step: 0.01,
+        title: 'Empty room that must exist outside band 2 on both sides. Guarantees the mark can never be hit by pinning the bar at full or leaving it at zero — both of which are ways of being inactive.',
+      },
+      {
+        key: 'DRAFT_BAND1_BONUS', label: 'band 1 pays', min: 0, max: 0.6, step: 0.01,
+        title: 'Share of the next query\u2019s cost pre-filled for landing in the paying band. A percentage, so it is worth more on an expensive reply — which also flattens the difficulty curve slightly, measured at 1.55-1.94x head-to-tail against 1.78-2.20x before.',
+      },
+      {
+        key: 'DRAFT_BAND2_BONUS', label: 'band 2 pays', min: 0, max: 0.4, step: 0.01,
+        title: 'Share pre-filled for the consolation band.',
+      },
+      {
+        key: 'DRAFT_DRIFT_AMP', label: 'drain wobble', min: 0, max: 1, step: 0.05,
+        title: 'How much the drain rate varies, as a fraction of the base. At 0 the drain is constant and the mark can be held with a metronome; too high and it is noise rather than challenge.',
+      },
+      {
+        key: 'DRAFT_DRIFT_PERIOD', label: 'wobble period', min: 5, max: 200, step: 1,
+        title: 'Ticks per wobble cycle. Long enough to feel like drift rather than jitter. One tick is 200 ms.',
+      },
+      {
         key: 'STALE_PER_DRAFT', label: 'draft residue ×', min: 0, max: 3, step: 0.05,
         title: 'Residue a draft token leaves, as a multiple of STALE_PER_TOKEN. At 1 a draft is exactly as dirty as any other token. At 0 speculation is free again and the buffer stops moving between users.',
       },

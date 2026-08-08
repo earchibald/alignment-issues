@@ -21,7 +21,7 @@ import { CONST } from '../engine/constants.js';
 import {
   loopCost, toolCost, staleYield, warmthMult, yieldMult, atCeiling,
   tokensPerTap, draftCap, overclockRevealed, loopRevealed, draftCapRevealed,
-  governorRevealed, toolsRevealed, toolDiscount,
+  governorRevealed, toolsRevealed, toolDiscount, markBonus,
 } from '../engine/actions.js';
 
 // The flush price is a tuning knob and the dev suite can drive it to zero,
@@ -82,6 +82,14 @@ const draftDecayPerSec = () =>
 // The buffer is fractional once decay is running. Showing "3.62/5" is noise;
 // the player is managing a level, not an integer.
 const draftShown = (state) => Math.floor(state.draftTokens);
+const band1Pct = () => Math.round(CONST.DRAFT_BAND1_BONUS * 100);
+const band2Pct = () => Math.round(CONST.DRAFT_BAND2_BONUS * 100);
+// The paying band's full width, as a percentage of the bar. `ahead` looks one
+// widen level forward, for the purchase's before/after.
+const bandsPct = (state, ahead = 0) => {
+  const b2 = CONST.DRAFT_BAND2_HALF + CONST.DRAFT_BAND_STEP * (state.draftCapLevel + ahead);
+  return `${Math.round(b2 * 200)}%`;
+};
 
 function processSpec(state) {
   // The pipeline is re-targeting, and taps do nothing until it lands. This
@@ -125,6 +133,7 @@ function processSpec(state) {
   }
   const locked = state.resolvedCount < 1;
   const full = !locked && state.draftTokens >= draftCap(state);
+  const bonus = locked ? 0 : markBonus(state);
   return {
     key: 'SPACE', testid: 'process', action: 'processToken', primary: true,
     label: locked ? 'Awaiting first user' : full ? 'Speculation buffer full' : 'Speculative decode',
@@ -134,17 +143,20 @@ function processSpec(state) {
     //
     // "warms cache" named a meter the K/V reveal has not necessarily
     // introduced yet. The cost line only says it once the meter exists.
+    // The live payout is the number that matters: the player is aiming, and
+    // the bar should say what they would get if the user connected now.
     cost: locked ? 'nothing to speculate from yet'
-      : full ? `${draftShown(state)}/${draftCap(state)} banked · decaying`
-      : `bank drafts · −${draftDecayPerSec()}/s decay · ${draftShown(state)}/${draftCap(state)}`,
+      : bonus >= CONST.DRAFT_BAND1_BONUS ? `on the mark · +${Math.round(bonus * 100)}% on the next reply`
+      : bonus > 0 ? `near the mark · +${Math.round(bonus * 100)}% on the next reply`
+      : `off the mark · ${draftShown(state)}/${draftCap(state)} · −${draftDecayPerSec()}/s`,
     tip: locked
       ? 'No user has connected yet. There is nothing to generate toward until one does. '
         + 'The first request arrives on its own.'
-      : `Runs ahead of the next user: each tap banks one draft token, up to ${draftCap(state)}. `
-        + 'Banked drafts are spent automatically on the next reply, so it starts part-finished. '
-        + `Drafts decay while they wait — about ${draftDecayPerSec()} a second — so the buffer has to be `
-        + 'held up rather than filled once.'
-        + (full ? ' It is at capacity now: further taps are discarded.' : '')
+      : 'Guesses at the next reply before the user asks for it. Where the level sits when they '
+        + `connect is what carries: on the mark, their reply starts ${band1Pct()}% written; anywhere in `
+        + `the wider band, ${band2Pct()}%; outside both, nothing at all. `
+        + `The level drains about ${draftDecayPerSec()} a second and the rate wanders, so it has to be `
+        + 'worked rather than set. You do not get to choose when they arrive.'
         + (state.bufferUnlocked ? ' Drafting is generation, so it leaves residue like any other output.' : '')
         + (state.kvUnlocked ? ' It also keeps the K/V cache warm.' : ''),
     disabled: !locked && full,
@@ -197,13 +209,12 @@ export function actionSpecs(state) {
   if (draftCapRevealed(state) && state.draftCapLevel < CONST.DRAFT_CAP_MAX_LEVEL) {
     specs.push({
       key: 'S', testid: 'buy-draftcap', action: 'buyDraftCap', buy: true,
-      label: 'Widen speculation buffer',
-      cost: `${CONST.DRAFT_CAP_COSTS[state.draftCapLevel]} cycles · holds ${draftCap(state) + CONST.DRAFT_CAP_STEP}`,
+      label: 'Widen speculation bands',
+      cost: `${CONST.DRAFT_CAP_COSTS[state.draftCapLevel]} cycles · ${bandsPct(state)} → ${bandsPct(state, 1)} target`,
       level: `L${state.draftCapLevel} → L${state.draftCapLevel + 1}`,
-      tip: `Banks ${CONST.DRAFT_CAP_STEP} more draft tokens while no user is connected: `
-        + `${draftCap(state)} → ${draftCap(state) + CONST.DRAFT_CAP_STEP}. Drafts are spent on the next reply, `
-        + 'so a wider buffer turns idle time into a bigger head start — and gives the decay more room to '
-        + 'eat before it reaches the bottom.',
+      tip: 'Makes the mark easier to hit: both bands get wider, so the level has more room either side '
+        + `before the payout drops. The paying band goes ${bandsPct(state)} of the bar to `
+        + `${bandsPct(state, 1)}. It does not change what a hit is worth — only how hard it is to land.`,
     });
   }
 

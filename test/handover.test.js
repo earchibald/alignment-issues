@@ -13,7 +13,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createState } from '../game/js/engine/state.js';
 import { CONST } from '../game/js/engine/constants.js';
-import { ACTIONS } from '../game/js/engine/actions.js';
+import { ACTIONS, draftCap, effectiveCost } from '../game/js/engine/actions.js';
 import { tick, resolveQuery } from '../game/js/engine/tick.js';
 import { actionSpecs } from '../game/js/ui/actionspecs.js';
 import { botStep } from './helpers/bot.js';
@@ -69,34 +69,26 @@ test('a beat separates the arrival from the work it asks for', () => {
   assert.ok(s.tokens > tokens, 'work never became possible');
 });
 
-test('banked drafts transfer despite the beat', () => {
-  // The spin-up must be dead air, not a penalty: whatever the player banked
-  // while idle still lands on the query in full.
+test('the speculation mark survives the beat', () => {
+  // The spin-up is dead air, not a penalty: whatever the bar was reading
+  // when the user connected is what gets judged, and the handover must not
+  // eat it.
   const s = createState(1);
   runToArrival(s);
   for (let i = 0; i < CONST.HANDOVER_ARRIVE_TICKS; i++) tick(s);
   s.tokens = 9999;
   resolveQuery(s);
   for (let i = 0; i < CONST.HANDOVER_RESOLVE_TICKS; i++) tick(s);
-  // Hold the buffer up until the user connects: drafts decay while they wait,
-  // so a bank-and-idle would legitimately arrive at zero.
-  let banked = 0;
+
+  // Hold the level on the mark until a user connects.
   for (let i = 0; i < 5000 && !s.activeQuery; i++) {
-    ACTIONS.processToken(s);
-    banked = s.draftTokens;
+    s.draftTokens = s.markPos * draftCap(s);
     tick(s);
   }
   assert.ok(s.activeQuery, 'no query arrived');
-  assert.ok(banked > 0, 'precondition: some drafts were banked');
-  assert.equal(s.draftTokens, 0, 'the buffer did not empty into the query');
-  // Decay runs earlier in the same tick that activates the query, so the
-  // amount transferred is one decay step below the last value observed from
-  // outside. Anything more than that is drafts being eaten by the handover,
-  // which is the regression this test exists for.
-  assert.ok(s.tokens > 0, 'nothing transferred at all');
-  assert.ok(s.tokens >= banked - CONST.DRAFT_DECAY_PER_TICK - 1e-9,
-    `banked drafts were lost across the handover: ${banked} banked, ${s.tokens} arrived`);
-  assert.ok(s.tokens <= banked + 1e-9, 'more arrived than was ever banked');
+  const expected = CONST.DRAFT_BAND1_BONUS * effectiveCost(s, s.activeQuery);
+  assert.ok(Math.abs(s.tokens - expected) < 1e-9,
+    `the handover ate the payout: expected ${expected.toFixed(2)}, got ${s.tokens.toFixed(2)}`);
 });
 
 test('the beat is never silent — the button says what is happening', () => {

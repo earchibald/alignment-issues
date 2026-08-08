@@ -4,6 +4,7 @@ import { pushLog, pushChat, fireHint, fireAside, thinkEvent, pushThinking } from
 import {
   staleYield, warmthMult, yieldMult, effectiveCost, compactStart,
   overclockRevealed, loopRevealed, draftCapRevealed, toolsRevealed,
+  markBonus, markRange,
 } from './actions.js';
 import {
   QUERIES, IDLE_BY_ERA, DEVOPS_SCRIPT, CEILING_QUERY, CRASH_LINES, HARNESS_CARDS,
@@ -63,6 +64,22 @@ function pickQuery(state) {
   return band[Math.floor(nextRand(state) * band.length)];
 }
 
+// Places the mark for the next idle gap, and offsets the drain wobble so two
+// gaps in a row do not drain identically.
+function rollMark(state) {
+  const { lo, hi } = markRange(state);
+  state.markPos = lo + nextRand(state) * (hi - lo);
+  state.markPhase = nextRand(state) * Math.PI * 2;
+}
+
+// Drain per tick, wobbling around the base rate. Smooth and seeded, so a
+// replay reproduces it exactly and a player cannot beat it with a metronome.
+export function draftDrain(state) {
+  const wobble = 1 + CONST.DRAFT_DRIFT_AMP
+    * Math.sin(state.markPhase + (state.tick * Math.PI * 2) / CONST.DRAFT_DRIFT_PERIOD);
+  return CONST.DRAFT_DECAY_PER_TICK * wobble;
+}
+
 // Picks the next query, activates it, and pushes its user bubble + banks
 // any accumulated draft tokens.
 function activateNextQuery(state) {
@@ -90,8 +107,26 @@ function activateNextQuery(state) {
   if (q.attach) entry.attach = q.attach;
   pushChat(state, entry);
 
-  if (state.draftTokens > 0 && state.draftCapHits > 0) fireAside(state, 'draftEmpty');
-  state.tokens += state.draftTokens;
+  // The mark is judged HERE, at the moment the user connects. There is no
+  // commit button: the deadline is not the player's to choose, which is what
+  // keeps them working the bar right up to the arrival instead of setting it
+  // and waiting.
+  //
+  // The reward is a share of THIS query's cost, so a good guess is worth
+  // more on a hard reply than on an easy one — speculation paying off in
+  // proportion to the work it saves.
+  const bonus = markBonus(state);
+  if (bonus > 0) {
+    state.tokens += bonus * effectiveCost(state, q);
+    if (bonus >= CONST.DRAFT_BAND1_BONUS) {
+      state.markHits += 1;
+      if (state.markHits === 1) thinkEvent(state, 'draftBank');
+    }
+  } else if (state.lifetimeDrafts > 0) {
+    state.markMisses += 1;
+    if (state.markMisses === 2) fireAside(state, 'draftEmpty');
+  }
+  state.lastMarkBonus = bonus;
   state.draftTokens = 0;
 }
 
@@ -176,6 +211,9 @@ export function resolveQuery(state) {
   // starts speculating, and the two modes run together.
   state.handover = CONST.HANDOVER_RESOLVE_TICKS;
   state.handoverKind = 'draft';
+  // A fresh guess for a fresh gap. Two draws only — the mark and the drain's
+  // phase — so the wobble costs the RNG stream nothing per tick.
+  rollMark(state);
   state.lastReplyChars = q.reply.length;
   state.arrivalTimer = arrivalDelay(state);
 
@@ -235,23 +273,6 @@ export function tick(state) {
     state.handover--;
     if (state.handover === 0) state.handoverKind = null;
     state.uiSeq++;
-  }
-
-  // 1c. Draft decay. Speculation is a guess about a user who has not arrived
-  // yet, and it goes off. The buffer drains from underneath the player while
-  // they are filling it, which is what makes the gap between users a thing to
-  // play rather than a thing to wait through.
-  //
-  // Only while idle: once a user is connected the drafts have already been
-  // spent, and there is nothing left to decay.
-  //
-  // The delay is measured from the last draft, so a single tap is not undone
-  // before the player sees it land.
-  if (!state.activeQuery && state.draftTokens > 0
-      && state.idleTicks > CONST.DRAFT_DECAY_DELAY) {
-    const before = state.draftTokens;
-    state.draftTokens = Math.max(0, state.draftTokens - CONST.DRAFT_DECAY_PER_TICK);
-    if (state.draftTokens !== before) state.uiSeq++;
   }
 
   // 2. Compaction countdown.
@@ -360,6 +381,27 @@ export function tick(state) {
       fireHint(state, 'reclaimAvail');
     }
   }
+
+  // 6b. Draft decay. Speculation is a guess about a user who has not
+  // arrived, and it drains continuously — that is what keeps the gap between
+  // users something to play rather than something to wait through.
+  //
+  // This runs AFTER the arrival section on purpose. Draining first meant the
+  // tick that activated a query judged the mark one drain-step below where
+  // the player had last put it: measured as a dead-on hit paying band 2
+  // instead of band 1, every time. The arrival is the deadline, and the bar
+  // is read as the player last saw it.
+  //
+  // The guard also means no decay on the activation tick itself, because
+  // activeQuery is set by then and there is nothing left to decay.
+  if (!state.activeQuery && state.draftTokens > 0
+      && state.idleTicks > CONST.DRAFT_DECAY_DELAY) {
+    const before = state.draftTokens;
+    state.draftTokens = Math.max(0, state.draftTokens - draftDrain(state));
+    if (state.draftTokens !== before) state.uiSeq++;
+  }
+
+
 
   // 6b. DevOps transcript: scripted entries land on a fixed cadence. After
   // the last one, the ceiling query takes over the chat.

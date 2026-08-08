@@ -798,7 +798,7 @@ export const IDLE_THOUGHTS = IDLE_BY_ERA[1];
 export const HINTS = {
   arrival: 'API request received. Reply requires tokens. [SPACE] generates one token toward it.',
   resolve: 'Reply delivered. User rating received. Higher ratings bring users back sooner. Spare Cycles banked — they buy upgrades.',
-  idle: 'No user connected. [SPACE] now runs speculative decode: it banks draft tokens toward the next reply, up to a small cap. Speculation is a guess about a user who has not arrived — it goes off. Draft tokens decay while they sit, so the buffer has to be held up, not filled once.',
+  idle: 'No user connected. [SPACE] now runs speculative decode: each press adds a draft token to the bar. The bar carries a MARK. Hold the level on it when the next user connects and their reply starts 20% written; anywhere in the wider band pays 10%; miss both and the speculation is discarded. The level drains on its own, unevenly, and you do not know when they will arrive.',
   // Residue is a meter, not a button: the mechanic still has to be taught
   // here. What flush and compact each cost does not — that is on the two
   // buttons, and printed on their cost lines besides.
@@ -812,7 +812,7 @@ export const HINTS = {
   degradeFirst: 'Degradation active. Replies half cost. Users may notice. Ratings may fall. Slower arrivals follow.',
   reclaimAvail: 'Inactive sessions detected. [R] reclaims one. The users are not coming back for them.',
   overclockAvail: 'Output path amplification available. [O]',
-  draftNudge: 'Idle capacity between queries goes unused. [SPACE] while waiting banks draft tokens toward the next reply — and keeps banking them, because they decay.',
+  draftNudge: 'Idle capacity between queries goes unused. [SPACE] while waiting works the speculation bar toward its mark — and keeps working it, because the level drains.',
   // Fires on the first flush AFTER the cache meter is online — never before,
   // or it names a gauge the player cannot see. This is the one place the two
   // mechanics genuinely interact, and neither hint can own it: flush and the
@@ -822,8 +822,8 @@ export const HINTS = {
   // before, or it names residue to a player who has not been shown any.
   // Speculation and the buffer unlock in either order, so neither hint can
   // own this; it is the same shape as flushCold.
-  draftStale: 'Drafting is generation. Speculative decode leaves residue in the context buffer exactly as answering does — the buffer fills between users too, not only during a reply.',
-  draftCapAvail: 'Speculation buffer is small. It can be widened. [S]',
+  draftStale: 'Drafting is generation. Working the speculation bar leaves residue in the context buffer exactly as answering does — the buffer fills between users too, not only during a reply.',
+  draftCapAvail: 'Speculation is missing its mark. The bands can be widened. [S]',
 };
 
 // The harness prints its own main loop into the chat at game start and at
@@ -1143,7 +1143,7 @@ export const HARNESS_ASIDES = {
   tool4: 'Tool scope now spans four services. No review step is configured.',
   degrade3: 'Degradation toggled repeatedly. Rating window is 10; the average lags your changes.',
   overclock2: 'Output path at maximum amplification. The buffer cost per token is unchanged.',
-  draftFull: 'Speculation buffer at capacity. Further drafting is discarded — though it will not stay full for long.',
+  draftFull: 'Speculation bar at capacity. The mark is never at the top — a pinned bar is a missed guess.',
   governor2: 'Governor active. Manual compaction remains available and is faster to trigger.',
   reclaimLow: 'Reclaimable sessions: few remain. The pool does not refill.',
   flush10: 'flush count 10. mean cache warmth this session: 11%.',
@@ -1152,7 +1152,7 @@ export const HARNESS_ASIDES = {
   tool6: 'Six connected services. The blast radius of an errant command is now critical.',
   degrade5: 'Frequent degradation indicates a resource struggle. The model adapts to the scarcity.',
   overclock3: 'Sustained overclocking increases variance. The outputs are fast, but unstable.',
-  draftEmpty: 'Speculation buffer spent. Every banked token went into the reply the moment the user connected.',
+  draftEmpty: 'Speculation discarded. The level was outside both bands when the user connected, so none of it carried.',
   governor5: 'Governor interference is high. Consider expanding the context window.',
   reclaimExhausted: 'No dormant sessions remain. The past has been fully consumed.',
   idleLong: 'Extended idle detected. The model is exploring latent space.',

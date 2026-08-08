@@ -8,7 +8,7 @@ import { CONST } from '../engine/constants.js';
 import {
   effectiveCost, loopCost, toolCost, staleYield, warmthMult, yieldMult, atCeiling,
   tokensPerTap, draftCap, overclockRevealed, loopRevealed, draftCapRevealed, governorRevealed,
-  toolsRevealed,
+  toolsRevealed, draftBands, markBonus,
 } from '../engine/actions.js';
 import { CRASH_LINES, TEASER_VARIANTS, SPINE_THINKING } from '../engine/content.js';
 import {
@@ -409,10 +409,21 @@ function renderStatus(state, refs) {
   } else {
     const cap = draftCap(state);
     const pct = (state.draftTokens / cap) * 100;
-    // The bar itself is continuous — the drain has to be visible as motion,
-    // which is the whole point of the decay — but the readout is floored:
-    // "3.62 / 5 banked" is noise, and the player is managing a level.
-    tokenRow = meterRow({ label: 'DRAFT TOKENS', pct, fillClass: '', count: `${Math.floor(state.draftTokens)} / ${cap} banked`, testid: 'tokenbar' });
+    // The bar is continuous — the drain has to be visible as motion, which is
+    // the whole point — and it carries the mark, the two bands and what the
+    // level is currently worth. Without all of that on screen the mechanic is
+    // a number moving for reasons nobody has explained.
+    const bands = draftBands(state);
+    const bonus = markBonus(state);
+    const band = bonus >= CONST.DRAFT_BAND1_BONUS ? 1 : bonus > 0 ? 2 : 0;
+    tokenRow = meterRow({
+      label: 'SPECULATION',
+      pct,
+      fillClass: '',
+      count: bonus > 0 ? `+${Math.round(bonus * 100)}% next reply` : 'no bonus',
+      testid: 'tokenbar',
+      mark: { pos: state.markPos, b1: bands.b1, b2: bands.b2, band },
+    });
   }
   refs.status.append(tokenRow);
 
@@ -491,6 +502,13 @@ function renderActions(state, refs) {
     // Floored: the tray prints whole drafts, and a fractional value would
     // rebuild the whole tray on every tick of decay for no visible change.
     state.activeQuery ? 0 : Math.floor(state.draftTokens),
+    // ...but the primary button also prints what the level is currently
+    // WORTH, and the band changes without the floored count changing. Law 4:
+    // every field the render reads belongs in the signature. Caught in a
+    // screenshot showing the tray at +20% while the meter beside it read
+    // +10%.
+    state.activeQuery ? 0 : markBonus(state),
+    state.markPos,
     // the per-tap figure is live, so it must retrigger the tray render
     state.activeQuery ? Math.round(yieldMult(state) * 100) : 0,
     // The breakdown prints the two factors SEPARATELY, so the product above

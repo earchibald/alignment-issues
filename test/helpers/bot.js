@@ -7,7 +7,7 @@
 // true, additionally toggles the degradation routine on once it's available
 // (era >= 3) and not already on — needed by tests that must observe the
 // 'degradeFirst' hint, which the baseline playthrough policy never triggers.
-import { ACTIONS } from '../../game/js/engine/actions.js';
+import { ACTIONS, draftLevel } from '../../game/js/engine/actions.js';
 import { tick } from '../../game/js/engine/tick.js';
 import { CONST } from '../../game/js/engine/constants.js';
 
@@ -19,6 +19,13 @@ import { CONST } from '../../game/js/engine/constants.js';
 // onward, lifetimeDrafts would never be 0 at the third arrival, and
 // draftNudge (which requires resolvedCount >= 2 && lifetimeDrafts === 0)
 // could never fire legitimately.
+// True while the level is below the mark, so the policy taps up to it and
+// then lets the drain bring it back. Shared with the pacing bot so both
+// measure the same kind of player.
+export function aimsAtMark(s) {
+  return draftLevel(s) < s.markPos;
+}
+
 export function botStep(s, opts = {}) {
   // The bot only ever compacted, so no test in the suite had ever flushed —
   // which is how flushCold could be added and go unfired. Flush when the
@@ -31,7 +38,11 @@ export function botStep(s, opts = {}) {
   if (s.activeQuery) {
     for (let i = 0; i < CONST.PROCESS_MAX_PER_TICK; i++) ACTIONS.processToken(s);
   } else if (s.hintsSeen.includes('draftNudge')) {
-    ACTIONS.processToken(s);
+    // Speculation is a precision mechanic, not a hoard: the bar carries a
+    // mark and the payout depends on where the level is when the user
+    // connects. Mashing to the cap is the WORST play — the mark is never at
+    // the top — so a bot that models a competent player has to aim.
+    if (aimsAtMark(s)) ACTIONS.processToken(s);
   }
   if (s.cycles >= 20 && s.tools < 1) ACTIONS.buyTool(s);
   if (s.cycles >= 10) ACTIONS.buyLoop(s);

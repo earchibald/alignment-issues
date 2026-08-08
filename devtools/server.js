@@ -88,6 +88,14 @@ const TOOLS = {
       // speculative decode
       DRAFT_DECAY_PER_TICK: num(0, 5),
       DRAFT_DECAY_DELAY: num(0, 200),
+      DRAFT_BAND1_HALF: num(0.001, 0.45),
+      DRAFT_BAND2_HALF: num(0.001, 0.49),
+      DRAFT_BAND_STEP: num(0, 0.2),
+      DRAFT_MARK_EDGE: num(0, 0.4),
+      DRAFT_BAND1_BONUS: num(0, 1),
+      DRAFT_BAND2_BONUS: num(0, 1),
+      DRAFT_DRIFT_AMP: num(0, 2),
+      DRAFT_DRIFT_PERIOD: num(2, 500),
       STALE_PER_DRAFT: num(0, 10),
       DRAFT_WARMTH: num(0, 20),
       // buffer economy

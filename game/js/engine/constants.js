@@ -38,19 +38,43 @@ const DEFAULTS = ({
   // Drafting is output, so it fouls the buffer like any other output. As a
   // fraction of STALE_PER_TOKEN: a draft token is a token.
   STALE_PER_DRAFT: 1,
-  // Draft tokens go stale on their own. The speculation is a guess about a
-  // user who has not arrived yet, and the longer it sits the less of it is
-  // still worth anything.
+  // --- speculative decode: hitting the mark ----------------------------
   //
-  // This is what turns the gap between users from dead air into play: the
-  // buffer drains from underneath the player while they are filling it, so
-  // topping it up is a live decision rather than a chore to finish once. It
-  // also keeps the K/V cache warm through the gap as a side effect, because
-  // the taps that hold the buffer up are the taps that hold the cache up.
-  DRAFT_DECAY_PER_TICK: 0.28,   // ~1.4 drafts/sec: a 5-cap buffer empties in ~3.5s
-  // Ticks of grace after the last draft before decay starts, so a single tap
-  // is not immediately undone and the meter does not jitter while tapping.
-  DRAFT_DECAY_DELAY: 6,
+  // Speculation is not a hoard to fill. It is a guess, and a guess is judged
+  // on precision: the buffer carries a randomly placed MARK, and what the
+  // next reply inherits depends on how close the level is when the user
+  // actually connects.
+  //
+  // The design goal is a player who stays active right up to the arrival.
+  // Three things together do that, and removing any one of them collapses it
+  // into a chore: the level drains continuously, the drain rate wobbles so
+  // it cannot be solved by rhythm, and the arrival time is not known.
+  DRAFT_DECAY_PER_TICK: 0.28,   // ~1.4 drafts/sec: a 5-cap bar empties in ~3.5s
+  // Ticks of grace after the last draft before decay resumes. Zero on
+  // purpose: any grace at all lets the player set the level and wait, which
+  // is the thing this mechanic exists to prevent.
+  DRAFT_DECAY_DELAY: 0,
+  // The drain wobbles rather than running flat, so holding the level takes
+  // attention instead of a metronome. A smooth sine, not a per-tick roll:
+  // one seeded draw per idle gap sets the phase, which keeps the engine's
+  // RNG stream cheap and the whole thing replayable.
+  DRAFT_DRIFT_AMP: 0.35,        // +/- this fraction of the drain rate
+  DRAFT_DRIFT_PERIOD: 41,       // ticks per wobble cycle (~8s)
+  // Band half-widths, as a fraction of the whole bar. Band 1 sits inside
+  // band 2 and pays more.
+  DRAFT_BAND1_HALF: 0.045,      // 9% of the bar wide
+  DRAFT_BAND2_HALF: 0.13,       // 26% of the bar wide
+  // Every widen level adds this to BOTH halves. The upgrade makes the target
+  // bigger rather than the bar longer — a longer bar with fixed bands would
+  // make the mechanic harder to hit, which is not what an upgrade is for.
+  DRAFT_BAND_STEP: 0.035,
+  // Empty margin that must exist outside band 2 on both sides, so the mark
+  // is never so close to an edge that it can be held by pinning the bar at
+  // full or letting it sit at zero.
+  DRAFT_MARK_EDGE: 0.09,
+  // What the next reply inherits, as a fraction of its total cost.
+  DRAFT_BAND1_BONUS: 0.20,
+  DRAFT_BAND2_BONUS: 0.10,
   ARRIVAL_BASE_TICKS: 64,       // 12.8s base gap between users (was 85; -25% pacing trim)
   READ_TICKS_PER_CHAR: 0.1875,  // arrival delay grows with reply length (was 0.25)
   READ_TICKS_MAX: 45,           // cap on the reading bonus (+9s, was 60)

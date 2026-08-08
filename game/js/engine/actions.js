@@ -37,9 +37,49 @@ export const yieldMult = (state) =>
 // Amplifying the output path is the only thing that moves it.
 export const tokensPerTap = (state) => 1 + state.overclock;
 
-// How many draft tokens the speculation buffer can hold.
+// How many draft tokens the speculation bar holds end to end. This is the
+// bar's LENGTH, not a hoard to fill: what matters is where in it the level
+// sits when the next user connects.
 export const draftCap = (state) =>
   CONST.DRAFT_CAP_BASE + CONST.DRAFT_CAP_STEP * state.draftCapLevel;
+
+// The level as a fraction of the bar, which is the space the mark and the
+// bands live in.
+export const draftLevel = (state) => {
+  const cap = draftCap(state);
+  return cap > 0 ? Math.min(1, state.draftTokens / cap) : 0;
+};
+
+// Band half-widths. Widening is an upgrade, so it grows the TARGET rather
+// than the bar: a longer bar with fixed bands would make the mark harder to
+// hit, which is the opposite of what the purchase promises.
+export const draftBands = (state) => ({
+  b1: CONST.DRAFT_BAND1_HALF + CONST.DRAFT_BAND_STEP * state.draftCapLevel,
+  b2: CONST.DRAFT_BAND2_HALF + CONST.DRAFT_BAND_STEP * state.draftCapLevel,
+});
+
+// Where the mark may sit: never so close to an edge that it can be held by
+// pinning the bar at full or leaving it at zero. Both of those are ways of
+// being inactive, which is what the mechanic exists to prevent.
+export const markRange = (state) => {
+  const { b2 } = draftBands(state);
+  const lo = b2 + CONST.DRAFT_MARK_EDGE;
+  const hi = 1 - lo;
+  // A widen level wide enough to close the range would make the mark
+  // unplaceable; pin it to the middle rather than produce NaN.
+  return hi <= lo ? { lo: 0.5, hi: 0.5 } : { lo, hi };
+};
+
+// What the next reply inherits, as a fraction of its cost. Judged at the
+// moment the user connects — there is no commit button, and that is the
+// point: the deadline is not the player's to choose.
+export const markBonus = (state) => {
+  const { b1, b2 } = draftBands(state);
+  const d = Math.abs(draftLevel(state) - state.markPos);
+  if (d <= b1) return CONST.DRAFT_BAND1_BONUS;
+  if (d <= b2) return CONST.DRAFT_BAND2_BONUS;
+  return 0;
+};
 
 export const loopCost = (level) => CONST.LOOP_BASE_COST * 2 ** (level - 1);
 export const toolCost = (owned) => Math.round(CONST.TOOL_BASE_COST * CONST.TOOL_COST_GROWTH ** owned);
@@ -64,9 +104,12 @@ export const loopRevealed = (state) =>
     && (state.lastResolveTaps >= CONST.REVEAL_TAPS_LOOP
       || state.resolvedCount >= CONST.REVEAL_BACKSTOP_LOOP));
 
+// Widening is offered to a player who is MISSING, not to one who has filled
+// the bar. Under the mark, filling the bar is itself a miss — gating on
+// draftCapHits would have offered the upgrade for doing the wrong thing.
 export const draftCapRevealed = (state) =>
   state.resolvedCount >= CONST.DRAFT_CAP_UNLOCK_RESOLVES
-  && (state.draftCapHits >= CONST.REVEAL_DRAFTS_LOST
+  && (state.markMisses >= CONST.REVEAL_DRAFTS_LOST
     || state.resolvedCount >= CONST.REVEAL_BACKSTOP_DRAFTCAP);
 
 // Tools cannot wait for the player to meet an "action request" first: those

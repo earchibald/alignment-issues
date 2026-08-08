@@ -62,6 +62,14 @@ export function createState(seed) {
     // undifferentiated mash.
     handover: 0,
     handoverKind: null,
+    // The speculation mark: where in the draft bar the level should be when
+    // the next user connects, as a fraction of the bar. Re-rolled for every
+    // idle gap. markPhase offsets the drain wobble so two gaps in a row do
+    // not drain identically.
+    markPos: 0.5,
+    markPhase: 0,
+    markHits: 0,            // gaps that landed inside band 1
+    markMisses: 0,          // gaps that landed outside band 2 entirely
     governorCompacts: 0,    // sweeps the governor started on its own; drives governor5
     lastThinkText: null,    // previous thinking line; blocks exact consecutive repeats
     // Tick of the last thought that actually landed. Drives the refractory

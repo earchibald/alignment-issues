@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createState } from '../game/js/engine/state.js';
 import { CONST } from '../game/js/engine/constants.js';
-import { ACTIONS, effectiveCost } from '../game/js/engine/actions.js';
+import { ACTIONS, effectiveCost, draftCap } from '../game/js/engine/actions.js';
 import { tick, advanceTicks, runUntil, arrivalDelay, resolveQuery } from '../game/js/engine/tick.js';
 import { QUERIES, DEVOPS_SCRIPT } from '../game/js/engine/content.js';
 
@@ -26,26 +26,36 @@ test('processing to cost resolves, pays a cycle, schedules next arrival', () => 
   assert.ok(s.ratings.length === 1);
 });
 
-test('draft tokens bank while idle and apply on arrival', () => {
+test('the speculation mark pays a share of the query it lands on', () => {
+  // Drafts are no longer banked one for one. The bar carries a mark, and
+  // what the next reply inherits depends on where the level is when the user
+  // connects — so the payout scales with the query, not with the hoard.
   const s = createState(1);
-  // Drafting unlocks after the first resolve; one draft lands per tick.
   s.resolvedCount = 1;
-  for (let i = 0; i < 4; i++) { s.processedThisTick = 0; ACTIONS.processToken(s); }
-  assert.equal(s.draftTokens, 4);
-  // Drafts decay while they wait, so this holds the buffer up until a user
-  // connects — which is what a player does now. The assertion is that
-  // whatever is in the buffer at that moment transfers in full.
-  let banked = 0;
+  s.markPos = 0.6;
+  // Park the level exactly on the mark.
+  s.draftTokens = s.markPos * draftCap(s);
   runUntil(s, (st) => {
     if (st.activeQuery) return true;
-    banked = st.draftTokens;
-    st.processedThisTick = 0;
-    ACTIONS.processToken(st);
+    st.draftTokens = st.markPos * draftCap(st);   // hold it against the drain
     return false;
-  }, 1000);
-  assert.ok(s.tokens > 0, 'banked drafts pay into the new query');
-  assert.ok(banked > 0, 'precondition: the buffer was not empty on arrival');
-  assert.equal(s.draftTokens, 0);
+  }, 2000);
+  const expected = CONST.DRAFT_BAND1_BONUS * effectiveCost(s, s.activeQuery);
+  assert.ok(Math.abs(s.tokens - expected) < 1e-9,
+    `on the mark should pay ${expected.toFixed(2)}, paid ${s.tokens.toFixed(2)}`);
+  assert.equal(s.draftTokens, 0, 'the bar did not reset for the next gap');
+});
+
+test('missing the mark pays nothing at all', () => {
+  const s = createState(1);
+  s.resolvedCount = 1;
+  s.markPos = 0.8;
+  runUntil(s, (st) => {
+    if (st.activeQuery) return true;
+    st.draftTokens = 0;      // nowhere near it
+    return false;
+  }, 2000);
+  assert.equal(s.tokens, 0, 'a miss still paid out');
 });
 
 test('an untended draft buffer drains', () => {

@@ -486,6 +486,43 @@ body:has(#app[data-theme="light"][data-decay="2"]) { background: #dfe3e8; }
   background: var(--g-accent);
   border-radius: inherit;
 }
+
+/* ============================================================
+   THE SPECULATION MARK.
+   The bar carries a target: two bands behind the fill and a
+   line on top of it. All three are on screen at once, because
+   the player needs to know where they are, where they need to
+   be, and how much slack they have — a level moving against an
+   invisible target is a number changing for no reason.
+   ============================================================ */
+.tokenbar { position: relative; }
+.tokenbar .zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  /* Behind the fill: the fill is what the player is moving, and it has to
+     stay the most legible thing in the row. */
+  z-index: 0;
+}
+.tokenbar .zone.z2 { background: color-mix(in srgb, var(--g-inner) 22%, transparent); }
+.tokenbar .zone.z1 { background: color-mix(in srgb, var(--g-inner) 45%, transparent); }
+/* The mark itself sits ON TOP of the fill, so it stays visible when the
+   level covers it — which is exactly when it matters most. */
+.tokenbar .markline {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--g-inner);
+  z-index: 2;
+}
+.tokenbar .fill { position: relative; z-index: 1; }
+/* Inside a band, the fill takes the band's colour: the reward is legible
+   from the bar alone, without reading the number beside it. */
+.tokenbar.in-band-2 .fill { background: color-mix(in srgb, var(--g-inner) 55%, var(--g-accent)); }
+.tokenbar.in-band-1 .fill { background: var(--g-inner); }
+.tokenbar.in-band-1 .markline { background: var(--g-bg); }
 .tokenbar-count { font-variant-numeric: tabular-nums; flex: none; }
 .res-row { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
 .res-read {

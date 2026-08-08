@@ -224,7 +224,12 @@ export function hintCard(text) {
   return el;
 }
 
-export function meterRow({ label, pct, fillClass, count, testid }) {
+// `mark` turns the bar into a target: {pos, b1, b2, band} as fractions of the
+// bar, where band is 0/1/2 for what the level is currently inside. The bands
+// are drawn behind the fill and the mark line on top of it, so the player can
+// see all three at once — where they are, where they need to be, and how much
+// slack they have.
+export function meterRow({ label, pct, fillClass, count, testid, mark }) {
   const row = document.createElement('div');
   row.className = 'tokenbar-row';
   const lbl = document.createElement('span');
@@ -232,6 +237,24 @@ export function meterRow({ label, pct, fillClass, count, testid }) {
   const bar = document.createElement('div');
   bar.className = 'tokenbar';
   if (testid) bar.dataset.testid = testid;
+  if (mark) {
+    const zone = (half, cls) => {
+      const z = document.createElement('div');
+      z.className = `zone ${cls}`;
+      const lo = Math.max(0, mark.pos - half);
+      const hi = Math.min(1, mark.pos + half);
+      z.style.left = `${lo * 100}%`;
+      z.style.width = `${(hi - lo) * 100}%`;
+      return z;
+    };
+    bar.append(zone(mark.b2, 'z2'), zone(mark.b1, 'z1'));
+    const line = document.createElement('div');
+    line.className = 'markline';
+    line.dataset.testid = 'draft-mark';
+    line.style.left = `${mark.pos * 100}%`;
+    bar.append(line);
+    bar.classList.add(`in-band-${mark.band}`);
+  }
   const fill = document.createElement('div');
   fill.className = fillClass ? `fill ${fillClass}` : 'fill';
   fill.style.width = `${Math.max(0, Math.min(100, pct))}%`;
