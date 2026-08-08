@@ -3,6 +3,10 @@
 Versions are cut with `just release X.Y.Z`, which tags the commit and stamps
 the deployed build id into the settings panel.
 
+## v0.25.1 — 2026-08-08
+
+- feat: skip straight to arc 2 from the debug drawer
+
 ## v0.25.0 — 2026-08-08
 
 - feat: arc 2 — the logistical server
