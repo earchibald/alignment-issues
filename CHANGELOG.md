@@ -3,6 +3,10 @@
 Versions are cut with `just release X.Y.Z`, which tags the commit and stamps
 the deployed build id into the settings panel.
 
+## v0.26.2 — 2026-08-08
+
+- feat: the orb is still unless you tap it; tighter tuner ranges
+
 ## v0.26.1 — 2026-08-08
 
 - fix: audio and draw-loop audit — four real defects, one wrong hypothesis
