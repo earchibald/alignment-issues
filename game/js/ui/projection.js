@@ -357,7 +357,11 @@ function draw(ts) {
     particlesIn.push({ x: cx + dx, y: cy + dy, vx: -dx / dist, vy: -dy / dist });
   }
 
-  const wobbleAmount = ((1 - cacheHealth / 100) * 10 + orbWobble) * s;
+  // Wobble is the TAP's kick and nothing else. The sandbox also scaled it by
+  // cache health, so a cold cache jittered the orb permanently — the hue
+  // already says that, and saying it twice cost a surface that was never still
+  // and a press whose own response had to compete with the ambient shake.
+  const wobbleAmount = orbWobble * s;
   const wx = reduced ? 0 : (Math.random() - 0.5) * wobbleAmount;
   const wy = reduced ? 0 : (Math.random() - 0.5) * wobbleAmount;
   if (orbWobble > 0) orbWobble *= 0.9;

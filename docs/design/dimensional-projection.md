@@ -22,7 +22,7 @@ game is decided in `projectionProps(state)`, which is pure and tested.
 | `tapsCount` | A landed `processToken` | One wave leaves the ring per press |
 | `autoRate` | Loop level × rate, **only while a user is waiting** | Tokens fly in from off-face |
 | `contextHealth` | `100 − stale`, once the buffer is revealed | How far a wave gets before it hits the wall |
-| `cacheHealth` | `warmth`, once the K/V cache is revealed | Orb hue, red → green, and the orb's wobble |
+| `cacheHealth` | `warmth`, once the K/V cache is revealed | Orb hue, red → green |
 
 Two rules hold across all four:
 

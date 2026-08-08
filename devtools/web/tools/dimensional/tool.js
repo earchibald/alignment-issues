@@ -24,12 +24,12 @@ const MOD = '/gamejs-raw/ui/projection.js';
 // A key with no entry below still gets a control, just a generic one.
 const META = {
   trailLength: { min: 0.01, max: 1, step: 0.01, group: 'Face', label: 'trail length', hint: 'motion blur: how long the previous frame lingers' },
-  visualScale: { min: 0.1, max: 3, step: 0.05, group: 'Face', label: 'visual scale' },
+  visualScale: { min: 0.1, max: 1, step: 0.01, group: 'Face', label: 'visual scale', hint: 'shrinks the composition inside the face; 1.00 is full size' },
   bezelThickness: { min: 0, max: 10, step: 0.5, group: 'Face', label: 'bezel thickness', hint: 'the CSS border is the bezel; 0 is normal' },
 
   orbRadius: { min: 10, max: 120, step: 1, group: 'Orb & ring', label: 'orb radius', hint: 'in reference pixels, scaled by the live button height' },
   ringBaseDistance: { min: 0, max: 50, step: 1, group: 'Orb & ring', label: 'ring gap at rest' },
-  ringMaxDistance: { min: 10, max: 200, step: 1, group: 'Orb & ring', label: 'ring gap at peak tap' },
+  ringMaxDistance: { min: 0, max: 20, step: 1, group: 'Orb & ring', label: 'ring gap at peak tap' },
   ringGlow: { min: 0, max: 100, step: 1, group: 'Orb & ring', label: 'ring glow' },
   duotoneRing: { group: 'Orb & ring', label: 'duotone ring' },
 
@@ -74,7 +74,7 @@ const SIM = [
   { key: 'contextHealth', label: 'context health', min: 0, max: 100, step: 1, value: 80,
     hint: '100 − residue. Drives how far a wave gets before it hits the wall.' },
   { key: 'cacheHealth', label: 'cache health', min: 0, max: 100, step: 1, value: 80,
-    hint: 'K/V warmth. Drives the orb hue, red → green, and its wobble.' },
+    hint: 'K/V warmth. Drives the orb hue, red → green.' },
   { key: 'autoRate', label: 'auto rate (tok/s)', min: 0, max: 12, step: 0.5, value: 1,
     hint: 'The agentic loop. Drives the incoming token stream.' },
 ];

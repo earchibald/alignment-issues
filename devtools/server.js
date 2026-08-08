@@ -238,13 +238,13 @@ const TOOLS = {
     schema: {
       // Shape and container.
       trailLength: num(0.01, 1),
-      visualScale: num(0.1, 3),
+      visualScale: num(0.1, 1),
       bezelThickness: num(0, 10),
 
       // Orb and ring.
       orbRadius: num(10, 120),
       ringBaseDistance: num(0, 50),
-      ringMaxDistance: num(10, 200),
+      ringMaxDistance: num(0, 20),
       ringGlow: num(0, 100),
       duotoneRing: bool(),
 
