@@ -8,4 +8,5 @@ export const TOOLS = [
   { id: 'pacing', label: 'Pacing', load: () => import('../tools/pacing/tool.js') },
   { id: 'diffusion', label: 'Diffusion text', load: () => import('../tools/diffusion/tool.js') },
   { id: 'text', label: 'Text editor', load: () => import('../tools/text/tool.js') },
+  { id: 'dimensional', label: 'Token Button', load: () => import('../tools/dimensional/tool.js') },
 ];

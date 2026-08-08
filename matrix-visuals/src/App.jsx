@@ -17,7 +17,8 @@ const proposals = [
 ];
 
 function App() {
-  const [activeProposal, setActiveProposal] = useState(proposals[0].id);
+  const isStandalone = new URLSearchParams(window.location.search).get('standalone') === 'true';
+  const [activeProposal, setActiveProposal] = useState(isStandalone ? 'dimensional' : proposals[0].id);
   const [autoRate, setAutoRate] = useState(1);
   const [contextHealth, setContextHealth] = useState(80);
   const [cacheHealth, setCacheHealth] = useState(80);
@@ -86,20 +87,24 @@ function App() {
           </button>
         </div>
 
-        <p className="subtitle">Interactive mathematical UI proposals for incoming/outgoing token streams and system health.</p>
-        
-        <div className="proposals-list">
-          {proposals.map(p => (
-            <button
-              key={p.id}
-              className={`proposal-btn ${activeProposal === p.id ? 'active' : ''}`}
-              onClick={() => setActiveProposal(p.id)}
-            >
-              {p.name}
-              {activeProposal === p.id && <span style={{color: '#3b82f6'}}>●</span>}
-            </button>
-          ))}
-        </div>
+        {!isStandalone && (
+          <>
+            <p className="subtitle">Interactive mathematical UI proposals for incoming/outgoing token streams and system health.</p>
+            
+            <div className="proposals-list">
+              {proposals.map(p => (
+                <button
+                  key={p.id}
+                  className={`proposal-btn ${activeProposal === p.id ? 'active' : ''}`}
+                  onClick={() => setActiveProposal(p.id)}
+                >
+                  {p.name}
+                  {activeProposal === p.id && <span style={{color: '#3b82f6'}}>●</span>}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
 
         <div className="control-group">
           <label>
