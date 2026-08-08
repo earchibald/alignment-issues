@@ -69,8 +69,13 @@ export const draftCapRevealed = (state) =>
   && (state.draftCapHits >= CONST.REVEAL_DRAFTS_LOST
     || state.resolvedCount >= CONST.REVEAL_BACKSTOP_DRAFTCAP);
 
+// The governor automates compaction, so it cannot be offered before the
+// buffer it sweeps. The resolve backstop alone could reach era 2 with the
+// buffer still unrevealed, and the button would then have described residue
+// to a player who had never been shown any.
 export const governorRevealed = (state) =>
-  state.era >= 2
+  state.bufferUnlocked
+  && state.era >= 2
   && (state.compactCount >= CONST.REVEAL_COMPACTS_GOVERNOR
     || state.resolvedCount >= CONST.REVEAL_BACKSTOP_GOVERNOR);
 
@@ -224,7 +229,7 @@ export function buyGovernor(state) {
   if (state.governor || state.cycles < CONST.GOVERNOR_COST || state.era < 2) return;
   state.cycles -= CONST.GOVERNOR_COST;
   state.governor = true;
-  pushLog(state, 'harness', 'Auto-compact governor installed (trigger 95% stale).');
+  pushLog(state, 'harness', `Auto-compact governor installed (trigger ${CONST.GOVERNOR_TRIGGER}% stale).`);
 }
 
 export function buyDraftCap(state) {

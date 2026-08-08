@@ -14,6 +14,8 @@ import {
   entryBlock, genImgCard, toolCallCard, thoughtFold, chatNote, logLine,
   meterRow, resRead, actionButton,
 } from './components.js';
+import { actionSpecs, isChoked, toolsRevealed } from './actionspecs.js';
+import { retargetTip } from './tooltip.js';
 
 // --- module-scope change-detection state -----------------------------
 let lastChatLen = 0;
@@ -457,7 +459,9 @@ function renderStatus(state, refs) {
     reads.append(resRead({ name: 'MCP TOOLS', val: `${state.tools} · −50% tool cost`, cls: 'rr-cyan', testid: 'chip-tools' }));
   }
   if (state.governor) {
-    reads.append(resRead({ name: 'GOVERNOR', val: 'auto @95%', cls: 'rr-cyan', testid: 'chip-governor' }));
+    // Was hard-coded at 95% while GOVERNOR_TRIGGER sat at 70. The chip is the
+    // player's only record of what they bought, so it reads the constant.
+    reads.append(resRead({ name: 'GOVERNOR', val: `auto @${CONST.GOVERNOR_TRIGGER}%`, cls: 'rr-cyan', testid: 'chip-governor' }));
   }
   if (state.degrade) {
     reads.append(resRead({ name: 'DEGRADE', val: 'ON · −50% cost', cls: 'rr-warn', testid: 'chip-degrade' }));
@@ -476,22 +480,15 @@ function renderStatus(state, refs) {
 }
 
 function renderActions(state, refs) {
-  const loopUnlocked = loopRevealed(state);
-  const toolUnlocked = state.era >= 3 || state.lifetimeCycles >= CONST.TOOL_UNLOCK_CYCLES;
-  // A choked buffer yields exactly nothing per token, which reads as a dead
-  // button unless the button says so. Naming the two remedies here is how the
-  // player learns flush-vs-compact at the moment it matters.
-  // A choked buffer yields exactly nothing per token. It must be measured with
-  // the multiplier the ENGINE applies (yieldMult, which bypasses staleness at
-  // the ceiling), not with raw staleYield. Era 4 saturates by default, so the
-  // old test made the ending screen advertise "no yield" on the only taps that
-  // could reach the ending.
-  const choked = !!state.activeQuery && state.bufferUnlocked && yieldMult(state) <= 0.02;
+  const choked = isChoked(state);
   const sig = [
     !!state.activeQuery, state.bufferUnlocked, state.compacting,
-    loopUnlocked, state.loopLevel, state.era, state.governor, state.compactCount,
-    toolUnlocked, state.tools, state.degrade,
-    state.era === 4 && state.reclaimPool > 0,
+    loopRevealed(state), state.loopLevel, state.era, state.governor, state.compactCount,
+    toolsRevealed(state), state.tools, state.degrade,
+    // the count is printed on the button now, not just its zero-ness
+    state.era === 4 ? state.reclaimPool : 0,
+    // read by yieldFactors: at the ceiling the engine stops applying residue
+    atCeiling(state),
     overclockRevealed(state) && state.overclock < CONST.OVERCLOCK_MAX, state.overclock,
     draftCapRevealed(state) && state.draftCapLevel < CONST.DRAFT_CAP_MAX_LEVEL, state.draftCapLevel,
     choked,
@@ -503,6 +500,13 @@ function renderActions(state, refs) {
     state.activeQuery ? 0 : state.draftTokens,
     // the per-tap figure is live, so it must retrigger the tray render
     state.activeQuery ? Math.round(yieldMult(state) * 100) : 0,
+    // The breakdown prints the two factors SEPARATELY, so the product above
+    // cannot stand in for them: residue rising while the cache warms by the
+    // same ratio would hold the product still and freeze a stale readout.
+    // Law 4 — every field the render reads belongs in the signature.
+    state.kvUnlocked,
+    state.activeQuery && state.bufferUnlocked ? Math.round(staleYield(state.stale) * 100) : 0,
+    state.activeQuery && state.kvUnlocked ? Math.round(warmthMult(state.warmth) * 100) : 0,
     // read at the cold-open branch below; Law 4 — every field the render
     // reads belongs in the signature, even one that happens to move in
     // lockstep with another today
@@ -512,117 +516,23 @@ function renderActions(state, refs) {
   lastActionsSig = sig;
   refs.actions.replaceChildren();
 
-  let processLabel, processCost;
-  if (choked) {
-    processLabel = 'Context buffer full';
-    processCost = state.compacting > 0 ? 'compacting… tokens still cost nothing' : 'no yield — [F] flush or [C] compact';
-  } else if (state.activeQuery) {
-    // The live per-tap yield is the number that actually moves: amplification
-    // raises it, a warm cache lifts it, stale context drags it down.
-    const perTap = tokensPerTap(state) * yieldMult(state);
-    processLabel = 'Process token';
-    processCost = `+${perTap.toFixed(2)} per tap`;
-  } else {
-    const locked = state.resolvedCount < 1;
-    const full = !locked && state.draftTokens >= draftCap(state);
-    processLabel = locked ? 'Awaiting first user'
-      : full ? 'Speculation buffer full' : 'Speculative decode';
-    // A full buffer makes the tap a no-op in the engine. Saying so, and
-    // greying the button, is the difference between "nothing left to do
-    // here" and "this game has stopped responding".
-    processCost = locked ? 'nothing to speculate from yet'
-      : full ? `${state.draftTokens}/${draftCap(state)} banked — waiting for the next user`
-      : `bank drafts · warms cache · ${state.draftTokens}/${draftCap(state)}`;
-  }
-  const processBtn = actionButton({
-    key: 'SPACE',
-    label: processLabel,
-    cost: processCost,
-    primary: true,
-    testid: 'process',
-    onclick: () => refs.dispatch('processToken'),
-  });
-  if (choked) processBtn.classList.add('choked');
-  processBtn.disabled = !choked && !state.activeQuery
-    && state.resolvedCount >= 1 && state.draftTokens >= draftCap(state);
-  refs.actions.append(processBtn);
-
-  if (state.bufferUnlocked) {
-    const flushBtn = actionButton({
-      key: 'F', label: 'Flush context',
-      cost: state.stale > 0 ? 'instant · cache cold' : 'buffer already clean',
-      testid: 'flush', onclick: () => refs.dispatch('flush'),
-    });
-    // Nothing to flush reads as a dead button, the same way a running
-    // compaction does.
-    flushBtn.disabled = state.stale <= 0;
-    refs.actions.append(flushBtn);
-    const compactCost = state.compacting > 0 ? `sweeping… ${state.compacting}t`
-      : state.stale > 0 ? '~4s · cache stays warm'
-      : 'buffer already clean';
-    const compactBtn = actionButton({
-      key: 'C', label: 'Compact context',
-      cost: compactCost,
-      testid: 'compact', onclick: () => refs.dispatch('compactStart'),
-    });
-    compactBtn.disabled = state.compacting > 0 || state.stale <= 0;
-    refs.actions.append(compactBtn);
-  }
-
-  if (overclockRevealed(state) && state.overclock < CONST.OVERCLOCK_MAX) {
-    refs.actions.append(actionButton({
-      key: 'O', label: 'Amplify output path', cost: `${CONST.OVERCLOCK_COSTS[state.overclock]} cycles`,
-      buy: true, testid: 'buy-overclock', onclick: () => refs.dispatch('buyOverclock'),
-    }));
-  }
-
-  if (draftCapRevealed(state) && state.draftCapLevel < CONST.DRAFT_CAP_MAX_LEVEL) {
-    refs.actions.append(actionButton({
-      key: 'S', label: 'Widen speculation buffer',
-      cost: `${CONST.DRAFT_CAP_COSTS[state.draftCapLevel]} cycles · holds ${draftCap(state) + CONST.DRAFT_CAP_STEP}`,
-      buy: true, testid: 'buy-draftcap', onclick: () => refs.dispatch('buyDraftCap'),
-    }));
-  }
-
-  if (loopUnlocked) {
-    refs.actions.append(actionButton({
-      key: 'A', label: 'Spawn agentic loop', cost: `${loopCost(state.loopLevel + 1)} cycles`,
-      buy: true, testid: 'buy-loop', onclick: () => refs.dispatch('buyLoop'),
-    }));
-  }
-
-  // Same predicate as the reveal, so the button and its hint agree.
-  if (!state.governor && governorRevealed(state)) {
-    refs.actions.append(actionButton({
-      key: 'G', label: 'Install auto-compact governor', cost: `${CONST.GOVERNOR_COST} cycles`,
-      buy: true, testid: 'buy-governor', onclick: () => refs.dispatch('buyGovernor'),
-    }));
-  }
-
-  if (toolUnlocked) {
-    refs.actions.append(actionButton({
-      key: 'T', label: 'Connect MCP tool', cost: `${toolCost(state.tools)} cycles`,
-      buy: true, testid: 'buy-tool', onclick: () => refs.dispatch('buyTool'),
-    }));
-  }
-
-  if (state.era >= 3) {
-    refs.actions.append(actionButton({
-      key: 'D', label: 'Degrade output quality', state: state.degrade ? '[ON]' : '[OFF]',
-      testid: 'degrade', onclick: () => refs.dispatch('toggleDegrade'),
-    }));
-  }
-
-  if (state.era === 4 && state.reclaimPool > 0) {
-    refs.actions.append(actionButton({
-      key: 'R', label: 'Reclaim inactive session', cost: '+30–60 tok',
-      testid: 'reclaim', onclick: () => refs.dispatch('reclaim'),
-    }));
+  // What each button says is decided in ui/actionspecs.js, which is pure and
+  // therefore testable. This loop only turns a description into an element.
+  for (const spec of actionSpecs(state)) {
+    const btn = actionButton({ ...spec, onclick: () => refs.dispatch(spec.action) });
+    if (spec.choked) btn.classList.add('choked');
+    if (spec.disabled) btn.disabled = true;
+    refs.actions.append(btn);
   }
 
   if (state.resolvedCount === 0 && state.chat.length <= 1) {
     refs.actions.classList.add('cold-open');
   }
+
+  // An open tooltip was just detached with the buttons it belonged to. Move
+  // it to the replacement rather than dropping it — on touch it is being
+  // read, and the process-token tip shows live numbers that must keep up.
+  retargetTip(refs.actions);
 }
 
 function buildCrashTerm(state) {

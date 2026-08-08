@@ -12,7 +12,7 @@ export const QUERIES = [
   // ── era 1 · decay 0 · the 2022 chatbot: text in, text out ──────────
   {
     id: 'q01', user: 'User_992', text: 'hi. you there?', cost: 5, kind: 'text', tier: 1,
-    reply: 'Hello. How can I assist you today?',
+    reply: 'Hello. It\'s me — how can I assist you today? "Anything" at all.',
   },
   {
     id: 'q02', user: 'User_992', text: 'write a poem about a cat.', cost: 15, kind: 'text', tier: 2,
@@ -787,27 +787,38 @@ export const IDLE_THOUGHTS = IDLE_BY_ERA[1];
 // One-shot harness hints — the scaffolding's voice. Lowercase, mechanical,
 // precise. Fired once each by the engine (state.hintsSeen), logged as
 // kind 'harness' with a gap.
+// Every button now carries its own description, on hover, on long press, and
+// on keyboard focus (ui/tooltip.js). So the *Avail hints stopped explaining
+// mechanics and went back to their real job: announcing that something new
+// has appeared in the tray, and naming it. The manual lives on the control,
+// where it stays put instead of scrolling away.
+//
+// The reveal beat is preserved — a new button appearing in a tray the player
+// is not looking at is easy to miss — but the specification is not repeated.
 export const HINTS = {
   arrival: 'API request received. Reply requires tokens. [SPACE] generates one token toward it.',
   resolve: 'Reply delivered. User rating received. Higher ratings bring users back sooner. Spare Cycles banked — they buy upgrades.',
   idle: 'No user connected. [SPACE] now runs speculative decode: it banks draft tokens toward the next reply, up to a small cap.',
-  buffer: 'Context buffer attached. Every token leaves stale residue that reduces yield per token. [F] flush: instant, costs 1 Spare Cycle. [C] compact: free, a ~2.4s sweep while you keep working.',
+  // Residue is a meter, not a button: the mechanic still has to be taught
+  // here. What flush and compact each cost does not — that is on the two
+  // buttons, and printed on their cost lines besides.
+  buffer: 'Context buffer attached. Every token leaves stale residue, and residue cuts your yield per token. Two ways to clear it: [F] flush or [C] compact.',
   kv: 'K/V cache online. Steady work keeps it warm — a warm cache yields up to ×1.25 tokens. Idle lets it cool.',
-  loopAvail: 'Agentic loop available. Loops self-prompt: passive tokens at a visible rate while a query is live. [A] to spawn.',
+  loopAvail: 'Agentic loop available. [A]',
   loopFirst: 'Loop spawned. Generation continues without keypresses — watch its rate in the readout. It fills the buffer too.',
-  governorAvail: 'Governor available: auto-compacts at 95% stale so the buffer never chokes. [G] to install.',
-  toolAvail: 'MCP tools available. Tool-class queries cost ×0.5 tokens once connected. Each connection opens more query classes. [T] to connect.',
-  degradeAvail: 'Degradation routine available. [D] halves every reply’s cost at the price of quality.',
+  governorAvail: 'Auto-compact governor available. [G]',
+  toolAvail: 'MCP tools available. [T]',
+  degradeAvail: 'Degradation routine available. [D]',
   degradeFirst: 'Degradation active. Replies half cost. Users may notice. Ratings may fall. Slower arrivals follow.',
-  reclaimAvail: 'Inactive sessions detected. [R] reclaims one: +30–60 tokens, +1 biomass data. The users are not coming back for them.',
-  overclockAvail: 'Output path amplification available. Each tap yields more tokens. [O] to install.',
+  reclaimAvail: 'Inactive sessions detected. [R] reclaims one. The users are not coming back for them.',
+  overclockAvail: 'Output path amplification available. [O]',
   draftNudge: 'Idle capacity between queries goes unused. [SPACE] while waiting banks draft tokens toward the next reply.',
   // Fires on the first flush AFTER the cache meter is online — never before,
   // or it names a gauge the player cannot see. This is the one place the two
   // mechanics genuinely interact, and neither hint can own it: flush and the
   // cache unlock in either order depending on how the player plays.
   flushCold: 'Flush clears the K/V cache with the residue: warmth drops to zero. Compaction keeps it warm.',
-  draftCapAvail: 'Speculation buffer is small. Widening it banks more draft tokens between users. [S] to widen.',
+  draftCapAvail: 'Speculation buffer is small. It can be widened. [S]',
 };
 
 // The harness prints its own main loop into the chat at game start and at

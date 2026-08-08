@@ -257,7 +257,7 @@ export function resRead({ name, val, cls, testid }) {
   return el;
 }
 
-export function actionButton({ key, label, cost, state, primary, buy, testid, onclick }) {
+export function actionButton({ key, label, cost, state, level, tip, primary, buy, testid, onclick }) {
   const btn = document.createElement('button');
   btn.type = 'button';
   // `buy` marks the spend-cycles actions. They are a different KIND of move
@@ -266,6 +266,8 @@ export function actionButton({ key, label, cost, state, primary, buy, testid, on
   // neutral chrome with everything else.
   btn.className = `act${primary ? ' primary' : ''}${buy ? ' buy' : ''}`;
   if (testid) btn.dataset.testid = testid;
+  // Read on hover, on long press, and on keyboard focus. See ui/tooltip.js.
+  if (tip) btn.dataset.tip = tip;
   if (key) {
     btn.setAttribute('aria-keyshortcuts', key === 'SPACE' ? 'Space' : key);
     const k = document.createElement('span');
@@ -276,6 +278,16 @@ export function actionButton({ key, label, cost, state, primary, buy, testid, on
   const lbl = document.createElement('span');
   lbl.className = 'label';
   lbl.textContent = label;
+  // Levelled purchases repeat, and the label alone cannot say whether this
+  // press is the first or the last. The badge names what you own and what
+  // you are about to own — "L1 → L2" — so a repeat purchase is never a
+  // guess, and a maxed-out track is visible before the cycles are spent.
+  if (level) {
+    const lv = document.createElement('span');
+    lv.className = 'lvl';
+    lv.textContent = level;
+    lbl.append(document.createTextNode(' '), lv);
+  }
   if (state) {
     const st = document.createElement('span');
     st.className = 'state';

@@ -9,6 +9,7 @@ import { saveLocal, loadLocal, offlineCatchUp, SAVE_KEY } from './engine/save.js
 import { render, onChatScroll, onChatGesture, scrollChatToEnd } from './ui/render.js';
 import { harnessCard, hintCard, thoughtCard, thinkSeconds } from './ui/components.js';
 import { installKeys } from './ui/keys.js';
+import { installTooltips } from './ui/tooltip.js';
 import { installDebug } from './ui/debug.js';
 import { installSettings } from './ui/settings.js';
 import {
@@ -578,6 +579,10 @@ async function main() {
   });
 
   installKeys(dispatch, undefined, openSettings);
+
+  // Delegated from the document, so the action tray can keep replacing its
+  // own children without ever re-binding a listener.
+  installTooltips();
 
   installDebug({
     stateBox,

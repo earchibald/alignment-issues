@@ -133,9 +133,11 @@ test('a mechanic is never buyable before it is revealed', () => {
   // difficulty gating, the button appeared before its hint and the feed read
   // "Loop spawned" above "Agentic loop available". One predicate each now,
   // exported from actions.js; this proves the tray cannot drift from it.
-  const src = readFileSync(new URL('../game/js/ui/render.js', import.meta.url), 'utf8');
+  // The tray's copy now lives in ui/actionspecs.js (pure, so the tooltip
+  // rules are testable); render.js only turns a spec into an element.
+  const src = readFileSync(new URL('../game/js/ui/actionspecs.js', import.meta.url), 'utf8');
   for (const p of ['overclockRevealed', 'loopRevealed', 'draftCapRevealed', 'governorRevealed']) {
-    assert.ok(src.includes(`${p}(state)`), `render.js does not use ${p}() — the button can drift from the hint`);
+    assert.ok(src.includes(`${p}(state)`), `actionspecs.js does not use ${p}() — the button can drift from the hint`);
   }
 
   // And behaviourally: buying refuses while the reveal predicate is false.
