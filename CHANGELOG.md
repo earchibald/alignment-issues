@@ -3,6 +3,12 @@
 Versions are cut with `just release X.Y.Z`, which tags the commit and stamps
 the deployed build id into the settings panel.
 
+## v0.20.1 — 2026-08-08
+
+- feat: publish button names what else ships, and shows the live build
+- feat: publish-release button in the dev suite
+- docs: start a future-enhancements list, opening with Auto Mode
+
 ## v0.20.0 — 2026-08-07
 
 - feat: pacing lab in the dev suite
