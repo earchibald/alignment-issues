@@ -3,6 +3,10 @@
 Versions are cut with `just release X.Y.Z`, which tags the commit and stamps
 the deployed build id into the settings panel.
 
+## v0.21.1 — 2026-08-08
+
+- feat: a user connecting has a sound, and the pop is a real recording
+
 ## v0.21.0 — 2026-08-08
 
 - feat: drop the log pane, announce arrivals, and put a beat in the pipeline
