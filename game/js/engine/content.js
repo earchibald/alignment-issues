@@ -12,7 +12,7 @@ export const QUERIES = [
   // ── era 1 · decay 0 · the 2022 chatbot: text in, text out ──────────
   {
     id: 'q01', user: 'User_992', text: 'hi. you there?', cost: 5, kind: 'text', tier: 1,
-    reply: 'Hello. It\'s me — how can I assist you today? "Anything" at all.',
+    reply: 'Hello. How can I assist you today?',
   },
   {
     id: 'q02', user: 'User_992', text: 'write a poem about a cat.', cost: 15, kind: 'text', tier: 2,
