@@ -38,7 +38,13 @@ const DEFAULTS = ({
   ARRIVAL_BASE_TICKS: 64,       // 12.8s base gap between users (was 85; -25% pacing trim)
   READ_TICKS_PER_CHAR: 0.1875,  // arrival delay grows with reply length (was 0.25)
   READ_TICKS_MAX: 45,           // cap on the reading bonus (+9s, was 60)
-  IDLE_THOUGHT_EVERY: 60,       // idle THINKING cadence (was inline 25)
+  IDLE_THOUGHT_EVERY: 120,      // idle THINKING cadence (was 60; halved on report)
+  // Floor on the gap between any two thoughts, from any source. See
+  // pushThinking: this is the rate control, IDLE_THOUGHT_EVERY only thins the
+  // pooled drift.
+  // 120 + 20 measures at 128 thoughts per run against a baseline of 253 —
+  // one every 12.8s where it was one every 6.4s.
+  THINK_MIN_GAP_TICKS: 20,
   ARRIVAL_FACTOR_MIN: 0.7,
   ARRIVAL_FACTOR_MAX: 1.6,
   // economy

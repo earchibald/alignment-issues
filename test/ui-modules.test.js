@@ -16,6 +16,14 @@ const UI_MODULES = [
   '../game/js/ui/debug.js',
   '../game/js/ui/settings.js',
   '../game/js/ui/sound.js',
+  '../game/js/ui/render-stamp.js',
+  '../game/js/ui/diffusion/rng.js',
+  '../game/js/ui/diffusion/charset.js',
+  '../game/js/ui/diffusion/schedulers.js',
+  '../game/js/ui/diffusion/diffuser.js',
+  '../game/js/ui/diffusion/text-view.js',
+  '../game/js/ui/diffusion/params.js',
+  '../game/js/ui/diffusion/pending-answer.js',
 ];
 
 for (const path of UI_MODULES) {

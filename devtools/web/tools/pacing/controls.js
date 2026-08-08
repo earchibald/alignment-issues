@@ -80,6 +80,19 @@ export const GROUPS = [
     ],
   },
   {
+    legend: 'Interiority — how often the model thinks out loud',
+    controls: [
+      {
+        key: 'IDLE_THOUGHT_EVERY', label: 'idle drift (ticks)', min: 20, max: 400, step: 5,
+        title: 'Ticks between idle THINKING lines while no user is connected. Two thirds of all thoughts in a run come from this pool, so it is the coarse control. One tick is 200 ms.',
+      },
+      {
+        key: 'THINK_MIN_GAP_TICKS', label: 'min gap (ticks)', min: 0, max: 200, step: 5,
+        title: 'Floor on the gap between any two thoughts, whatever their source. This is the real rate control: it thins CLUSTERS first — an event thought landing on top of a query thought — which is the case that reads worst. At 0 every thought fires.',
+      },
+    ],
+  },
+  {
     legend: 'Buffer economy',
     controls: [
       {

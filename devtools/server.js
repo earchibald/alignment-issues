@@ -85,6 +85,9 @@ const TOOLS = {
       COMPACT_FACTOR: num(0.01, 0.99),
       FLUSH_COST_CYCLES: num(0, 10),
       GOVERNOR_TRIGGER: num(10, 100),
+      // interiority
+      IDLE_THOUGHT_EVERY: num(10, 600),
+      THINK_MIN_GAP_TICKS: num(0, 400),
       // handover: the seam between working a query and speculating
       HANDOVER_RESOLVE_TICKS: num(0, 60),
       HANDOVER_ARRIVE_TICKS: num(0, 60),

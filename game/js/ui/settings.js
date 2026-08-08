@@ -10,6 +10,7 @@ import { HINTS, HARNESS_CARDS } from '../engine/content.js';
 import { VERSION, BUILD } from '../version.js';
 import { harnessCard } from './components.js';
 import { TELEMETRY_OPTOUT_KEY } from '../telemetry/store.js';
+import { DIFFUSION_OFF_KEY } from './diffusion/pending-answer.js';
 
 function row(...children) {
   const el = document.createElement('div');
@@ -51,6 +52,27 @@ export function installSettings({ stateBox, refs, paintNow, onReset, resetCardTr
   });
   soundLabel.append(soundCheckbox, document.createTextNode(' Sound'));
   dialog.append(row(soundLabel));
+
+  // --- answer diffusion toggle ------------------------------------
+  // Default on. Off means no pending node at all and the transcript behaves
+  // exactly as it did before the effect existed. Stored in localStorage
+  // rather than in state.settings, because it is a view preference and
+  // state.v must not change.
+  const diffLabel = document.createElement('label');
+  diffLabel.className = 'settings-label';
+  const diffCheckbox = document.createElement('input');
+  diffCheckbox.type = 'checkbox';
+  diffCheckbox.dataset.testid = 'settings-diffusion';
+  diffCheckbox.checked = globalThis.localStorage.getItem(DIFFUSION_OFF_KEY) !== '1';
+  diffCheckbox.addEventListener('change', () => {
+    if (diffCheckbox.checked) globalThis.localStorage.removeItem(DIFFUSION_OFF_KEY);
+    else globalThis.localStorage.setItem(DIFFUSION_OFF_KEY, '1');
+    // Take effect immediately: the pending node is dropped or built on the
+    // next render, without a reload.
+    if (paintNow) paintNow();
+  });
+  diffLabel.append(diffCheckbox, document.createTextNode(' Show answers being generated'));
+  dialog.append(row(diffLabel));
 
   // --- telemetry toggle -------------------------------------------
   const telLabel = document.createElement('label');

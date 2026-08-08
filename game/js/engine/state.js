@@ -64,6 +64,10 @@ export function createState(seed) {
     handoverKind: null,
     governorCompacts: 0,    // sweeps the governor started on its own; drives governor5
     lastThinkText: null,    // previous thinking line; blocks exact consecutive repeats
+    // Tick of the last thought that actually landed. Drives the refractory
+    // period in pushThinking. Starts negative so the first thought of a run
+    // is never held back.
+    lastThinkTick: -9999,
     // reputation
     ratings: [],
     rating: 5,
@@ -122,6 +126,17 @@ export function fireAside(state, id) {
 // drawer — showing both would be the same text twice on one screen.
 export function pushThinking(state, text) {
   if (text === state.lastThinkText) return;
+  // Rate limit. Measured at one thought every 6.4s across a full run, which
+  // is a near-constant stream in the corner of the screen and reads as noise
+  // rather than as interiority.
+  //
+  // A refractory period rather than a per-source cut, because the sources are
+  // not equally worth keeping: the pooled idle drift recycles, but the
+  // per-query lines are authored for that query and are the best writing in
+  // the game. A minimum gap thins CLUSTERS first — an event thought landing
+  // on top of a query thought — which is exactly the case that reads worst.
+  if (state.tick - state.lastThinkTick < CONST.THINK_MIN_GAP_TICKS) return;
+  state.lastThinkTick = state.tick;
   state.lastThinkText = text;
   pushLog(state, 'thinking', text);
   pushChat(state, { kind: 'think', text });

@@ -17,6 +17,11 @@ import {
 } from './components.js';
 import { actionSpecs, isChoked } from './actionspecs.js';
 import { retargetTip } from './tooltip.js';
+import { stampFor } from './render-stamp.js';
+import { updatePendingAnswer, resetPendingAnswer } from './diffusion/pending-answer.js';
+
+// Re-exported: main.js and the tests have always imported it from here.
+export { stampFor };
 
 // --- module-scope change-detection state -----------------------------
 let lastChatLen = 0;
@@ -215,18 +220,6 @@ function renderHeader(state, refs) {
   }
 }
 
-// Session clock. The transcript opens at 08:41 and advances with the game
-// tick, so timestamps are diegetic, monotone, and identical for a given seed.
-const CLOCK_EPOCH_S = 8 * 3600 + 41 * 60;
-
-export function stampFor(t) {
-  if (typeof t !== 'number') return '';
-  const total = CLOCK_EPOCH_S + Math.floor((t * CONST.TICK_MS) / 1000);
-  const hh = String(Math.floor(total / 3600) % 24).padStart(2, '0');
-  const mm = String(Math.floor(total / 60) % 60).padStart(2, '0');
-  const ss = String(total % 60).padStart(2, '0');
-  return `[${hh}:${mm}:${ss}]`;
-}
 
 // Thoughts that carry the arc rather than colour it. These render already
 // open; everything else folds. Matched on the thought text itself so the set
@@ -674,8 +667,19 @@ export function render(state, refs) {
 
   if (state.phase !== 'crash' && state.phase !== 'teaser') {
     renderChat(state, refs);
+    // After renderChat, so the pending answer always ends up at the tail of
+    // whatever was just appended. It owns its own node and is never rebuilt
+    // by the transcript diff above.
+    const created = updatePendingAnswer(state, refs.chat, now());
+    // The pending node is a full paragraph tall. Appending it after the
+    // transcript has already scrolled leaves the view short by exactly that
+    // much, on the one frame the player is most likely to be watching.
+    if (created && chatPinned) scrollChatToEnd(refs);
     renderStatus(state, refs);
     updateFloats(state, refs);
     renderActions(state, refs);
+  } else {
+    // Crash and teaser are terminal set-pieces; nothing is being answered.
+    resetPendingAnswer();
   }
 }

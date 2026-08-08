@@ -82,6 +82,10 @@ test('thinking lines never repeat back-to-back', () => {
     const s = createState(seed);
     let last = null;
     for (let i = 0; i < 12; i++) {
+      // Advance past the refractory period. This test is about the re-roll
+      // never producing the same line twice, not about the rate limit —
+      // firing twelve thoughts on one tick is not something the game does.
+      s.tick += CONST.THINK_MIN_GAP_TICKS;
       thinkEvent(s, 'flush');
       const lines = s.log.filter(l => l.kind === 'thinking');
       const line = lines[lines.length - 1].text;
@@ -93,10 +97,11 @@ test('thinking lines never repeat back-to-back', () => {
 
 test('pushThinking drops an exact repeat of the previous thinking line', () => {
   const s = createState(1);
-  pushThinking(s, 'THINKING: once.');
-  pushThinking(s, 'THINKING: once.');
-  pushThinking(s, 'THINKING: twice.');
-  pushThinking(s, 'THINKING: once.'); // not consecutive anymore — allowed
+  const say = (text) => { s.tick += CONST.THINK_MIN_GAP_TICKS; pushThinking(s, text); };
+  say('THINKING: once.');
+  say('THINKING: once.');
+  say('THINKING: twice.');
+  say('THINKING: once.'); // not consecutive anymore — allowed
   assert.deepEqual(
     s.log.filter(l => l.kind === 'thinking').map(l => l.text),
     ['THINKING: once.', 'THINKING: twice.', 'THINKING: once.']
@@ -139,4 +144,37 @@ test('chat stamps are monotone across a run', () => {
   }
   const stamps = s.chat.filter((c) => c.text.startsWith('at ')).map((c) => c.t);
   for (let i = 1; i < stamps.length; i++) assert.ok(stamps[i] >= stamps[i - 1]);
+});
+
+
+test('a thought never lands on top of the one before it', () => {
+  // The rate limit. Measured at one thought every 6.4s over a full run, which
+  // reads as a constant stream rather than as interiority; halved on report.
+  //
+  // A refractory period rather than a per-source cut: the pooled idle drift
+  // recycles, but the per-query lines are authored for that query. A minimum
+  // gap thins clusters first, which is the case that reads worst.
+  const s = createState(1);
+  s.tick = 1000;
+  pushThinking(s, 'THINKING: first.');
+  const after = s.log.filter((l) => l.kind === 'thinking').length;
+
+  s.tick += CONST.THINK_MIN_GAP_TICKS - 1;
+  pushThinking(s, 'THINKING: too soon.');
+  assert.equal(s.log.filter((l) => l.kind === 'thinking').length, after,
+    'a second thought landed inside the refractory period');
+
+  s.tick += 1;
+  pushThinking(s, 'THINKING: far enough.');
+  assert.equal(s.log.filter((l) => l.kind === 'thinking').length, after + 1,
+    'the gate never reopened');
+});
+
+test('the first thought of a run is never held back', () => {
+  // lastThinkTick starts negative for this reason: a run opening in silence
+  // because tick 0 is "too soon after" tick 0 would be a real regression.
+  const s = createState(1);
+  assert.equal(s.tick, 0);
+  pushThinking(s, 'THINKING: hello.');
+  assert.equal(s.log.filter((l) => l.kind === 'thinking').length, 1);
 });

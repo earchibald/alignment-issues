@@ -419,6 +419,42 @@ body:has(#app[data-theme="light"][data-decay="2"]) { background: #dfe3e8; }
    instead of as one more line in a pane nobody was reading. The space is
    the transcript's. */
 
+/* ============================================================
+   ANSWER DIFFUSION — the reply resolving out of noise while it
+   is being generated.
+   Colours come from the decay palette, not from the lab's own:
+   an unresolved cell is dim ink, a committed one is full ink,
+   so the field settles INTO the transcript's own colour rather
+   than arriving as a separate effect with its own look.
+   ============================================================ */
+.entry.pending .e-body {
+  /* Whitespace handling is left at the default, exactly as the finished
+     entry has it. pre-wrap lets a line end on a visible space and changes
+     where the breaks fall, which showed up as the pending field being a
+     whole line taller than the paragraph that replaced it. */
+  word-break: break-word;
+}
+.entry.pending .cell {
+  color: var(--g-ink-dim);
+  /* Plain inline spans, and no width of their own. The font is inherited
+     from .entry.sys .e-body, which is monospace, so the field wraps exactly
+     as the finished paragraph will. Do not make these inline-block: it holds
+     the width but makes the line boxes taller, and the answer then shrinks
+     by a line the moment it is sent. See pending-answer.js. */
+  transition: color 0.12s linear;
+}
+.entry.pending .cell.locked { color: var(--g-ink); }
+/* --flash is the decay amount, stepped per frame in text-view.js. */
+.entry.pending .cell.flash {
+  filter: brightness(calc(1 + var(--flash, 0) * 0.5));
+  text-shadow: 0 0 calc(var(--flash, 0) * 6px) var(--g-accent);
+}
+@media (prefers-reduced-motion: reduce) {
+  /* The answer still appears as it is generated — only the churn goes. */
+  .entry.pending .cell { transition: none; color: var(--g-ink); }
+  .entry.pending .cell.flash { filter: none; text-shadow: none; }
+}
+
 /* Status strip: token bar + resources */
 .g-status {
   flex: none;
